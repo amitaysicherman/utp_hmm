@@ -1,80 +1,51 @@
-import pandas as pd
+from hmmlearn import hmm
 import numpy as np
+import pandas as pd
+
+CODE_NAME="code100"
+
+
+# load data
+phonemes_bigrams=pd.read_csv("data/bi_grams.csv",index_col=0)
+trans_mat=pd.read_csv("data/bi_grams.csv",index_col=0).values
+start_line_prob=pd.read_csv("data/start_line_prob.csv",index_col=0).values
+# load numpy arrays as type int
+obs=np.load(f"data/{CODE_NAME}_one_hot.npy")
+lens=np.loadtxt(f"data/{CODE_NAME}_lengths.txt", delimiter=",",dtype=int)
  
- 
-def forward(V, a, b, initial_distribution):
-    alpha = np.zeros((V.shape[0], a.shape[0]))
-    alpha[0, :] = initial_distribution * b[:, V[0]]
- 
-    for t in range(1, V.shape[0]):
-        for j in range(a.shape[0]):
-            # Matrix Computation Steps
-            #                  ((1x2) . (1x2))      *     (1)
-            #                        (1)            *     (1)
-            alpha[t, j] = alpha[t - 1].dot(a[:, j]) * b[j, V[t]]
- 
-    return alpha
- 
- 
-def backward(V, a, b):
-    beta = np.zeros((V.shape[0], a.shape[0]))
- 
-    # setting beta(T) = 1
-    beta[V.shape[0] - 1] = np.ones((a.shape[0]))
- 
-    # Loop in backward way from T-1 to
-    # Due to python indexing the actual loop will be T-2 to 0
-    for t in range(V.shape[0] - 2, -1, -1):
-        for j in range(a.shape[0]):
-            beta[t, j] = (beta[t + 1] * b[:, V[t + 1]]).dot(a[j, :])
- 
-    return beta
- 
- 
-def baum_welch(V, a, b, initial_distribution, n_iter=100):
-    M = a.shape[0]
-    T = len(V)
- 
-    for n in range(n_iter):
-        alpha = forward(V, a, b, initial_distribution)
-        beta = backward(V, a, b)
- 
-        xi = np.zeros((M, M, T - 1))
-        for t in range(T - 1):
-            denominator = np.dot(np.dot(alpha[t, :].T, a) * b[:, V[t + 1]].T, beta[t + 1, :])
-            for i in range(M):
-                numerator = alpha[t, i] * a[i, :] * b[:, V[t + 1]].T * beta[t + 1, :].T
-                xi[i, :, t] = numerator / denominator
- 
-        gamma = np.sum(xi, axis=1)
-        a = np.sum(xi, 2) / np.sum(gamma, axis=1).reshape((-1, 1))
- 
-        # Add additional T'th element in gamma
-        gamma = np.hstack((gamma, np.sum(xi[:, :, T - 2], axis=0).reshape((-1, 1))))
- 
-        K = b.shape[1]
-        denominator = np.sum(gamma, axis=1)
-        for l in range(K):
-            b[:, l] = np.sum(gamma[:, V == l], axis=1)
- 
-        b = np.divide(b, denominator.reshape((-1, 1)))
- 
-    return {"a":a, "b":b}
- 
- 
-data = pd.DataFrame([[1,2],[2,3],[2,2]],columns=['Visible','Hidden'])
- 
-V = data['Visible'].values
- 
-# Transition Probabilities
-a = np.ones((2, 2))
-a = a / np.sum(a, axis=1)
- 
-# Emission Probabilities
-b = np.array(((1, 3, 5), (2, 4, 6)))
-b = b / np.sum(b, axis=1).reshape((-1, 1))
- 
-# Equal Probabilities for the initial distribution
-initial_distribution = np.array((0.5, 0.5))
- 
-print(baum_welch(V, a, b, initial_distribution, n_iter=100))
+# print data stats
+print("Data stats:")
+print(f"Number of observations: {obs.shape[0]}")
+print(f"Number of features: {obs.shape[1]}")
+print(f"Number of states: {phonemes_bigrams.shape[0]}")
+print(f"Number of sequences: {len(lens)}")
+
+
+
+states=list(phonemes_bigrams.columns)
+id2topic = dict(zip(range(len(states)), states))
+# we are more likely to talk about cats first
+
+# For each topic, the probability of saying certain words can be modeled by
+# a distribution over vocabulary associated with the categories
+
+model = hmm.MultinomialHMM(n_components=len(states),
+        # n_trials=1,
+        n_iter=10,
+        verbose=10,
+        init_params='e',params='e')
+
+model.n_features = obs.shape[1]
+model.startprob_ = start_line_prob
+model.transmat_ = trans_mat
+model.fit(obs, lens)
+logprob, received = model.decode(obs, lens)
+
+print("Topics discussed:")
+print([id2topic[x] for x in received])
+
+print("Learned emission probs:")
+print(model.emissionprob_)
+
+print("Learned transition matrix:")
+print(model.transmat_)
