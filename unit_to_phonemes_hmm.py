@@ -4,7 +4,7 @@ import pandas as pd
 
 CODE_NAME="code100"
 CLIP = -1
-n_iter = 250
+n_iter = 2500
 
 # load data
 phonemes_bigrams=pd.read_csv("data/bi_grams.csv",index_col=0)
@@ -41,7 +41,7 @@ id2topic = dict(zip(range(len(states)), states))
 for _ in range(100):
     model = hmm.CategoricalHMM(n_components=len(states),
             n_iter=n_iter,
-            verbose=True,
+            verbose=True,tol=0.5,
             init_params='e',params='e')
 
     model.n_features = obs.max()+1
