@@ -3,16 +3,29 @@ import numpy as np
 import pandas as pd
 
 CODE_NAME="code100"
-
+CLIP = -1
+n_iter = 250
 
 # load data
 phonemes_bigrams=pd.read_csv("data/bi_grams.csv",index_col=0)
 trans_mat=pd.read_csv("data/bi_grams.csv",index_col=0).values
-start_line_prob=pd.read_csv("data/start_line_prob.csv",index_col=0).values
+start_line_prob=pd.read_csv("data/start_line_prob.csv",index_col=0).values.astype(float).flatten()
 # load numpy arrays as type int
-obs=np.load(f"data/{CODE_NAME}_one_hot.npy")
+obs=np.load(f"data/{CODE_NAME}_one_hot.npy").argmax(axis=1).reshape(-1,1)
 lens=np.loadtxt(f"data/{CODE_NAME}_lengths.txt", delimiter=",",dtype=int)
- 
+
+with open("data/phonemes.txt","r",encoding="utf-8") as f:
+    phonemes=[line.split() for line in f.read().splitlines()]
+assert len(phonemes)==len(lens)
+for i,p in enumerate(phonemes):
+    assert len(p)==lens[i]
+
+
+# clip obs and lens:
+if CLIP>0:
+    lens=lens[:CLIP]
+    obs=obs[:sum(lens)]
+    phonemes=phonemes[:CLIP]
 # print data stats
 print("Data stats:")
 print(f"Number of observations: {obs.shape[0]}")
@@ -22,30 +35,27 @@ print(f"Number of sequences: {len(lens)}")
 
 
 
-states=list(phonemes_bigrams.columns)
+states=list([x for x in phonemes_bigrams.columns])
 id2topic = dict(zip(range(len(states)), states))
-# we are more likely to talk about cats first
 
-# For each topic, the probability of saying certain words can be modeled by
-# a distribution over vocabulary associated with the categories
+for _ in range(100):
+    model = hmm.CategoricalHMM(n_components=len(states),
+            n_iter=n_iter,
+            verbose=True,
+            init_params='e',params='e')
 
-model = hmm.MultinomialHMM(n_components=len(states),
-        # n_trials=1,
-        n_iter=10,
-        verbose=10,
-        init_params='e',params='e')
+    model.n_features = obs.max()+1
+    model.startprob_ = start_line_prob
+    model.transmat_ = trans_mat
+    model.fit(obs, lens)
+    logprob, received = model.decode(obs, lens)
 
-model.n_features = obs.shape[1]
-model.startprob_ = start_line_prob
-model.transmat_ = trans_mat
-model.fit(obs, lens)
-logprob, received = model.decode(obs, lens)
+    print('logprob',logprob)
 
-print("Topics discussed:")
-print([id2topic[x] for x in received])
+    received=[id2topic[x] for x in received]
 
-print("Learned emission probs:")
-print(model.emissionprob_)
+    print("Accuracy: ",end="")
+    correct=sum([a==b for a,b in zip(sum(phonemes,[]),received)])
+    print(correct/len(received))
 
-print("Learned transition matrix:")
-print(model.transmat_)
+    np.save(f"data/{CODE_NAME}_emissionprob_{int(logprob)}.npy",model.emissionprob_)

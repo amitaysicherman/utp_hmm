@@ -1,1 +1,3 @@
 data/*
+!data/phonemes.txt
+!data/code100.txt
