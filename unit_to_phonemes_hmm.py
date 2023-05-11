@@ -58,4 +58,4 @@ for _ in range(100):
     correct=sum([a==b for a,b in zip(sum(phonemes,[]),received)])
     print(correct/len(received))
 
-    np.save(f"data/{CODE_NAME}_emissionprob_{int(logprob)}_{int(correct/len(received))}.npy",model.emissionprob_)
+    np.save(f"data/{CODE_NAME}_emissionprob_{int(logprob)}_{int(100*correct/len(received))}.npy",model.emissionprob_)

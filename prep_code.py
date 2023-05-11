@@ -21,6 +21,3 @@ for i,c in enumerate(sum(lines,[])):
     code_one_hot[i,c]=1
 code_one_hot=code_one_hot.astype(int)
 np.save(f"data/{CODE_NAME}_one_hot.npy",code_one_hot)
-
-
-
