@@ -4,6 +4,7 @@ from torch.nn import Transformer
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import math
+import random
 import numpy as np
 from torch.nn.parallel import DataParallel
 
@@ -12,8 +13,8 @@ input_size = 41  # Number of tokens (0-39 + padding token)
 d_model = 768
 nhead = 12
 num_layers = 12
-batch_size = 32
-num_epochs = 10
+batch_size = 256
+num_epochs = 100
 max_len = 250
 padding_value = input_size-1
 dim_feedforward=2048
@@ -102,7 +103,7 @@ if torch.cuda.device_count() > 1:
     model = DataParallel(model)
 
 criterion = nn.CrossEntropyLoss().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 dataset = PhonemesDataset()
 data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -111,11 +112,12 @@ print(len(dataset))
 for epoch in range(num_epochs):
     model.train()
     total_loss = 0
+    total_accuracy = 0
     for batch in tqdm(data_loader):
         batch = batch.to(device)
         y=batch.clone()
         optimizer.zero_grad()
-        mask = torch.randn(batch.shape) <= 0.4
+        mask = torch.randn(batch.shape) <= random.random()
         mask[batch == input_size-1] = False
         random_tokens = torch.randint_like(batch, input_size)
         batch[mask] = random_tokens[mask]
@@ -130,6 +132,7 @@ for epoch in range(num_epochs):
 
         predicted_labels = torch.argmax(output, dim=1)
         correct_predictions = (predicted_labels == y).sum().item()
-        accuracy = correct_predictions / (y.numel())
+        total_accuracy += correct_predictions / (y.numel())
     torch.save(model.module.state_dict(), f'{epoch}.cp')
     print(f"Epoch {epoch+1} Loss: {total_loss / len(data_loader)}")
+    print(f"Epoch {epoch+1} Accuracy: {total_accuracy / len(data_loader)}")
