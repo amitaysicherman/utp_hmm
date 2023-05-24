@@ -96,7 +96,7 @@ params = sum([np.prod(p.size()) for p in model_parameters])
 print(f'{params:,} trainable parameters')
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+model = model.to(device)
 if torch.cuda.device_count() > 1:
     # If multiple GPUs are available, wrap the model with DataParallel
     model = DataParallel(model)
