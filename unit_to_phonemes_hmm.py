@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 CODE_NAME="code100"
-CLIP = -1
-n_iter = 2500
+CLIP = 500
+n_iter = 100
 
 # load data
 phonemes_bigrams=pd.read_csv("data/bi_grams.csv",index_col=0)
@@ -48,8 +48,8 @@ for _ in range(100):
     model.startprob_ = start_line_prob
     model.transmat_ = trans_mat
     model.fit(obs, lens)
-    logprob, received = model.decode(obs, lens)
-
+    logprob, received = model.decode(obs, lens)#,algorithm="map")
+    model.predict(obs, lens)
     print('logprob',logprob)
 
     received=[id2topic[x] for x in received]
