@@ -1,4 +1,4 @@
-from train import max_len,input_size,d_model,num_layers,nhead,PhonemesDataset,mask_value
+from train import max_len,input_size,d_model,num_layers,nhead,PhonemesDataset,mask_value,padding_value
 from x_transformers import TransformerWrapper, Encoder
 import torch
 
@@ -33,7 +33,7 @@ for i in range(10):
     print(predicted_labels)
     print("masking real")
     mask = torch.randn(x.shape) <= 0.2
-    mask[x == input_size-1] = False
+    mask[x == padding_value] = False
     random_tokens = torch.randint_like(x, input_size)
     y=x.clone()
     x[mask] = random_tokens[mask]
