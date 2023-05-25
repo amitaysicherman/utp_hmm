@@ -32,7 +32,7 @@ for i in range(10):
     print(x)
     print(predicted_labels)
     print("masking real")
-    mask = torch.randn(x.shape) <= 0.2
+    mask = torch.randn(x.shape) <= 0.5
     mask[x == padding_value] = False
     random_tokens = torch.randint_like(x, input_size)
     y=x.clone()
