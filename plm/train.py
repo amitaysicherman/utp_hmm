@@ -51,7 +51,7 @@ class PhonemesDataset(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx):
-        return torch.LongTensor(self.x[idx]).to(device)
+        return torch.LongTensor(self.x[idx])
         
 
 
@@ -100,6 +100,8 @@ if __name__ == '__main__' :
         total_loss = 0
         total_accuracy = 0
         for (x) in tqdm(data_loader):
+
+            x=x.to(device)
             loss = trainer(x)
             loss.backward()
             total_loss += loss.item()
