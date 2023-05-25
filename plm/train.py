@@ -16,9 +16,9 @@ input_size = 41  # Number of tokens (0-39 + padding token)
 d_model = 768
 nhead =  12
 num_layers =  12
-batch_size =  256
+batch_size =  64
 num_epochs = 100
-max_len = 250
+max_len = 150
 mask_value=input_size-1
 padding_value = input_size
 
