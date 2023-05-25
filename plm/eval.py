@@ -35,12 +35,13 @@ for i in range(10):
     mask = torch.randn(x.shape) <= 0.2
     mask[x == input_size-1] = False
     random_tokens = torch.randint_like(x, input_size)*0+mask_value
+    y=x.clone()
     x[mask] = random_tokens[mask]
     output = model(x)
     output = output[mask]
-    x=x[mask]
+    y=y[mask]
     predicted_labels = torch.argmax(output, dim=1)
     print("masking predicted")
-    print(x)
+    print(y)
     print(predicted_labels)
 
