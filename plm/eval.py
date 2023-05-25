@@ -1,4 +1,4 @@
-from train import *
+from train import TransformerModel, input_size, d_model, nhead, num_layers, PhonemesDataset
 import torch
 model = TransformerModel(input_size, d_model, nhead, num_layers)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
