@@ -86,6 +86,7 @@ if __name__ == '__main__' :
     trainer = MLM(
         model,
         mask_token_id = mask_value,          # the token id reserved for masking
+        num_tokens= input_size+1,          # the number of tokens in the model, usually len(tokenizer) + 1
         pad_token_id = padding_value,           # the token id for padding
         mask_prob = 0.15,           # masking probability for masked language modeling
         random_token_prob=0.1,      # chance of replacing a mask token with a random token from the entire vocab
