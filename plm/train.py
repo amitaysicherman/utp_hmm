@@ -89,50 +89,50 @@ class TransformerModel(nn.Module):
 
 # Create the model
 
+if __name__ == '__main__' :
+    model = TransformerModel(input_size, d_model, nhead, num_layers)
+    print(model)
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print(f'{params:,} trainable parameters')
 
-model = TransformerModel(input_size, d_model, nhead, num_layers)
-print(model)
-model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-params = sum([np.prod(p.size()) for p in model_parameters])
-print(f'{params:,} trainable parameters')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    if torch.cuda.device_count() > 1:
+        # If multiple GPUs are available, wrap the model with DataParallel
+        model = DataParallel(model)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = model.to(device)
-if torch.cuda.device_count() > 1:
-    # If multiple GPUs are available, wrap the model with DataParallel
-    model = DataParallel(model)
+    criterion = nn.CrossEntropyLoss().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
-criterion = nn.CrossEntropyLoss().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    dataset = PhonemesDataset()
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    print(len(dataset))
+    # Training loop
+    for epoch in range(num_epochs):
+        model.train()
+        total_loss = 0
+        total_accuracy = 0
+        for batch in tqdm(data_loader):
+            batch = batch.to(device)
+            y=batch.clone()
+            optimizer.zero_grad()
+            mask = torch.randn(batch.shape) <= random.random()
+            mask[batch == input_size-1] = False
+            random_tokens = torch.randint_like(batch, input_size)
+            batch[mask] = random_tokens[mask]
+            output = model(batch)
+            output = output[mask]
+            y=y[mask]
 
-dataset = PhonemesDataset()
-data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-print(len(dataset))
-# Training loop
-for epoch in range(num_epochs):
-    model.train()
-    total_loss = 0
-    total_accuracy = 0
-    for batch in tqdm(data_loader):
-        batch = batch.to(device)
-        y=batch.clone()
-        optimizer.zero_grad()
-        mask = torch.randn(batch.shape) <= random.random()
-        mask[batch == input_size-1] = False
-        random_tokens = torch.randint_like(batch, input_size)
-        batch[mask] = random_tokens[mask]
-        output = model(batch)
-        output = output[mask]
-        y=y[mask]
+            loss = criterion(output.view(-1, input_size), y.view(-1))
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
 
-        loss = criterion(output.view(-1, input_size), y.view(-1))
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item()
-
-        predicted_labels = torch.argmax(output, dim=1)
-        correct_predictions = (predicted_labels == y).sum().item()
-        total_accuracy += correct_predictions / (y.numel())
-    torch.save(model.module.state_dict(), f'{epoch}.cp')
-    print(f"Epoch {epoch+1} Loss: {total_loss / len(data_loader)}")
-    print(f"Epoch {epoch+1} Accuracy: {total_accuracy / len(data_loader)}")
+            predicted_labels = torch.argmax(output, dim=1)
+            correct_predictions = (predicted_labels == y).sum().item()
+            total_accuracy += correct_predictions / (y.numel())
+        torch.save(model.module.state_dict(), f'{epoch}.cp')
+        print(f"Epoch {epoch+1} Loss: {total_loss / len(data_loader)}")
+        print(f"Epoch {epoch+1} Accuracy: {total_accuracy / len(data_loader)}")
