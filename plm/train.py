@@ -88,6 +88,7 @@ if __name__ == '__main__' :
         mask_token_id = mask_value,          # the token id reserved for masking
         pad_token_id = padding_value,           # the token id for padding
         mask_prob = 0.15,           # masking probability for masked language modeling
+        random_token_prob=0.1,      # chance of replacing a mask token with a random token from the entire vocab
         replace_prob = 0.90,        # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
         mask_ignore_token_ids = []  # other tokens to exclude from masking, include the [cls] and [sep] here
     ).to(device)
