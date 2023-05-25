@@ -34,7 +34,7 @@ for i in range(10):
     print("masking real")
     mask = torch.randn(x.shape) <= 0.2
     mask[x == input_size-1] = False
-    random_tokens = torch.randint_like(x, input_size)*0+mask_value
+    random_tokens = torch.randint_like(x, input_size)
     y=x.clone()
     x[mask] = random_tokens[mask]
     output = model(x)
@@ -44,4 +44,7 @@ for i in range(10):
     print("masking predicted")
     print(y)
     print(predicted_labels)
+    correct_predictions = (predicted_labels == y).sum().item()
+    print("accuracy",correct_predictions/len(y))
+
 
