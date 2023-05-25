@@ -24,7 +24,7 @@ for i in range(10):
     random_tokens = torch.randint_like(x, input_size)
     x[mask] = random_tokens[mask]
     output = model(x)
-    output = output[x]
+    output = output[mask]
     x=x[mask]
     predicted_labels = torch.argmax(output, dim=1)
     print("masking predicted")
