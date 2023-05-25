@@ -2,7 +2,7 @@ from train import TransformerModel, input_size, d_model, nhead, num_layers, Phon
 import torch
 model = TransformerModel(input_size, d_model, nhead, num_layers)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.load_state_dict(torch.load('10.cp'),map_location=torch.device('cpu'))
+model.load_state_dict(torch.load('10.cp',map_location=torch.device('cpu')))
 
 model = model.to(device)
 dataset = PhonemesDataset()
