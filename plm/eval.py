@@ -1,8 +1,21 @@
-from train import TransformerModel, input_size, d_model, nhead, num_layers, PhonemesDataset
+from train import max_len,input_size,d_model,num_layers,nhead,PhonemesDataset
+from x_transformers import TransformerWrapper, Encoder
 import torch
-model = TransformerModel(input_size, d_model, nhead, num_layers)
+
+model = TransformerWrapper(
+num_tokens = input_size+1,
+max_seq_len = max_len,
+    attn_layers = Encoder(
+        dim = d_model,
+        depth = num_layers,
+        heads = nhead
+    )
+)
+
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.load_state_dict(torch.load('10.cp',map_location=torch.device('cpu')))
+model.load_state_dict(torch.load('0.cp',map_location=torch.device('cpu')))
 
 model = model.to(device)
 dataset = PhonemesDataset()
