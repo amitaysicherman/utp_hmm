@@ -23,6 +23,9 @@ mask_prob = 0
 random_token_prob = -1
 
 
+def get_cp_name(epoch,acc,loss):
+    return f"models/{mask_prob}_{random_token_prob}_{epoch}_{loss}_{acc}.cp"
+
 class PhonemesDataset(Dataset):
     def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
                  padding_value=padding_value):
@@ -135,11 +138,11 @@ if __name__ == '__main__':
                 predicted_labels = torch.argmax(output, dim=1)
                 correct_predictions = (predicted_labels == y).sum().item()
                 test_total_accuracy += correct_predictions / (y.numel())
-
+        cp_name=get_cp_name(epoch,test_total_accuracy,test_total_loss)
         if torch.cuda.device_count() > 1:
-            torch.save(model.module.state_dict(), f'{epoch}.cp')
+            torch.save(model.module.state_dict(), cp_name)
         else:
-            torch.save(model.state_dict(), f'{epoch}.cp')
+            torch.save(model.state_dict(), cp_name)
         print(f"Epoch {epoch + 1} Loss: {train_total_loss / len(train_data)}")
         print(f"Epoch {epoch + 1} Accuracy: {train_total_accuracy / len(train_data)}")
         print(f"Epoch {epoch + 1} Test Loss: {test_total_loss / len(test_data)}")
