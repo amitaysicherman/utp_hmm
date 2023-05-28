@@ -1,4 +1,4 @@
-#sbatch --gres=gpu:2,vmem:16g --mem=32G --time=7-0-0 --wrap "python train.py"
+#sbatch --gres=gpu:2,vmem:16g --mem=32G --time=7-0 --wrap "python train.py"
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -10,16 +10,14 @@ from mlm_pytorch import MLM
 from x_transformers import TransformerWrapper, Encoder
 
 input_size = 41  # Number of tokens (0-39 + padding token)
-d_model = 768
-nhead = 12
-num_layers = 12
-batch_size = 64
+d_model = 256
+nhead = 4
+num_layers = 3
+batch_size = 128
 num_epochs = 100
 max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
-
-dim_feedforward = 2048
 
 
 class PhonemesDataset(Dataset):
