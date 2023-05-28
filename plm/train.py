@@ -1,4 +1,4 @@
-#sbatch --gres=gpu:2,vmem:16g --mem=32G --time=7-0 --wrap "python train.py"
+# sbatch --gres=gpu:2,vmem:16g --mem=32G --time=7-0 --wrap "python train.py"
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -18,6 +18,10 @@ num_epochs = 100
 max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
+
+mask_prob = 0
+random_token_prob = -1
+
 
 class PhonemesDataset(Dataset):
     def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
@@ -73,14 +77,13 @@ if __name__ == '__main__':
 
     trainer = MLM(
         model,
-        mask_token_id=mask_value,  # the token id reserved for masking
-        num_tokens=input_size + 1,  # the number of tokens in the model, usually len(tokenizer) + 1
-        pad_token_id=padding_value,  # the token id for padding
-        mask_prob=0.15,  # masking probability for masked language modeling
-        random_token_prob=0.1,  # chance of replacing a mask token with a random token from the entire vocab
+        mask_token_id=mask_value,
+        num_tokens=input_size + 1,
+        pad_token_id=padding_value,
+        mask_prob=mask_prob,
+        random_token_prob=random_token_prob,
         replace_prob=0.90,
-        # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
-        mask_ignore_token_ids=[]  # other tokens to exclude from masking, include the [cls] and [sep] here
+        mask_ignore_token_ids=[]
     ).to(device)
     optimizer = torch.optim.Adam(trainer.parameters(), lr=3e-4)
 
