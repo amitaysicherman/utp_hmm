@@ -52,9 +52,11 @@ if __name__ == '__main__':
         attn_layers=Encoder(
             dim=d_model,
             depth=num_layers,
-            heads=nhead
+            heads=nhead,
+            layer_dropout=0.25
         )
     )
+
 
     print(model)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -76,8 +78,8 @@ if __name__ == '__main__':
         mask_token_id=mask_value,  # the token id reserved for masking
         num_tokens=input_size + 1,  # the number of tokens in the model, usually len(tokenizer) + 1
         pad_token_id=padding_value,  # the token id for padding
-        mask_prob=0.15,  # masking probability for masked language modeling
-        random_token_prob=0.1,  # chance of replacing a mask token with a random token from the entire vocab
+        mask_prob=0.25,  # masking probability for masked language modeling
+        random_token_prob=0.25,  # chance of replacing a mask token with a random token from the entire vocab
         replace_prob=0.90,
         # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
         mask_ignore_token_ids=[]  # other tokens to exclude from masking, include the [cls] and [sep] here
