@@ -10,15 +10,14 @@ from mlm_pytorch import MLM
 from x_transformers import TransformerWrapper, Encoder
 
 input_size = 41  # Number of tokens (0-39 + padding token)
-d_model = 256
-nhead = 4
-num_layers = 3
-batch_size = 128
+d_model = 768
+nhead = 12
+num_layers = 12
+batch_size = 64
 num_epochs = 100
 max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
-
 
 class PhonemesDataset(Dataset):
     def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
@@ -37,6 +36,7 @@ class PhonemesDataset(Dataset):
             else:
                 sequence = np.array(list(sequence) + [padding_value] * (max_len - len(sequence)), dtype=np.int8)
             self.x.append(sequence)
+            curr += l
 
     def __len__(self):
         return len(self.x)
@@ -52,11 +52,9 @@ if __name__ == '__main__':
         attn_layers=Encoder(
             dim=d_model,
             depth=num_layers,
-            heads=nhead,
-            layer_dropout=0.25
+            heads=nhead
         )
     )
-
 
     print(model)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -78,8 +76,8 @@ if __name__ == '__main__':
         mask_token_id=mask_value,  # the token id reserved for masking
         num_tokens=input_size + 1,  # the number of tokens in the model, usually len(tokenizer) + 1
         pad_token_id=padding_value,  # the token id for padding
-        mask_prob=0.25,  # masking probability for masked language modeling
-        random_token_prob=0.25,  # chance of replacing a mask token with a random token from the entire vocab
+        mask_prob=0.15,  # masking probability for masked language modeling
+        random_token_prob=0.1,  # chance of replacing a mask token with a random token from the entire vocab
         replace_prob=0.90,
         # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
         mask_ignore_token_ids=[]  # other tokens to exclude from masking, include the [cls] and [sep] here
