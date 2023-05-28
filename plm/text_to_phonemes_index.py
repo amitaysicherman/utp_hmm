@@ -1,11 +1,14 @@
 import numpy as np
 from g2p_en import G2p
 from tqdm import tqdm
+import argparse
 
-input_file='/workspaces/utp_hmm/data/phonemes.txt'
-output_prefix = '/workspaces/utp_hmm/data/phonemes_index.txt'
-do_phonemes = False
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--input_file', type=str, default="libri_test.txt")
+parser.add_argument('--output_prefix', type=str, default="LRTEST")
+parser.add_argument('--do_phonemes', type=bool, default=True)
+vars=parser.parse_args()
 
 # Create an instance of the G2p class
 g2p = G2p()
@@ -15,22 +18,22 @@ phonemes_to_index = {' ': 0, 'AA': 1, 'AE': 2, 'AH': 3, 'AO': 4, 'AW': 5, 'AY': 
                      'T': 31, 'TH': 32, 'UH': 33, 'UW': 34, 'V': 35, 'W': 36, 'Y': 37, 'Z': 38, 'ZH': 39}
 
 # Read the text file
-with open(input_file, 'r') as file:
+with open(vars.input_file, 'r') as file:
     lines = file.read().splitlines()
 
 
 all_phonemes = []
 all_length = []
 for line in tqdm(lines):
-    if do_phonemes:
+    if vars.do_phonemes:
         line = line.strip().upper()
-        sentence = line.split('\t')[1]  # Extract the sentence after the tab character
+        sentence = " ".join(line.split(' ')[1:])  # Extract the sentence after the tab character
         phonemes = g2p(sentence)
         phonemes = [p[:-1] if p[-1].isnumeric() else p for p in phonemes]
         phonemes = [p for p in phonemes if p != "'"]
     else:
         phonemes = line.upper().split()
-        phonemes = [p for p in phonemes if p !="DX" else "D"]
+        phonemes = [p if p !="DX" else "D" for p in phonemes ]
     all_length.append(len(phonemes))
     for p in phonemes:
         if p not in phonemes_to_index:
@@ -40,6 +43,6 @@ for line in tqdm(lines):
 all_phonemes_index = np.array(all_phonemes, dtype=np.int8)
 tot_len = sum([int(l) for l in all_length])
 assert tot_len == len(all_phonemes_index)
-np.savez_compressed("f{output_prefix}_PH",a=all_phonemes_index)
-with open(f'{output_prefix}_PH_LEN.txt', 'w') as file:
+np.savez_compressed(f"{vars.output_prefix}_PH",a=all_phonemes_index)
+with open(f'{vars.output_prefix}_PH_LEN.txt', 'w') as file:
     file.write("\n".join([str(l) for l in all_length]))
