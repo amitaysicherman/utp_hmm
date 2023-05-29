@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:2,vmem:16g --mem=32G --time=7-0 --wrap "python train.py"
+# sbatch --gres=gpu:2,vmem:24g --mem=75G --time=7-0 --wrap "python train.py"
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -6,7 +6,7 @@ from tqdm import tqdm
 import random
 import numpy as np
 from torch.nn.parallel import DataParallel
-from mlm_pytorch import MLM
+from mlm import MLM
 from x_transformers import TransformerWrapper, Encoder
 
 input_size = 41  # Number of tokens (0-39 + padding token)
@@ -19,7 +19,7 @@ max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
 
-mask_prob = 0
+mask_prob = 0.1
 random_token_prob = -1
 
 
