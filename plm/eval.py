@@ -1,22 +1,14 @@
 from train import max_len, input_size, d_model, num_layers, nhead, PhonemesDataset, mask_value, padding_value
 from x_transformers import TransformerWrapper, Encoder
 import torch
-
+from train import  get_model
 cp_file = "./models/best.cp"
 data_path = 'LR960_PH.npz' # 'TIMIT_PH.npz'
 data_len_path ='LR960_PH_LEN.txt' #"TIMIT_PH_LEN.txt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model = TransformerWrapper(
-    num_tokens=input_size + 1,
-    max_seq_len=max_len,
-    attn_layers=Encoder(
-        dim=d_model,
-        depth=num_layers,
-        heads=nhead
-    )
-)
+model = get_model()
 model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
 
 model = model.to(device)

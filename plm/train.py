@@ -50,6 +50,17 @@ class PhonemesDataset(Dataset):
 
     def __getitem__(self, idx):
         return torch.LongTensor(self.x[idx])
+def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=num_layers, max_len=max_len):
+    model = TransformerWrapper(
+        num_tokens=input_size + 1,
+        max_seq_len=max_len,
+        attn_layers=Encoder(
+            dim=d_model,
+            depth=num_layers,
+            heads=nhead
+        )
+    )
+    return model
 
 
 if __name__ == '__main__':
@@ -106,7 +117,7 @@ if __name__ == '__main__':
             with torch.no_grad():
                 model.eval()
                 y = x.clone()
-                mask = torch.randn(x.shape) <= random.random()
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
@@ -127,7 +138,7 @@ if __name__ == '__main__':
                 test_total_loss += loss.item()
 
                 y = x.clone()
-                mask = torch.randn(x.shape) <= random.random()
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
