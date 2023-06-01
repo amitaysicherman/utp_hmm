@@ -86,8 +86,8 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-    train_data = DataLoader(PhonemesDataset(), batch_size=batch_size, shuffle=False)
-    test_data = DataLoader(PhonemesDataset('LRTEST_PH.npz', "LRTEST_PH_LEN.txt"), batch_size=batch_size, shuffle=False)
+    train_data = DataLoader(PhonemesDataset(), batch_size=batch_size, shuffle=False,drop_last=True)
+    test_data = DataLoader(PhonemesDataset('LRTEST_PH.npz', "LRTEST_PH_LEN.txt"), batch_size=batch_size, shuffle=False,drop_last=True)
 
     trainer = MLM(
         model,

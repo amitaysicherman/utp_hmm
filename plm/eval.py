@@ -3,8 +3,8 @@ from x_transformers import TransformerWrapper, Encoder
 import torch
 from train import  get_model
 cp_file = "./models/best.cp"
-data_path = 'LR960_PH.npz' # 'TIMIT_PH.npz'
-data_len_path ='LR960_PH_LEN.txt' #"TIMIT_PH_LEN.txt"
+data_path =   'TIMIT_PH.npz'#'LR960_PH.npz'
+data_len_path = "TIMIT_PH_LEN.txt" # 'LR960_PH_LEN.txt'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -22,10 +22,6 @@ for i in range(10):
     output = model(x)
     output = output.squeeze(0)
     predicted_labels = torch.argmax(output, dim=1)
-    print("real")
-    print(x)
-    print(predicted_labels)
-    print("masking real")
     mask = torch.randn(x.shape) <= 0.5
     mask[x == padding_value] = False
     random_tokens = torch.randint_like(x, input_size)*0+mask_value
@@ -36,7 +32,7 @@ for i in range(10):
     y = y[mask]
     predicted_labels = torch.argmax(output, dim=1)
     print("masking predicted")
-    print(y)
-    print(predicted_labels)
+    # print(y)
+    # print(predicted_labels)
     correct_predictions = (predicted_labels == y).sum().item()
     print("accuracy", correct_predictions / len(y))

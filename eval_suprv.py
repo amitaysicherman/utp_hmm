@@ -25,8 +25,8 @@ print(mapping.max())
 
 for i,m in enumerate(mapping):
     mapping[i] = mapping[i]/np.sum(m)
-
-
+print(mapping)
+print(mapping.shape)
 
 
 
