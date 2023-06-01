@@ -21,7 +21,7 @@ model = model.to(device)
 dataset = PhonemesDataset(data_path=data_path, data_len_path=data_len_path)
 
 # x_to_layer = {}
-tot_max = 1_000_000
+tot_max = 10_000_000
 
 features = []
 labels = []
@@ -43,13 +43,6 @@ with torch.no_grad():
         features.append(features_)
         labels.extend(list(labels_))
 
-        # for p, e in zip(x[0], l6):
-        #     if p.item() == padding_value:
-        #         continue
-        #     tot += 1
-        #     if p.item() not in x_to_layer:
-        #         x_to_layer[p.item()] = []
-        #     x_to_layer[p.item()].append(e)
         if len(labels) > tot_max:
             break
 features = np.vstack(features)
@@ -63,4 +56,4 @@ for k in [50, 100, 200, 500, 1000, 2000]:
         err += counts.sum() - counts.max()
     err = err / len(labels)
     print(f"K={k}, err={err}")
-    np.save(f"kmeans_{k}.npy", kmeans.cluster_centers_)
+    np.save(f"kmeans_10M_{k}.npy", kmeans.cluster_centers_)
