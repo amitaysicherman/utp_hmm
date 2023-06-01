@@ -30,7 +30,7 @@ model.eval()
 with torch.no_grad():
     while True:
         print(f'{len(labels):,}', flush=True)
-        i = random.randint(0, len(dataset))
+        i = random.randint(0, len(dataset)-1)
         x = dataset[i]
         x = x.unsqueeze(0)
         x = x.to(device)
