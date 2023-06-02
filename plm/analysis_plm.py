@@ -1,7 +1,7 @@
 import random
 
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, MiniBatchKMeans
 from train import max_len, input_size, d_model, num_layers, nhead, PhonemesDataset, mask_value, padding_value
 from x_transformers import TransformerWrapper, Encoder
 import torch
@@ -30,7 +30,7 @@ model.eval()
 with torch.no_grad():
     while True:
         print(f'{len(labels):,}', flush=True)
-        i = random.randint(0, len(dataset)-1)
+        i = random.randint(0, len(dataset) - 1)
         x = dataset[i]
         x = x.unsqueeze(0)
         x = x.to(device)
@@ -48,12 +48,15 @@ with torch.no_grad():
 features = np.vstack(features)
 labels = np.array(labels)
 for k in [50, 100, 200, 500, 1000, 2000]:
-    kmeans = KMeans(n_clusters=k, random_state=0).fit(features)
+    # kmeans = KMeans(n_clusters=k, random_state=0).fit(features)
+
+    kmeans = MiniBatchKMeans(n_clusters=k, random_state=0, verbose=10, batch_size=10_000, init_size=10_000).fit(
+        features)
     k_means_labels = kmeans.labels_
     err = 0
     for v in range(k):
         counts = np.unique(labels[k_means_labels == v], return_counts=True)[1]
         err += counts.sum() - counts.max()
     err = err / len(labels)
-    print(f"K={k}, err={err}")
+    print(f"K={k}, err={err}", flush=True)
     np.save(f"kmeans_10M_{k}.npy", kmeans.cluster_centers_)
