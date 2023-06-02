@@ -21,7 +21,7 @@ model = model.to(device)
 dataset = PhonemesDataset(data_path=data_path, data_len_path=data_len_path)
 
 # x_to_layer = {}
-tot_max = 10_000_000
+tot_max = 1_000_000
 
 features = []
 labels = []
@@ -59,4 +59,4 @@ for k in [50, 100, 200, 500, 1000, 2000]:
         err += counts.sum() - counts.max()
     err = err / len(labels)
     print(f"K={k}, err={err}", flush=True)
-    np.save(f"kmeans_10M_{k}.npy", kmeans.cluster_centers_)
+    np.save(f"kmeans_MB_{k}.npy", kmeans.cluster_centers_)
