@@ -47,11 +47,12 @@ with torch.no_grad():
             break
 features = np.vstack(features)
 labels = np.array(labels)
+np.save("labels.npy", labels)
 for k in [50, 100, 200, 500, 1000, 2000]:
-    kmeans = KMeans(n_clusters=k, random_state=0).fit(features)
+    # kmeans = KMeans(n_clusters=k, random_state=0).fit(features)
 
-    # kmeans = MiniBatchKMeans(n_clusters=k, random_state=0, verbose=10, batch_size=10_000, init_size=10_000).fit(
-    #     features)
+    kmeans = MiniBatchKMeans(n_clusters=k, random_state=0, verbose=10, batch_size=10_000,max_no_improvement=50,n_init=10,init_size=10_000).fit(
+        features)
     k_means_labels = kmeans.labels_
     err = 0
     for v in range(k):
@@ -59,4 +60,5 @@ for k in [50, 100, 200, 500, 1000, 2000]:
         err += counts.sum() - counts.max()
     err = err / len(labels)
     print(f"K={k}, err={err}", flush=True)
-    np.save(f"kmeans_{k}.npy", kmeans.cluster_centers_)
+    np.save(f"kmeans_MB_{k}.npy", kmeans.cluster_centers_)
+    np.save(f"kmeans_labels_MB_{k}.npy", kmeans.labels_)
