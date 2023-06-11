@@ -17,6 +17,7 @@ batch_size = 1024
 log_dir = f"./logs/{time.time()}"  # Set the directory for saving TensorBoard logs
 n_phonemes = input_size - 1
 n_units = 100
+p_noise = 0.15
 writer = SummaryWriter(log_dir=log_dir)
 
 
@@ -45,7 +46,19 @@ class ReplacePhonemesDataset(PhonemesDataset):
         self.y = []
 
         for x_ in tqdm(self.x):
-            y_ = [random.choice(self.inv_mapping[v]) if v != padding_value else padding_value for v in x_]
+            y_ = []
+            for v in x_:
+                if v == padding_value:
+                    y_.append(padding_value)
+                else:
+                    if random.random() >= p_noise:
+                        y_.append(random.choice(self.inv_mapping[v]))
+                    else:
+                        element = random.randint(0, n_units)
+                        while element == padding_value:
+                            element = random.randint(0, n_units)
+                        y_.append(element)
+
             self.y.append(y_)
 
     def __getitem__(self, idx):
@@ -93,6 +106,7 @@ if __name__ == '__main__':
     for epoch in range(100):
         e_loss = []
         e_acc = []
+        e_acc_z = []
         e_updates = 0
 
         for batch_idx, (y, x) in enumerate(data_loader):
@@ -117,8 +131,11 @@ if __name__ == '__main__':
 
             single_x = argmax_output.cpu().numpy().flatten()
             single_y = y.numpy().flatten()
+            single_z = pretrained_output.argmax(dim=-1).cpu().numpy().flatten()
+
             single_x = single_x[single_y != padding_value]
             single_y = single_y[single_y != padding_value]
+            single_z = single_z[single_y != padding_value]
 
             if len(single_x) != len(single_y):
                 print("skip", len(single_y), len(single_x), flush=True)
@@ -126,13 +143,15 @@ if __name__ == '__main__':
 
             e_loss.append(loss.item())
             e_acc.append((single_x == single_y).sum() / len(single_y))
-
+            e_acc_z.append((single_z == single_y).sum() / len(single_y))
             new_mapping = linear_model.emb.weight.data.cpu().argmax(dim=-1).numpy()
             e_updates += (new_mapping != mapping).sum()
             mapping = new_mapping
 
         writer.add_scalar("Loss", np.mean(e_loss), epoch)
         writer.add_scalar("Accuracy", np.mean(e_acc), epoch)
+        writer.add_scalar("Accuracy_z", np.mean(e_acc_z), epoch)
         writer.add_scalar("Updates", e_updates, epoch)
 
-        print("Epoch", epoch, "loss", np.mean(e_loss), "acc", np.mean(e_acc), "updates", e_updates, flush=True)
+        print("Epoch", epoch, "loss", np.mean(e_loss), "acc", np.mean(e_acc), "acc_z", np.mean(e_acc_z), "updates",
+              e_updates, flush=True)
