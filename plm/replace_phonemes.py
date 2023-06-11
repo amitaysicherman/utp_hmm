@@ -60,9 +60,11 @@ if __name__ == '__main__':
     model = get_model()
     model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
     model = model.to(device)
+    model.eval()
 
     linear_model = LinearModel()
     linear_model.to(device)
+
 
     for param in model.parameters():
         param.requires_grad = False
@@ -80,8 +82,8 @@ if __name__ == '__main__':
         loss_count = 0
         acc = 0
         count = 0
-        for j, (y, x) in enumerate(dataset):
 
+        for j, (y, x) in enumerate(dataset):
             x = x.to(device)
             mask = torch.zeros_like(x)
             mask[x != padding_value] = 1
@@ -89,7 +91,8 @@ if __name__ == '__main__':
 
             linear_output = linear_model(x)
             argmax_output = torch.argmax(linear_output.detach(), dim=-1)
-            pretrained_output = model(argmax_output)
+            with torch.no_grad():
+                pretrained_output = model(argmax_output)
             pretrained_output = pretrained_output.softmax(dim=-1)
             linear_output = linear_output.view(-1, linear_output.shape[-1])
             pretrained_output = pretrained_output.view(-1, pretrained_output.shape[-1])
