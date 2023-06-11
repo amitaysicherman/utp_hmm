@@ -83,6 +83,7 @@ if __name__ == '__main__':
         acc = 0
         count = 0
         for j, (y, x) in enumerate(dataset):
+
             x = x.to(device)
             mask = torch.zeros_like(x)
             mask[x != padding_value] = 1
@@ -112,7 +113,7 @@ if __name__ == '__main__':
                 continue
             acc += (single_x == single_y).sum()
             count += single_y.shape[0]
-
+            print(loss_count, flush=True)
             if loss_count > 0 and loss_count % batch_size == 0:
                 optimizer.step()
                 optimizer.zero_grad()
