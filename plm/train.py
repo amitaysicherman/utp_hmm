@@ -64,15 +64,7 @@ def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=nu
 
 
 if __name__ == '__main__':
-    model = TransformerWrapper(
-        num_tokens=input_size + 1,
-        max_seq_len=max_len,
-        attn_layers=Encoder(
-            dim=d_model,
-            depth=num_layers,
-            heads=nhead
-        )
-    )
+    model = get_model()
 
     print(model)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())

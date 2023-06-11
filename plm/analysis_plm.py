@@ -2,8 +2,7 @@ import random
 
 import numpy as np
 from sklearn.cluster import KMeans, MiniBatchKMeans
-from train import max_len, input_size, d_model, num_layers, nhead, PhonemesDataset, mask_value, padding_value
-from x_transformers import TransformerWrapper, Encoder
+from train import  PhonemesDataset, padding_value
 import torch
 from train import get_model
 

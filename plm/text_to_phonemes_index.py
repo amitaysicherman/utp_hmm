@@ -15,6 +15,8 @@ if __name__ == '__main__':
     parser.add_argument('--input_file', type=str, default="libri_test.txt")
     parser.add_argument('--output_prefix', type=str, default="LRTEST")
     parser.add_argument('--do_phonemes', type=bool, default=True)
+    parser.add_argument('--space_p', type=float, default=0.2)
+
     vars=parser.parse_args()
 
     # Create an instance of the G2p class
@@ -35,8 +37,15 @@ if __name__ == '__main__':
             phonemes = [p for p in phonemes if p != "'"]
         else:
             phonemes = line.upper().split()
-            phonemes = [p if p !="DX" else "D" for p in phonemes ]
+            phonemes = [p if p !="DX" else "D" for p in phonemes]
+
+        phonemes = [p for p in phonemes if p != " "]
+        s_to_add = int(len(phonemes) * vars.space_p)
+        for i in range(s_to_add):
+            phonemes.insert(np.random.randint(0, len(phonemes)), " ")
+
         all_length.append(len(phonemes))
+
         for p in phonemes:
             if p not in phonemes_to_index:
                 print(p)
