@@ -1,23 +1,28 @@
 import random
 from collections import defaultdict
 from train import PhonemesDataset
+from torch.utils.data import DataLoader
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
+import time
 from train import get_model, input_size, max_len, padding_value
 import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
-batch_size = 256
-
+batch_size = 1024
+log_dir =f"./logs/{time.time()}"  # Set the directory for saving TensorBoard logs
+writer = SummaryWriter(log_dir=log_dir)
 
 class ReplacePhonemesDataset(PhonemesDataset):
     def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
                  padding_value=padding_value, n_units=input_size - 1):
         super().__init__(data_path, data_len_path, max_len, padding_value)
+
         self.n_units = n_units
-        assert n_units >= input_size-1
+        assert n_units >= input_size - 1
 
         n_phonemes = input_size - 1
         mapping = list(range(n_phonemes))
@@ -65,7 +70,6 @@ if __name__ == '__main__':
     linear_model = LinearModel()
     linear_model.to(device)
 
-
     for param in model.parameters():
         param.requires_grad = False
 
@@ -76,18 +80,17 @@ if __name__ == '__main__':
 
     mapping = linear_model.emb.weight.data.cpu().argmax(dim=-1).numpy()
     print(mapping)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    for ephoc in range(100):
-        loss_tot = 0
-        loss_count = 0
-        acc = 0
-        count = 0
-        for j, (y, x) in enumerate(dataset):
+    for epoch in range(100):
+        e_loss = []
+        e_acc = []
+        e_updates = 0
 
+        for batch_idx, (y, x) in enumerate(data_loader):
             x = x.to(device)
             mask = torch.zeros_like(x)
             mask[x != padding_value] = 1
-            x = x.unsqueeze(0)
 
             linear_output = linear_model(x)
             argmax_output = torch.argmax(linear_output.detach(), dim=-1)
@@ -98,40 +101,30 @@ if __name__ == '__main__':
             pretrained_output = pretrained_output.view(-1, pretrained_output.shape[-1])
             masked_inputs = linear_output[mask.view(-1)]
             masked_targets = pretrained_output[mask.view(-1)]
-            if len(masked_inputs.shape) < 20:
-                continue
-            loss = loss_fn(masked_inputs, masked_targets)
-            loss.backward()
-            loss_tot += loss.item()
 
-            loss_count += 1
+            loss = loss_fn(masked_inputs, masked_targets)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
             single_x = argmax_output.cpu().numpy().flatten()
             single_y = y.numpy().flatten()
             single_x = single_x[single_y != padding_value]
             single_y = single_y[single_y != padding_value]
+
             if len(single_x) != len(single_y):
+                print("skip", len(single_y), len(single_x), flush=True)
                 continue
-            acc += (single_x == single_y).sum()
-            count += single_y.shape[0]
-            print(loss_count, flush=True)
-            if loss_count > 0 and loss_count % batch_size == 0:
-                optimizer.step()
-                optimizer.zero_grad()
-                print(loss_tot / loss_count, flush=True)
-                print(acc / count, acc, count)
 
-                loss_tot = 0
-                acc = 0
-                count = 0
+            e_loss.append(loss.item())
+            e_acc.append((single_x == single_y).sum() / len(single_y))
 
-                new_mapping = linear_model.emb.weight.data.cpu().argmax(dim=-1).numpy()
-                print(new_mapping)
-                print((new_mapping != mapping).sum(), "update mapping", flush=True)
-                mapping = new_mapping
-                # plt.imshow(linear_model.emb.weight.data.cpu().numpy(), cmap='gray')
-                # plt.show()
+            new_mapping = linear_model.emb.weight.data.cpu().argmax(dim=-1).numpy()
+            e_updates += (new_mapping != mapping).sum()
+            mapping = new_mapping
 
-            # scheduler.step()
-            # print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)}")
+        writer.add_scalar("Loss", np.mean(e_loss), epoch)
+        writer.add_scalar("Accuracy", np.mean(e_acc), epoch)
+        writer.add_scalar("Updates", e_updates, epoch)
 
-    #
+        print("Epoch", epoch, "loss", np.mean(e_loss), "acc", np.mean(e_acc), "updates", e_updates, flush=True)
