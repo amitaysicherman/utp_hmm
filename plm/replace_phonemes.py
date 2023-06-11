@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
             loss += loss_fn(masked_inputs, masked_targets)
             loss_count += 1
-            single_x = argmax_output.numpy().flatten()
+            single_x = argmax_output.cpu().numpy().flatten()
             single_y = y.numpy().flatten()
             single_x = single_x[single_y != padding_value]
             single_y = single_y[single_y != padding_value]
