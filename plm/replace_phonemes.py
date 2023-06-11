@@ -45,8 +45,8 @@ class LinearModel(nn.Module):
     def __init__(self, input_dim=input_size + 1, output_dim=input_size + 1):
         super(LinearModel, self).__init__()
         self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1)
-        identity_matrix = torch.eye(input_size + 1)
-        self.emb.weight.data.copy_(identity_matrix)
+        # identity_matrix = torch.eye(input_size + 1)
+        # self.emb.weight.data.copy_(identity_matrix)
 
     def forward(self, x):
         return self.emb(x)
