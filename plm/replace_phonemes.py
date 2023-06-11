@@ -77,7 +77,7 @@ if __name__ == '__main__':
         param.requires_grad = False
 
     loss_fn = nn.CrossEntropyLoss().to(device)
-    optimizer = optim.Adam(linear_model.parameters(), lr=0.01)
+    optimizer = optim.Adam(linear_model.parameters(), lr=0.001)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=10, gamma=0.1)
     dataset = ReplacePhonemesDataset(data_path=data_path, data_len_path=data_len_path)
 
