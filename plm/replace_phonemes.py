@@ -54,9 +54,9 @@ class ReplacePhonemesDataset(PhonemesDataset):
                     if random.random() >= p_noise:
                         y_.append(random.choice(self.inv_mapping[v]))
                     else:
-                        element = random.randint(0, n_units)
+                        element = random.randint(0, n_units-1)
                         while element == padding_value:
-                            element = random.randint(0, n_units)
+                            element = random.randint(0, n_units-1)
                         y_.append(element)
 
             self.y.append(y_)
