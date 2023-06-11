@@ -72,7 +72,7 @@ if __name__ == '__main__':
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=10, gamma=0.1)
     dataset = ReplacePhonemesDataset(data_path=data_path, data_len_path=data_len_path)
 
-    mapping = linear_model.emb.weight.data.argmax(dim=-1).numpy()
+    mapping = linear_model.emb.weight.data.cpu().argmax(dim=-1).numpy()
     print(mapping)
 
     for ephoc in range(100):
