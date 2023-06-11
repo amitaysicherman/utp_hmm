@@ -9,7 +9,7 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-batch_size = 1024
+batch_size = 256
 
 
 class ReplacePhonemesDataset(PhonemesDataset):
@@ -95,7 +95,8 @@ if __name__ == '__main__':
             pretrained_output = pretrained_output.view(-1, pretrained_output.shape[-1])
             masked_inputs = linear_output[mask.view(-1)]
             masked_targets = pretrained_output[mask.view(-1)]
-
+            if len(masked_inputs.shape) < 20:
+                continue
             loss += loss_fn(masked_inputs, masked_targets)
             loss_count += 1
             single_x = argmax_output.cpu().numpy().flatten()
