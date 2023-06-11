@@ -134,8 +134,9 @@ if __name__ == '__main__':
             single_z = pretrained_output.argmax(dim=-1).cpu().numpy().flatten()
 
             single_x = single_x[single_y != padding_value]
-            single_y = single_y[single_y != padding_value]
             single_z = single_z[single_y != padding_value]
+
+            single_y = single_y[single_y != padding_value]
 
             if len(single_x) != len(single_y):
                 print("skip", len(single_y), len(single_x), flush=True)
