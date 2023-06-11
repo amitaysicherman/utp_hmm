@@ -117,7 +117,7 @@ if __name__ == '__main__':
                 acc = 0
                 count = 0
 
-                new_mapping = linear_model.emb.weight.data.argmax(dim=-1).numpy()
+                new_mapping = linear_model.emb.weight.data.cpu().argmax(dim=-1).numpy()
                 print(new_mapping)
                 print((new_mapping != mapping).sum(), "update mapping", flush=True)
                 mapping = new_mapping
