@@ -14,18 +14,20 @@ import numpy as np
 from tqdm import tqdm
 
 batch_size = 1024
-log_dir =f"./logs/{time.time()}"  # Set the directory for saving TensorBoard logs
+log_dir = f"./logs/{time.time()}"  # Set the directory for saving TensorBoard logs
+n_phonemes = input_size - 1
+n_units = 100
 writer = SummaryWriter(log_dir=log_dir)
+
 
 class ReplacePhonemesDataset(PhonemesDataset):
     def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
-                 padding_value=padding_value, n_units=input_size - 1):
+                 padding_value=padding_value, n_units=n_units):
         super().__init__(data_path, data_len_path, max_len, padding_value)
 
         self.n_units = n_units
-        assert n_units >= input_size - 1
+        assert n_units >= n_phonemes
 
-        n_phonemes = input_size - 1
         mapping = list(range(n_phonemes))
 
         mapping += [random.randint(0, n_phonemes - 1) for _ in range(n_units - n_phonemes)]
@@ -35,8 +37,11 @@ class ReplacePhonemesDataset(PhonemesDataset):
         self.mapping = mapping
         self.inv_mapping = defaultdict(list)
         for i, v in enumerate(self.mapping):
-            self.inv_mapping[v].append(i)
-
+            if i == padding_value:
+                self.inv_mapping[v].append(32)
+            else:
+                self.inv_mapping[v].append(i)
+        print(self.inv_mapping)
         self.y = []
 
         for x_ in tqdm(self.x):
@@ -48,7 +53,7 @@ class ReplacePhonemesDataset(PhonemesDataset):
 
 
 class LinearModel(nn.Module):
-    def __init__(self, input_dim=input_size + 1, output_dim=input_size + 1):
+    def __init__(self, input_dim=n_units, output_dim=input_size + 1):
         super(LinearModel, self).__init__()
         self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1)
         # identity_matrix = torch.eye(input_size + 1)
