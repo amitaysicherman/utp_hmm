@@ -78,11 +78,10 @@ if __name__ == '__main__':
     print(mapping)
 
     for ephoc in range(100):
-        loss = 0
+        loss_tot = 0
         loss_count = 0
         acc = 0
         count = 0
-
         for j, (y, x) in enumerate(dataset):
             x = x.to(device)
             mask = torch.zeros_like(x)
@@ -100,7 +99,10 @@ if __name__ == '__main__':
             masked_targets = pretrained_output[mask.view(-1)]
             if len(masked_inputs.shape) < 20:
                 continue
-            loss += loss_fn(masked_inputs, masked_targets)
+            loss = loss_fn(masked_inputs, masked_targets)
+            loss.backward()
+            loss_tot += loss.item()
+
             loss_count += 1
             single_x = argmax_output.cpu().numpy().flatten()
             single_y = y.numpy().flatten()
@@ -112,12 +114,12 @@ if __name__ == '__main__':
             count += single_y.shape[0]
 
             if loss_count > 0 and loss_count % batch_size == 0:
-                optimizer.zero_grad()
-                loss.backward()
                 optimizer.step()
+                optimizer.zero_grad()
+                print(loss_tot / loss_count, flush=True)
                 print(acc / count, acc, count)
-                print(loss.item())
-                loss = 0
+
+                loss_tot = 0
                 acc = 0
                 count = 0
 
