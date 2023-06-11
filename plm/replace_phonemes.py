@@ -121,8 +121,8 @@ if __name__ == '__main__':
                 print(new_mapping)
                 print((new_mapping != mapping).sum(), "update mapping", flush=True)
                 mapping = new_mapping
-                plt.imshow(linear_model.emb.weight.data.cpu().numpy(), cmap='gray')
-                plt.show()
+                # plt.imshow(linear_model.emb.weight.data.cpu().numpy(), cmap='gray')
+                # plt.show()
 
             # scheduler.step()
             # print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)}")
