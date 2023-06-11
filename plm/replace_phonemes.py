@@ -2,6 +2,7 @@ import random
 from collections import defaultdict
 from train import PhonemesDataset
 from torch.utils.data import DataLoader
+from torch.nn.parallel import DataParallel
 
 import torch
 import torch.nn as nn
@@ -66,6 +67,8 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
     model = model.to(device)
     model.eval()
+    if torch.cuda.device_count() > 1:
+        model = DataParallel(model)
 
     linear_model = LinearModel()
     linear_model.to(device)
