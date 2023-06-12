@@ -105,7 +105,8 @@ if __name__ == '__main__':
         for (x) in tqdm(train_data):
 
             trainer.mask_prob = random.random()
-            trainer.random_token_prob = random.random()
+            trainer.random_token_prob = random.random()*(1-trainer.mask_prob)
+            trainer.replace_prob = 1 - (trainer.mask_prob - trainer.random_token_prob)/2
 
             x = x.to(device)
             loss = trainer(x)
@@ -128,7 +129,7 @@ if __name__ == '__main__':
 
                 predicted_labels = torch.argmax(output, dim=1)
                 correct_predictions = (predicted_labels == y).sum().item()
-                train_total_accuracy += correct_predictions / (y.numel())
+                train_total_accuracy += correct_predictions / (y.numel()) if y.numel() > 0 else 0
         model.eval()
         test_total_loss = 0
         test_total_accuracy = 0
