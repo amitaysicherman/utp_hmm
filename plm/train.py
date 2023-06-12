@@ -118,7 +118,7 @@ if __name__ == '__main__':
             with torch.no_grad():
                 model.eval()
                 y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= epoch/100
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
@@ -139,7 +139,7 @@ if __name__ == '__main__':
                 test_total_loss += loss.item()
 
                 y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= epoch/100
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
