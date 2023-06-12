@@ -6,7 +6,7 @@ from tqdm import tqdm
 import random
 import numpy as np
 from torch.nn.parallel import DataParallel
-from mlm import MLM
+from mlm_pytorch import MLM
 from x_transformers import TransformerWrapper, Encoder
 
 input_size = 41  # Number of tokens (0-39 + padding token)
@@ -23,8 +23,9 @@ mask_prob = 0.1
 random_token_prob = -1
 
 
-def get_cp_name(epoch,acc,loss):
-    return f"models/{mask_prob}_{random_token_prob}_{epoch}_{loss}_{acc}.cp"
+def get_cp_name(epoch, acc, loss):
+    return f"models/change_{epoch}_{loss}_{acc}.cp"
+
 
 class PhonemesDataset(Dataset):
     def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
@@ -50,6 +51,8 @@ class PhonemesDataset(Dataset):
 
     def __getitem__(self, idx):
         return torch.LongTensor(self.x[idx])
+
+
 def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=num_layers, max_len=max_len):
     model = TransformerWrapper(
         num_tokens=input_size + 1,
@@ -78,8 +81,9 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-    train_data = DataLoader(PhonemesDataset(), batch_size=batch_size, shuffle=False,drop_last=True)
-    test_data = DataLoader(PhonemesDataset('LRTEST_PH.npz', "LRTEST_PH_LEN.txt"), batch_size=batch_size, shuffle=False,drop_last=True)
+    train_data = DataLoader(PhonemesDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
+    test_data = DataLoader(PhonemesDataset('LRTEST_PH.npz', "LRTEST_PH_LEN.txt"), batch_size=batch_size, shuffle=False,
+                           drop_last=True)
 
     trainer = MLM(
         model,
@@ -94,10 +98,15 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(trainer.parameters(), lr=3e-4)
 
     # Training loop
-    for epoch in range(num_epochs):
+    for epoch in range(0,num_epochs):
+
         train_total_loss = 0
         train_total_accuracy = 0
         for (x) in tqdm(train_data):
+
+            trainer.mask_prob = random.random()
+            trainer.random_token_prob = random.random()
+
             x = x.to(device)
             loss = trainer(x)
             loss.backward()
@@ -109,7 +118,7 @@ if __name__ == '__main__':
             with torch.no_grad():
                 model.eval()
                 y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= epoch/100
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
@@ -130,7 +139,7 @@ if __name__ == '__main__':
                 test_total_loss += loss.item()
 
                 y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= epoch/100
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
@@ -141,7 +150,7 @@ if __name__ == '__main__':
                 predicted_labels = torch.argmax(output, dim=1)
                 correct_predictions = (predicted_labels == y).sum().item()
                 test_total_accuracy += correct_predictions / (y.numel())
-        cp_name=get_cp_name(epoch,test_total_accuracy,test_total_loss)
+        cp_name = get_cp_name(epoch, test_total_accuracy, test_total_loss)
         if torch.cuda.device_count() > 1:
             torch.save(model.module.state_dict(), cp_name)
         else:
