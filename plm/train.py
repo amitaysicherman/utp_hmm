@@ -13,7 +13,7 @@ input_size = 41  # Number of tokens (0-39 + padding token)
 d_model = 768
 nhead = 12
 num_layers = 12
-batch_size = 64
+batch_size = 256
 num_epochs = 100
 max_len = 150
 mask_value = input_size - 1
@@ -95,18 +95,20 @@ if __name__ == '__main__':
         replace_prob=0.90,
         mask_ignore_token_ids=[]
     ).to(device)
-    optimizer = torch.optim.Adam(trainer.parameters(), lr=3e-4)
+    optimizer = torch.optim.Adam(trainer.parameters(), lr=5e-5)
 
     # Training loop
-    for epoch in range(0,num_epochs):
-
+    for epoch in range(0, num_epochs):
+        factor = 0.25 * 0.75 * (epoch / num_epochs)
         train_total_loss = 0
         train_total_accuracy = 0
         for (x) in tqdm(train_data):
-
             trainer.mask_prob = random.random()
-            trainer.random_token_prob = random.random()*(1-trainer.mask_prob)
-            trainer.replace_prob = 1 - (trainer.mask_prob - trainer.random_token_prob)/2
+            trainer.random_token_prob = random.random() * (1 - trainer.mask_prob)
+            trainer.replace_prob = 1 - (trainer.mask_prob - trainer.random_token_prob) / 2
+
+            trainer.mask_prob *= factor
+            trainer.random_token_prob *= factor
 
             x = x.to(device)
             loss = trainer(x)
@@ -150,7 +152,7 @@ if __name__ == '__main__':
 
                 predicted_labels = torch.argmax(output, dim=1)
                 correct_predictions = (predicted_labels == y).sum().item()
-                test_total_accuracy += correct_predictions / (y.numel())
+                test_total_accuracy += correct_predictions / (y.numel()) if y.numel() > 0 else 0
         cp_name = get_cp_name(epoch, test_total_accuracy, test_total_loss)
         if torch.cuda.device_count() > 1:
             torch.save(model.module.state_dict(), cp_name)
