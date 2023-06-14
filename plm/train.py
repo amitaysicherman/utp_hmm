@@ -3,13 +3,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
-import random
 import numpy as np
 from torch.nn.parallel import DataParallel
-from mlm_pytorch import MLM
 from x_transformers import TransformerWrapper, Encoder
+import torch.nn.functional as F
 
-input_size = 41  # Number of tokens (0-39 + padding token)
+input_size = 40  # Number of tokens (0-38 + padding token)
 d_model = 768
 nhead = 12
 num_layers = 12
@@ -18,37 +17,73 @@ num_epochs = 100
 max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
-eps = 0.01
+
+config_name = "prep_random"
+
+noise_p = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+lr = 5e-4
 
 
-def get_cp_name(epoch, acc, loss):
-    return f"models/noise_{epoch}_{loss}_{acc}.cp"
+class Scores:
+    def __init__(self, name):
+        self.name = name
+        self.loss = [0] * len(noise_p)
+        self.acc = [0] * len(noise_p)
+        self.counts = [0] * len(noise_p)
+
+    def update(self, loss, acc, p):
+        i = noise_p.index(p)
+        self.loss[i] += loss
+        self.acc[i] += acc
+        self.counts[i] += 1
+
+    def __repr__(self):
+        loss = [self.loss[i] / self.counts[i] if self.counts[i] > 0 else 0 for i in range(len(noise_p))]
+        acc = [self.acc[i] / self.counts[i] if self.counts[i] > 0 else 0 for i in range(len(noise_p))]
+        tot_loss = sum([l * c for l, c in zip(loss, self.counts)]) / sum(self.counts)
+        tot_acc = sum([a * c for a, c in zip(acc, self.counts)]) / sum(self.counts)
+        return f"{self.name} loss: {loss} \n{self.name} acc: {acc} \n{self.name} counts: {self.counts}" \
+               f"\n{self.name} total loss: {tot_loss} \n{self.name} total acc: {tot_acc}"
+
+    def reset(self):
+        self.loss = [0] * len(noise_p)
+        self.acc = [0] * len(noise_p)
+        self.counts = [0] * len(noise_p)
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
+    def __init__(self, prefix, max_len=max_len,
                  padding_value=padding_value):
-        data_flat = np.load(data_path)['a']
-        with open(data_len_path, 'r') as f:
-            lengths = f.read().splitlines()
-        lengths = [int(i) for i in lengths]
-        curr = 0
-        self.x = []
 
-        for l in tqdm(lengths):
-            sequence = data_flat[curr:curr + l]
-            if len(sequence) > max_len:
-                sequence = np.array(list(sequence[:max_len]), dtype=np.int8)
+        with open(f'{prefix}_CLEAN.txt', 'r') as f:
+            clean_data = f.read().splitlines()
+        clean_data = [list(map(int, line.split())) for line in clean_data]
+        with open(f'{prefix}_NOISE.txt', 'r') as f:
+            noise_data = f.read().splitlines()
+        noise_data = [list(map(int, line.split())) for line in noise_data]
+
+        self.x = []
+        self.y = []
+        for clean, noise in tqdm(zip(clean_data, noise_data), total=len(clean_data)):
+            assert len(clean) == len(noise)
+            seq_len = len(clean)
+            if seq_len > max_len:
+                clean = np.array(list(clean[:max_len]), dtype=np.int8)
+                noise = np.array(list(noise[:max_len]), dtype=np.int8)
             else:
-                sequence = np.array(list(sequence) + [padding_value] * (max_len - len(sequence)), dtype=np.int8)
-            self.x.append(sequence)
-            curr += l
+                clean = np.array(list(clean) + [padding_value] * (max_len - len(clean)), dtype=np.int8)
+                noise = np.array(list(noise) + [padding_value] * (max_len - len(noise)), dtype=np.int8)
+
+            self.x.append(noise)
+            self.y.append(clean)
 
     def __len__(self):
+
         return len(self.x)
 
     def __getitem__(self, idx):
-        return torch.LongTensor(self.x[idx])
+        return torch.LongTensor(self.x[idx]), torch.LongTensor(self.y[idx])
 
 
 def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=num_layers, max_len=max_len):
@@ -64,23 +99,28 @@ def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=nu
     return model
 
 
-def calc_acc(model, x, p):
-    with torch.no_grad():
-        model.eval()
-        y = x.clone()
-        mask = torch.zeros_like(x).float().uniform_(0, 1) <= p
-        mask[x == padding_value] = False
-        random_tokens = torch.randint_like(x, input_size)
-        x[mask] = random_tokens[mask]
-        output = model(x)
+def single_round(model, x, y, is_train, scorer):
+    x = x.to(device)
+    y = y.to(device)
+    logits = model(x)
+    loss = F.cross_entropy(
+        logits.transpose(1, 2),
+        y,
+        ignore_index=padding_value
+    )
+    if is_train:
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
 
-        predicted_labels = torch.argmax(output, dim=1)
-        predicted_labels = predicted_labels[y != padding_value]
-        y = y[y != padding_value]
-        correct_predictions = (predicted_labels == y).sum().item()
-        total = y.numel()
-
-        return correct_predictions / total
+    predicted_labels = torch.argmax(logits, dim=-1)
+    predicted_labels = predicted_labels[y != padding_value]
+    y = y[y != padding_value]
+    x = x[x != padding_value]
+    acc = (predicted_labels == y).sum().item() / y.numel()
+    p = (x != y).cpu().numpy().astype(int).mean()
+    p = round(p, 1)
+    scorer.update(loss.item(), acc, p)
 
 
 if __name__ == '__main__':
@@ -98,77 +138,39 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-    train_data = DataLoader(PhonemesDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
-    test_data = DataLoader(PhonemesDataset('LRTEST_PH.npz', "LRTEST_PH_LEN.txt"), batch_size=batch_size, shuffle=False,
+    train_data = DataLoader(PhonemesDataset("LR960"), batch_size=batch_size, shuffle=False, drop_last=True)
+    test_data = DataLoader(PhonemesDataset("LRTEST"), batch_size=batch_size, shuffle=False,
                            drop_last=True)
 
-    trainer = MLM(
-        model,
-        mask_token_id=mask_value,
-        num_tokens=input_size + 1,
-        pad_token_id=padding_value,
-        mask_prob=0,
-        random_token_prob=1,
-        replace_prob=0.5,
-        mask_ignore_token_ids=[]
-    ).to(device)
-    optimizer = torch.optim.Adam(trainer.parameters(), lr=5e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    # Training loop
     for epoch in range(0, num_epochs):
-        train_total_loss = 0
-        train_total_accuracy = 0
+        train_scores = Scores("train")
+        test_scores = Scores("test")
         model.train()
-        for (x) in tqdm(train_data):
-            trainer.replace_prob = max(min(1 - eps, random.random()), eps)
-            x = x.to(device)
-            loss = trainer(x)
-            loss.backward()
-            train_total_loss += loss.item()
-            optimizer.step()
-            optimizer.zero_grad()
-            with torch.no_grad():
-                model.eval()
-                y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= trainer.replace_prob
-                mask[x == padding_value] = False
-                random_tokens = torch.randint_like(x, input_size)
-                x[mask] = random_tokens[mask]
-                output = model(x)
-                output = output[mask]
-                y = y[mask]
-                predicted_labels = torch.argmax(output, dim=1)
-                correct_predictions = (predicted_labels == y).sum().item()
-                train_total_accuracy += correct_predictions / (y.numel()) if y.numel() > 0 else 0
+        for (x, y) in tqdm(train_data):
+            single_round(model, x, y, True, train_scores)
 
-        test_total_loss = 0
-        test_total_accuracy = 0
         model.eval()
         with torch.no_grad():
-            for (x) in tqdm(test_data):
-                trainer.replace_prob = random.random() * (1 - eps) + eps
-                x = x.to(device)
-                loss = trainer(x)
-                test_total_loss += loss.item()
+            for (x, y) in tqdm(test_data):
+                single_round(model, x, y, False, test_scores)
 
-                y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= trainer.replace_prob
-                mask[x == padding_value] = False
-                random_tokens = torch.randint_like(x, input_size)
-                x[mask] = random_tokens[mask]
-                output = model(x)
-                output = output[mask]
-                y = y[mask]
-                predicted_labels = torch.argmax(output, dim=1)
-                correct_predictions = (predicted_labels == y).sum().item()
-                test_total_accuracy += correct_predictions / (y.numel()) if y.numel() > 0 else 0
-
-        cp_name = get_cp_name(epoch, test_total_accuracy, test_total_loss)
+        cp_name = f"models/{config_name}_{epoch}.cp"
         if torch.cuda.device_count() > 1:
             torch.save(model.module.state_dict(), cp_name)
         else:
             torch.save(model.state_dict(), cp_name)
-        print(f"Epoch {epoch + 1} Loss: {train_total_loss / len(train_data)}")
-        print(f"Epoch {epoch + 1} Accuracy: {train_total_accuracy / len(train_data)}")
-        print(f"Epoch {epoch + 1} Test Loss: {test_total_loss / len(test_data)}")
-        print(f"Epoch {epoch + 1} Test Accuracy: {test_total_accuracy / len(test_data)}")
+
+        print("Epoch", epoch)
+        print(train_scores)
+        print(test_scores)
+
+        with open(f"results_{config_name}.txt", "a") as f:
+            f.write(f"Epoch {epoch}\n")
+            f.write(f"{train_scores}\n")
+            f.write(f"{test_scores}\n")
+            f.write("\n")
+
+        train_scores.reset()
+        test_scores.reset()
