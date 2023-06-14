@@ -18,7 +18,7 @@ num_epochs = 100
 max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
-
+eps = 0.01
 
 
 def get_cp_name(epoch, acc, loss):
@@ -64,6 +64,25 @@ def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=nu
     return model
 
 
+def calc_acc(model, x, p):
+    with torch.no_grad():
+        model.eval()
+        y = x.clone()
+        mask = torch.zeros_like(x).float().uniform_(0, 1) <= p
+        mask[x == padding_value] = False
+        random_tokens = torch.randint_like(x, input_size)
+        x[mask] = random_tokens[mask]
+        output = model(x)
+
+        predicted_labels = torch.argmax(output, dim=1)
+        predicted_labels = predicted_labels[y != padding_value]
+        y = y[y != padding_value]
+        correct_predictions = (predicted_labels == y).sum().item()
+        total = y.numel()
+
+        return correct_predictions / total
+
+
 if __name__ == '__main__':
     model = get_model()
 
@@ -99,52 +118,51 @@ if __name__ == '__main__':
     for epoch in range(0, num_epochs):
         train_total_loss = 0
         train_total_accuracy = 0
+        model.train()
         for (x) in tqdm(train_data):
-            trainer.replace_prob = random.random()
-
+            trainer.replace_prob = max(min(1 - eps, random.random()), eps)
             x = x.to(device)
             loss = trainer(x)
             loss.backward()
             train_total_loss += loss.item()
-
             optimizer.step()
             optimizer.zero_grad()
-
             with torch.no_grad():
                 model.eval()
                 y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= trainer.replace_prob
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
                 output = model(x)
                 output = output[mask]
                 y = y[mask]
-
                 predicted_labels = torch.argmax(output, dim=1)
                 correct_predictions = (predicted_labels == y).sum().item()
                 train_total_accuracy += correct_predictions / (y.numel()) if y.numel() > 0 else 0
-        model.eval()
+
         test_total_loss = 0
         test_total_accuracy = 0
+        model.eval()
         with torch.no_grad():
             for (x) in tqdm(test_data):
+                trainer.replace_prob = random.random() * (1 - eps) + eps
                 x = x.to(device)
                 loss = trainer(x)
                 test_total_loss += loss.item()
 
                 y = x.clone()
-                mask = torch.zeros_like(x).float().uniform_(0, 1) <= random.random()
+                mask = torch.zeros_like(x).float().uniform_(0, 1) <= trainer.replace_prob
                 mask[x == padding_value] = False
                 random_tokens = torch.randint_like(x, input_size)
                 x[mask] = random_tokens[mask]
                 output = model(x)
                 output = output[mask]
                 y = y[mask]
-
                 predicted_labels = torch.argmax(output, dim=1)
                 correct_predictions = (predicted_labels == y).sum().item()
                 test_total_accuracy += correct_predictions / (y.numel()) if y.numel() > 0 else 0
+
         cp_name = get_cp_name(epoch, test_total_accuracy, test_total_loss)
         if torch.cuda.device_count() > 1:
             torch.save(model.module.state_dict(), cp_name)
