@@ -19,12 +19,10 @@ max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
 
-mask_prob = 0.1
-random_token_prob = -1
 
 
 def get_cp_name(epoch, acc, loss):
-    return f"models/change_{epoch}_{loss}_{acc}.cp"
+    return f"models/noise_{epoch}_{loss}_{acc}.cp"
 
 
 class PhonemesDataset(Dataset):
@@ -90,25 +88,19 @@ if __name__ == '__main__':
         mask_token_id=mask_value,
         num_tokens=input_size + 1,
         pad_token_id=padding_value,
-        mask_prob=mask_prob,
-        random_token_prob=random_token_prob,
-        replace_prob=0.90,
+        mask_prob=0,
+        random_token_prob=1,
+        replace_prob=0.5,
         mask_ignore_token_ids=[]
     ).to(device)
     optimizer = torch.optim.Adam(trainer.parameters(), lr=5e-5)
 
     # Training loop
     for epoch in range(0, num_epochs):
-        factor = 0.25 * 0.75 * (epoch / num_epochs)
         train_total_loss = 0
         train_total_accuracy = 0
         for (x) in tqdm(train_data):
-            trainer.mask_prob = random.random()
-            trainer.random_token_prob = random.random() * (1 - trainer.mask_prob)
-            trainer.replace_prob = 1 - (trainer.mask_prob - trainer.random_token_prob) / 2
-
-            trainer.mask_prob *= factor
-            trainer.random_token_prob *= factor
+            trainer.replace_prob = random.random()
 
             x = x.to(device)
             loss = trainer(x)

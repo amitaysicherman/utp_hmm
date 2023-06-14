@@ -37,7 +37,7 @@ for i in range(10):
     mask = mask[0]
     mask = mask[y != padding_value]
     y = y[y != padding_value]
-
+    x=x[x!=padding_value]
     print("----")
     print("mask", r)
     print("len y", len(y))
@@ -48,3 +48,5 @@ for i in range(10):
     correct_predictions = (predicted_labels[mask] == y[mask]).sum().item()
     n = len(y[mask])
     print("acc mak", correct_predictions / len(y), len(y[mask]))
+
+    print("acc tot", sum(predicted_labels == y), sum(x == y))
