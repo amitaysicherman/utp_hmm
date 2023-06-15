@@ -9,16 +9,16 @@ from x_transformers import TransformerWrapper, Encoder
 import torch.nn.functional as F
 
 input_size = 40  # Number of tokens (0-38 + padding token)
-d_model = 768
-nhead = 12
-num_layers = 12
-batch_size = 512
+d_model = 256
+nhead = 4
+num_layers = 6
+batch_size = 1024
 num_epochs = 100
 max_len = 150
 mask_value = input_size - 1
 padding_value = input_size
 
-config_name = "prep_random"
+config_name = "prep_random_small"
 
 noise_p = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
