@@ -42,11 +42,11 @@ def eval_dataset(dataset, tot=10_000):
             reduction="none"
         )[0]
 
+        probs_ = F.softmax(logits, dim=-1)[0]
+        probs_ = probs_.cpu().numpy()
         y = y.cpu().numpy()
         loss = loss.detach().cpu().numpy()
-        logits = logits.cpu().numpy()
 
-        probs_ = F.softmax(logits, dim=-1)[0]
         ent_softmax_ = entropy(probs_, axis=-1)
         ent_softmax_ = ent_softmax_[y != padding_value]
         ent_softmax.extend(ent_softmax_.tolist())
