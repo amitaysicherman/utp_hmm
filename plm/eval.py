@@ -26,7 +26,6 @@ def eval_dataset(dataset, tot=10_000):
     ids = []
     tot = min(tot, len(dataset))
     probs = []
-    ent_logit = []
     ent_softmax = []
     for _ in tqdm(range(tot)):
         i = random.randint(0, len(dataset) - 1)
@@ -43,21 +42,25 @@ def eval_dataset(dataset, tot=10_000):
             reduction="none"
         )[0]
 
-        probs_ = F.softmax(logits, dim=-1)[0].cpu().numpy()
+        y = y.cpu().numpy()
+        loss = loss.detach().cpu().numpy()
+        logits = logits.cpu().numpy()
+
+        probs_ = F.softmax(logits, dim=-1)[0]
         ent_softmax_ = entropy(probs_, axis=-1)
         ent_softmax_ = ent_softmax_[y != padding_value]
         ent_softmax.extend(ent_softmax_.tolist())
 
-        probs_ = probs_[range(len(probs_)), y.cpu().numpy()]
+        probs_ = probs_[range(len(probs_)), y]
         probs_ = probs_[y != padding_value]
         probs.extend(probs_.tolist())
 
         loss = loss[y != padding_value]
         x = x[y != padding_value]
         y = y[y != padding_value]
-        losses.extend(loss.detach().cpu().numpy().tolist())
-        type.extend((x != y).cpu().numpy().astype(int).tolist())
-        p = (x != y).cpu().numpy().astype(int).mean()
+        losses.extend(loss.tolist())
+        type.extend((x != y).astype(int).tolist())
+        p = (x != y).astype(int).mean()
         p = round(p, 2)
         ps.extend([p] * len(loss))
         ids.extend([i] * len(loss))
