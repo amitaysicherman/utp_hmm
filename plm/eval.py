@@ -45,6 +45,7 @@ def eval_dataset(dataset, tot=10_000):
         probs_ = F.softmax(logits, dim=-1)[0]
         probs_ = probs_.cpu().numpy()
         y = y.cpu().numpy()
+        x=x.cpu().numpy()
         loss = loss.detach().cpu().numpy()
 
         ent_softmax_ = entropy(probs_, axis=-1)
