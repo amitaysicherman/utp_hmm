@@ -13,49 +13,57 @@ def raplace_random(x, p):
     x = x.copy()
     for i in range(len(x)):
         if np.random.rand() < p:
-            x[i] = np.random.randint(0, 39)
+            x[i] = np.random.randint(0, MAX_P)
     return x
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input_file', type=str, default="/home/amitay/PycharmProjects/utp_hmm/data/phonemes.txt")
-    parser.add_argument('--output_prefix', type=str, default="TMTR")
-    parser.add_argument('--do_phonemes', type=bool, default=False)
-    vars = parser.parse_args()
-    g2p = G2p()
-    with open(vars.input_file, 'r') as file:
+def add_noise_to_file(file_name, g2p=None, repeats=50):
+    print("start reading", file_name)
+    with open(file_name, 'r') as file:
         lines = file.read().splitlines()
-
     all_phonemes = []
-    all_length = []
     for line in tqdm(lines):
-        line = line.strip().upper()
-        if vars.do_phonemes:
-            sentence = " ".join(line.split(' ')[1:])  # Extract the sentence after the tab character
+        if g2p:
+            sentence = " ".join(line.split(' ')[1:])
             phonemes = g2p(sentence)
+            phonemes = [p[:-1] if p[-1].isnumeric() else p for p in phonemes]
+            phonemes = [p for p in phonemes if p != "'"]
+            phonemes = [p for p in phonemes if p != " "]
         else:
             phonemes = line.split(' ')
-        phonemes = [p[:-1] if p[-1].isnumeric() else p for p in phonemes]
-        phonemes = [p for p in phonemes if p != "'"]
-        phonemes = [p for p in phonemes if p != " "]
-
-        all_length.append(len(phonemes))
-
-        for p in phonemes:
-            if p not in phonemes_to_index:
-                print(p)
         phonemes = [phonemes_to_index[p] for p in phonemes if p in phonemes_to_index]
         all_phonemes.append(np.array(phonemes))
-
     final_clean = []
     final_noise = []
-    for i in range(10):
+    print("start adding noise")
+    for i in tqdm(range(repeats)):
         for phonemes in all_phonemes:
             final_clean.append(" ".join([str(p) for p in phonemes]))
             noise_phones = raplace_random(phonemes, random.random())
             final_noise.append(" ".join([str(p) for p in noise_phones]))
-    with open(f'{vars.output_prefix}_CLEAN.txt', 'w') as file:
+    with open(file_name.replace(".txt", "_clean.txt"), 'w') as file:
         file.write("\n".join(final_clean))
-    with open(f'{vars.output_prefix}_NOISE.txt', 'w') as file:
+    with open(file_name.replace(".txt", "_noise.txt"), 'w') as file:
         file.write("\n".join(final_noise))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, choices=['tm', 'lr'], default="tm")
+
+    vars = parser.parse_args()
+    if vars.dataset == "tm":
+        train_file = "TIMIT_TRAIN_PH.txt"
+        test_file = "TIMIT_TEST_PH.txt"
+        g2p = None
+        repeats = 50
+    else:  # 'lr'
+        train_file = "libri_train.txt"
+        test_file = "libri_test.txt"
+        g2p = G2p()
+        repeats = 10
+    with open(vars.input_file, 'r') as file:
+        lines = file.read().splitlines()
+
+    add_noise_to_file(train_file, g2p=g2p, repeats=repeats)
+    add_noise_to_file(test_file, g2p=g2p, repeats=repeats)
