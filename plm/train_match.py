@@ -55,7 +55,7 @@ class UnitsDataset(Dataset):
 class LinearModel(nn.Module):
     def __init__(self, input_dim=unit_count, emd_dim=256, output_dim=phonemes_count):
         super(LinearModel, self).__init__()
-        self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=2)
+        self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1)
         # self.linear = nn.Linear(emd_dim, output_dim)
 
     def forward(self, x):
@@ -76,7 +76,7 @@ for param in pretrained_model.parameters():
     param.requires_grad = False
 
 loss_fn = nn.CrossEntropyLoss().to(device)
-optimizer = optim.Adam(linear_model.parameters(), lr=0.1)
+optimizer = optim.Adam(linear_model.parameters(), lr=0.01)
 # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=10, gamma=0.1)
 
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
