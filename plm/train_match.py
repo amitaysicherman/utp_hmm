@@ -56,6 +56,16 @@ class LinearModel(nn.Module):
     def __init__(self, input_dim=unit_count, emd_dim=256, output_dim=phonemes_count):
         super(LinearModel, self).__init__()
         self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1, scale_grad_by_freq=True)
+
+        # Initialize each embedding vector
+        for i in range(input_dim):
+            values = torch.randn(output_dim)
+            random_index = torch.randint(output_dim, size=(1,))
+            values[random_index] = 0.5
+            values /= values.sum()  # Normalize values to sum to 0.5
+            self.emb.weight.data[i].copy_(values)
+
+
         # self.linear = nn.Linear(emd_dim, output_dim)
 
     def forward(self, x):
