@@ -5,6 +5,12 @@ from tqdm import tqdm
 
 def get_phonemes(base_dir, ignore_sil=True):
     files = glob.glob(base_dir + "*/*/*.PHN")
+
+    names = [x.replace(base_dir, "") for x in files]
+    with open(base_dir.split("/")[-1] + "_names.txt", 'w') as f:
+        for name in names:
+            f.write(f'{name}\n')
+
     all_phonemes = []
     all_phonemes_indexes = []
     for file in files:
