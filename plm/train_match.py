@@ -75,7 +75,7 @@ for param in pretrained_model.parameters():
     param.requires_grad = False
 
 loss_fn = nn.CrossEntropyLoss().to(device)
-optimizer = optim.Adam(linear_model.parameters(), lr=0.01)
+optimizer = optim.Adam(linear_model.parameters(), lr=0.1)
 # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=10, gamma=0.1)
 
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
