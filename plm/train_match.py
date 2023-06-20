@@ -10,9 +10,9 @@ from text_to_phonemes_index import phonemes_to_index
 unit_count = 100
 phonemes_count = input_size + 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cp_file = "./models/best.cp"
+cp_file = "./models/prep_random_small_timit_15.cp"
 
-batch_size = 4
+batch_size = 512
 ephocs = 300
 
 
@@ -38,7 +38,7 @@ class UnitsDataset(Dataset):
 
         with open(phonemes_path, 'r') as f:
             lines = f.read().splitlines()
-        data = [[phonemes_to_index[x.upper()] if x.upper() != "DX" else phonemes_to_index["D"] for x in line.split()]
+        data = [[phonemes_to_index[x.upper()] if x.upper() != "DX" else phonemes_to_index["T"] for x in line.split()]
                 for line in
                 lines]
         self.y = pad_seq(data, max_len, padding_value)
@@ -63,7 +63,6 @@ class LinearModel(nn.Module):
         # return self.linear(x)
 
 
-
 pretrained_model = get_model()
 pretrained_model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
 pretrained_model.to(device)
@@ -81,42 +80,40 @@ optimizer = optim.Adam(linear_model.parameters(), lr=0.01)
 
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
 for ephoc in range(ephocs):
-    e_loss=[]
-    e_acc=[]
-    for j,(x, y) in enumerate(train_data):
-        x=x.to(device)
-        mask=torch.zeros_like(x)
-        mask[x!=padding_value]=1
+    e_loss = []
+    e_acc = []
+    e_acc_m=[]
+    for j, (x, y) in enumerate(tqdm(train_data)):
+        x = x.to(device)
+
+        #apply the models:
         linear_output = linear_model(x)
         argmax_output = torch.argmax(linear_output.detach(), dim=-1)
         pretrained_output = pretrained_model(argmax_output)
-        pretrained_output=pretrained_output.softmax(dim=-1)
+        pretrained_output = pretrained_output.softmax(dim=-1)
+
+        # calculate the accuracy:
+        model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
+        model_predicted_labels = model_predicted_labels[y != padding_value]
+        predicted_labels = argmax_output[y != padding_value]
+        y = y[y != padding_value]
+        e_acc.append((predicted_labels == y).sum().item() / y.numel())
+        e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
+
+        # calculate the loss:
         linear_output = linear_output.view(-1, linear_output.shape[-1])
-        pretrained_output = pretrained_output.view(-1,pretrained_output.shape[-1])
+        pretrained_output = pretrained_output.view(-1, pretrained_output.shape[-1])
+        mask = torch.zeros_like(x)
+        mask[x != padding_value] = 1
         masked_inputs = linear_output[mask.view(-1)]
         masked_targets = pretrained_output[mask.view(-1)]
-
         loss = loss_fn(masked_inputs, masked_targets)
         e_loss.append(loss.item())
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        acc = 0
-        count = 0
-        for i,(single_x, single_y) in enumerate(zip(argmax_output, y)):
 
-            single_x = single_x.numpy()
-            single_y = single_y.numpy()
-            single_x = single_x[single_y != padding_value]
-            single_y = single_y[single_y != padding_value]
-            if i==0 and j==0:
-                print(single_x)
-            if len(single_x) != len(single_y):
-                continue
-            acc += (single_x == single_y).mean()
-            count += 1
-        if count:
-            e_acc.append(acc / count)
+
     # scheduler.step()
     print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)}")
-    # torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
+    torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
