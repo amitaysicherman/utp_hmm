@@ -57,7 +57,7 @@ if __name__ == '__main__':
         valid_output_file = "TIMIT_TRAIN_VAL_PH"
         test_file = "TIMIT_TEST_PH.txt"
         g2p = None
-        repeats = 50
+        repeats = 500
     else:  # 'lr'
         train_file = "libri_train.txt"
         valid_output_file = "libri_train_val"
