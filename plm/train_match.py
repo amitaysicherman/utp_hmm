@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from tqdm import tqdm
 from text_to_phonemes_index import phonemes_to_index
+import torch.nn.functional as F
 
 unit_count = 100
 phonemes_count = input_size + 1
@@ -94,27 +95,37 @@ for ephoc in range(ephocs):
 
         pretrained_output = pretrained_model(argmax_output)
         pretrained_output = pretrained_output.softmax(dim=-1)
+        model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
+
+        loss = F.cross_entropy(
+            linear_output.transpose(1, 2),
+            model_predicted_labels,
+            ignore_index=padding_value
+        )
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
 
         # calculate the accuracy:
-        model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
         model_predicted_labels = model_predicted_labels[y != padding_value]
         predicted_labels = argmax_output[y != padding_value]
         y = y[y != padding_value]
         e_acc.append((predicted_labels == y).sum().item() / y.numel())
         e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
 
-        # calculate the loss:
-        linear_output = linear_output.view(-1, linear_output.shape[-1])
-        pretrained_output = pretrained_output.view(-1, pretrained_output.shape[-1])
-        mask = torch.zeros_like(x)
-        mask[x != padding_value] = 1
-        masked_inputs = linear_output[mask.view(-1)]
-        masked_targets = pretrained_output[mask.view(-1)]
-        loss = loss_fn(masked_inputs, masked_targets)
-        e_loss.append(loss.item())
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+
+
+        # linear_output = linear_output.view(-1, linear_output.shape[-1])
+        # pretrained_output = pretrained_output.view(-1, pretrained_output.shape[-1])
+        # mask = torch.zeros_like(x)
+        # mask[x != padding_value] = 1
+        # masked_inputs = linear_output[mask.view(-1)]
+        # masked_targets = pretrained_output[mask.view(-1)]
+        # loss = loss_fn(masked_inputs, masked_targets)
+        # e_loss.append(loss.item())
+        # optimizer.zero_grad()
+        # loss.backward()
+        # optimizer.step()
 
     # scheduler.step()
     print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)} acc_m {np.mean(e_acc_m)}")
