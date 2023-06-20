@@ -12,13 +12,13 @@ input_size = 40  # Number of tokens (0-38 + padding token)
 d_model = 256
 nhead = 4
 num_layers = 6
-batch_size = 1024
+batch_size = 2048
 num_epochs = 100
-max_len = 150
+max_len = 50
 mask_value = input_size - 1
 padding_value = input_size
 
-config_name = "prep_random_small"
+config_name = "prep_random_small_timit"
 
 noise_p = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
@@ -56,10 +56,10 @@ class PhonemesDataset(Dataset):
     def __init__(self, prefix, max_len=max_len,
                  padding_value=padding_value):
 
-        with open(f'{prefix}_CLEAN.txt', 'r') as f:
+        with open(f'{prefix}_clean.txt', 'r') as f:
             clean_data = f.read().splitlines()
         clean_data = [list(map(int, line.split())) for line in clean_data]
-        with open(f'{prefix}_NOISE.txt', 'r') as f:
+        with open(f'{prefix}_noise.txt', 'r') as f:
             noise_data = f.read().splitlines()
         noise_data = [list(map(int, line.split())) for line in noise_data]
 
@@ -138,8 +138,8 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-    train_data = DataLoader(PhonemesDataset("LR960"), batch_size=batch_size, shuffle=False, drop_last=True)
-    test_data = DataLoader(PhonemesDataset("LRTEST"), batch_size=batch_size, shuffle=False,
+    train_data = DataLoader(PhonemesDataset("TIMIT_TRAIN_PH"), batch_size=batch_size, shuffle=False, drop_last=True)
+    test_data = DataLoader(PhonemesDataset("TIMIT_TEST_PH"), batch_size=batch_size, shuffle=False,
                            drop_last=True)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
