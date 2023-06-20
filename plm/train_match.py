@@ -53,6 +53,17 @@ class UnitsDataset(Dataset):
 
 # Define the linear model
 class LinearModel(nn.Module):
+
+    def reset_parameters(self):
+        output_dim = self.emb.embedding_dim
+        input_dim = self.emb.num_embeddings
+        for i in range(input_dim):
+            values = torch.randn(output_dim)
+            random_index = torch.randint(output_dim, size=(1,))
+            values[random_index] = 0.5
+            values /= values.sum()  # Normalize values to sum to 0.5
+            self.emb.weight.data[i].copy_(values)
+
     def __init__(self, input_dim=unit_count, emd_dim=256, output_dim=phonemes_count):
         super(LinearModel, self).__init__()
         self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1)
@@ -89,6 +100,10 @@ optimizer = optim.Adam(linear_model.parameters(), lr=0.01)
 # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,step_size=10, gamma=0.1)
 
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
+
+best_loss = float('inf')
+no_improvement_epochs = 0
+
 for ephoc in range(ephocs):
     e_loss = []
     e_acc = []
@@ -133,7 +148,16 @@ for ephoc in range(ephocs):
         # optimizer.step()
 
         e_loss.append(loss.item())
+        if loss < best_loss:
+            best_loss = loss
+            no_improvement_epochs = 0
+        else:
+            no_improvement_epochs += 1
 
+        # Reset embedding values if no improvement for specified epochs
+        if no_improvement_epochs >= 5:
+            linear_model.reset_parameters()
+            no_improvement_epochs = 0
     # scheduler.step()
     print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)} acc_m {np.mean(e_acc_m)}")
     torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
