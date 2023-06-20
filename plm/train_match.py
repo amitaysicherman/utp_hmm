@@ -114,5 +114,5 @@ for ephoc in range(ephocs):
         optimizer.step()
 
     # scheduler.step()
-    print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)}")
+    print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)} acc_m {np.mean(e_acc_m)}")
     torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
