@@ -9,22 +9,39 @@ from text_to_phonemes_index import phonemes_to_index
 import torch.nn.functional as F
 
 unit_count = 100
-phonemes_count = input_size + 1
+phonemes_count = input_size-1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cp_file = "./models/prep_random_small_timit_15.cp"
-
-batch_size = 512
+units_padding_value = unit_count
+batch_size = 2048
 ephocs = 300
 
+
+def get_superv_mapping():
+    with open("../data/code100.txt") as f:
+        code100 = f.read().splitlines()
+    code100 = [[int(y) for y in x.split()] for x in code100]
+
+    with open("../data/phonemes.txt") as f:
+        phonemes = f.read().splitlines()
+    phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
+                phonemes]
+
+    units_to_phonemes = np.zeros((unit_count+1, padding_value+1))
+    for i, (u, p) in enumerate(tqdm(zip(sum(code100, []), sum(phonemes, [])))):
+        units_to_phonemes[u, p] += 1
+    units_to_phonemes[unit_count, padding_value] = 1
+    print(units_to_phonemes.shape)
+    return units_to_phonemes
 
 def pad_seq(data, max_len, padding_value):
     x = []
     for d in tqdm(data):
         sequence = d
         if len(sequence) > max_len:
-            sequence = np.array(list(sequence[:max_len]), dtype=np.int8)
+            sequence = np.array(list(sequence[:max_len]))
         else:
-            sequence = np.array(list(sequence) + [padding_value] * (max_len - len(sequence)), dtype=np.int8)
+            sequence = np.array(list(sequence) + [padding_value] * (max_len - len(sequence)))
         x.append(sequence)
     return x
 
@@ -35,7 +52,7 @@ class UnitsDataset(Dataset):
         with open(data_path, 'r') as f:
             lines = f.read().splitlines()
         data = [[int(x) for x in line.split()] for line in lines]
-        self.x = pad_seq(data, max_len, padding_value)
+        self.x = pad_seq(data, max_len, units_padding_value)
 
         with open(phonemes_path, 'r') as f:
             lines = f.read().splitlines()
@@ -54,27 +71,11 @@ class UnitsDataset(Dataset):
 # Define the linear model
 class LinearModel(nn.Module):
 
-    def reset_parameters(self):
-        output_dim = self.emb.embedding_dim
-        input_dim = self.emb.num_embeddings
-        for i in range(input_dim):
-            values = torch.randn(output_dim)
-            random_index = torch.randint(output_dim, size=(1,))
-            values[random_index] = 0.5
-            values /= values.sum()  # Normalize values to sum to 0.5
-            self.emb.weight.data[i].copy_(values)
-
-    def __init__(self, input_dim=unit_count, emd_dim=256, output_dim=phonemes_count):
+    def __init__(self, input_dim=unit_count+1, emd_dim=256, output_dim=padding_value+1):
         super(LinearModel, self).__init__()
         self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1)
-
-        # Initialize each embedding vector
-        for i in range(input_dim):
-            values = torch.randn(output_dim)
-            random_index = torch.randint(output_dim, size=(1,))
-            values[random_index] = 0.5
-            values /= values.sum()  # Normalize values to sum to 0.5
-            self.emb.weight.data[i].copy_(values)
+        print(self.emb.weight.data.shape)
+        self.emb.weight.data.copy_(torch.from_numpy(get_superv_mapping()))
 
         # self.linear = nn.Linear(emd_dim, output_dim)
 
@@ -101,8 +102,6 @@ optimizer = optim.Adam(linear_model.parameters(), lr=0.01)
 
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
 
-best_loss = float('inf')
-no_improvement_epochs = 0
 
 for ephoc in range(ephocs):
     e_loss = []
@@ -113,15 +112,15 @@ for ephoc in range(ephocs):
         y = y.to(device)
         # apply the models:
         linear_output = linear_model(x)
-        # argmax_output = torch.argmax(linear_output.detach(), dim=-1)
-        argmax_output = torch.multinomial(linear_output.softmax(dim=-1).view(-1, phonemes_count), 1).view(
-            linear_output.size()[:-1])
+        argmax_output = torch.argmax(linear_output.detach(), dim=-1)
+        # argmax_output = torch.multinomial(linear_output.softmax(dim=-1).view(-1, phonemes_count), 1).view(
+        #     linear_output.size()[:-1])
 
         pretrained_output = pretrained_model(argmax_output)
-        # model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
+        model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
 
-        model_predicted_labels = torch.multinomial(model_predicted_labels.softmax(dim=-1).view(-1, phonemes_count), 1).view(
-            model_predicted_labels.size()[:-1])
+        # model_predicted_labels = torch.multinomial(pretrained_output.softmax(dim=-1).view(-1, phonemes_count), 1).view(
+        #     model_predicted_labels.size()[:-1])
 
 
         loss = F.cross_entropy(
@@ -153,16 +152,9 @@ for ephoc in range(ephocs):
         # optimizer.step()
 
         e_loss.append(loss.item())
-        if loss < best_loss:
-            best_loss = loss
-            no_improvement_epochs = 0
-        else:
-            no_improvement_epochs += 1
+        print(f"ephoc {ephoc} batch {j} loss {loss.item()} acc {e_acc[-1]} acc_m {e_acc_m[-1]}")
 
-        # Reset embedding values if no improvement for specified epochs
-        if no_improvement_epochs >= 5:
-            linear_model.reset_parameters()
-            no_improvement_epochs = 0
+
     # scheduler.step()
     print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)} acc_m {np.mean(e_acc_m)}")
     torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
