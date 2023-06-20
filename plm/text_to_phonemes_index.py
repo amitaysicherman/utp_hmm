@@ -17,7 +17,7 @@ def raplace_random(x, p):
     return x
 
 
-def add_noise_to_file(file_name, g2p=None, repeats=50):
+def add_noise_to_file(file_name, output_base, g2p=None, repeats=50):
     print("start reading", file_name)
     with open(file_name, 'r') as file:
         lines = file.read().splitlines()
@@ -41,9 +41,9 @@ def add_noise_to_file(file_name, g2p=None, repeats=50):
             final_clean.append(" ".join([str(p) for p in phonemes]))
             noise_phones = raplace_random(phonemes, random.random())
             final_noise.append(" ".join([str(p) for p in noise_phones]))
-    with open(file_name.replace(".txt", "_clean.txt"), 'w') as file:
+    with open(output_base + "_clean.txt", 'w') as file:
         file.write("\n".join(final_clean))
-    with open(file_name.replace(".txt", "_noise.txt"), 'w') as file:
+    with open(output_base + "_noise.txt", 'w') as file:
         file.write("\n".join(final_noise))
 
 
@@ -54,14 +54,17 @@ if __name__ == '__main__':
     vars = parser.parse_args()
     if vars.dataset == "tm":
         train_file = "TIMIT_TRAIN_PH.txt"
+        valid_output_file = "TIMIT_TRAIN_VAL_PH"
         test_file = "TIMIT_TEST_PH.txt"
         g2p = None
         repeats = 50
     else:  # 'lr'
         train_file = "libri_train.txt"
+        valid_output_file = "libri_train_val"
         test_file = "libri_test.txt"
         g2p = G2p()
         repeats = 10
 
-    add_noise_to_file(train_file, g2p=g2p, repeats=repeats)
-    add_noise_to_file(test_file, g2p=g2p, repeats=repeats)
+    add_noise_to_file(train_file, output_base=train_file.replace(".txt", ""), g2p=g2p, repeats=repeats)
+    add_noise_to_file(train_file, output_base=valid_output_file, g2p=g2p, repeats=repeats)
+    add_noise_to_file(test_file, output_base=test_file.replace(".txt", ""), g2p=g2p, repeats=repeats)
