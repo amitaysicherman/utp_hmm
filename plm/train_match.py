@@ -94,7 +94,7 @@ for ephoc in range(ephocs):
         #     linear_output.size()[:-1])
 
         pretrained_output = pretrained_model(argmax_output)
-        pretrained_output = pretrained_output.softmax(dim=-1)
+        # pretrained_output = pretrained_output.softmax(dim=-1)
         model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
 
         loss = F.cross_entropy(
@@ -122,7 +122,7 @@ for ephoc in range(ephocs):
         # masked_inputs = linear_output[mask.view(-1)]
         # masked_targets = pretrained_output[mask.view(-1)]
         # loss = loss_fn(masked_inputs, masked_targets)
-        # e_loss.append(loss.item())
+        e_loss.append(loss.item())
         # optimizer.zero_grad()
         # loss.backward()
         # optimizer.step()
