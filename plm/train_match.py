@@ -89,9 +89,9 @@ for ephoc in range(ephocs):
         y = y.to(device)
         # apply the models:
         linear_output = linear_model(x)
-        # argmax_output = torch.argmax(linear_output.detach(), dim=-1)
-        argmax_output = torch.multinomial(linear_output.softmax(dim=-1).view(-1, phonemes_count), 1).view(
-            linear_output.size()[:-1])
+        argmax_output = torch.argmax(linear_output.detach(), dim=-1)
+        # argmax_output = torch.multinomial(linear_output.softmax(dim=-1).view(-1, phonemes_count), 1).view(
+        #     linear_output.size()[:-1])
 
         pretrained_output = pretrained_model(argmax_output)
         pretrained_output = pretrained_output.softmax(dim=-1)
