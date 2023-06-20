@@ -55,7 +55,7 @@ class UnitsDataset(Dataset):
 class LinearModel(nn.Module):
     def __init__(self, input_dim=unit_count, emd_dim=256, output_dim=phonemes_count):
         super(LinearModel, self).__init__()
-        self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1)
+        self.emb = nn.Embedding(input_dim, output_dim, max_norm=1, norm_type=1, scale_grad_by_freq=True)
         # self.linear = nn.Linear(emd_dim, output_dim)
 
     def forward(self, x):
@@ -94,9 +94,7 @@ for ephoc in range(ephocs):
         #     linear_output.size()[:-1])
 
         pretrained_output = pretrained_model(argmax_output)
-        # pretrained_output = pretrained_output.softmax(dim=-1)
         model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
-
         loss = F.cross_entropy(
             linear_output.transpose(1, 2),
             model_predicted_labels,
@@ -104,6 +102,7 @@ for ephoc in range(ephocs):
         )
         loss.backward()
         optimizer.step()
+        optimizer.zero_grad()
         optimizer.zero_grad()
 
         # calculate the accuracy:
@@ -113,8 +112,6 @@ for ephoc in range(ephocs):
         e_acc.append((predicted_labels == y).sum().item() / y.numel())
         e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
 
-
-
         # linear_output = linear_output.view(-1, linear_output.shape[-1])
         # pretrained_output = pretrained_output.view(-1, pretrained_output.shape[-1])
         # mask = torch.zeros_like(x)
@@ -122,10 +119,11 @@ for ephoc in range(ephocs):
         # masked_inputs = linear_output[mask.view(-1)]
         # masked_targets = pretrained_output[mask.view(-1)]
         # loss = loss_fn(masked_inputs, masked_targets)
-        e_loss.append(loss.item())
         # optimizer.zero_grad()
         # loss.backward()
         # optimizer.step()
+
+        e_loss.append(loss.item())
 
     # scheduler.step()
     print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)} acc_m {np.mean(e_acc_m)}")
