@@ -5,7 +5,7 @@ from train import get_model
 
 from mapping import phonemes_to_index
 
-cp_file = "./models/timit_15.cp"
+cp_file = ".models/prep_random_small_timit_15.cp"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
