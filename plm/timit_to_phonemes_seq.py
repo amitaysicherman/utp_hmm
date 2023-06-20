@@ -7,13 +7,13 @@ def get_phonemes(base_dir, ignore_sil=True):
     files = glob.glob(base_dir + "*/*/*.PHN")
 
     names = [x.replace(base_dir, "") for x in files]
-    with open(base_dir.split("/")[-1] + "_names.txt", 'w') as f:
+    with open("TIMIT_"+base_dir.split("/")[-2] + "_names.txt", 'w') as f:
         for name in names:
             f.write(f'{name}\n')
 
     all_phonemes = []
     all_phonemes_indexes = []
-    for file in files:
+    for file in tqdm(files):
         with open(file, 'r') as f:
             phonemes = [x.split()[2] for x in f.read().splitlines()]
         phonemes = [TIMIT_61_39[phoneme] for phoneme in phonemes]
