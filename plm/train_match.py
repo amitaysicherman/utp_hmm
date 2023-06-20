@@ -82,11 +82,11 @@ train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, dr
 for ephoc in range(ephocs):
     e_loss = []
     e_acc = []
-    e_acc_m=[]
+    e_acc_m = []
     for j, (x, y) in enumerate(tqdm(train_data)):
         x = x.to(device)
-
-        #apply the models:
+        y = y.to(device)
+        # apply the models:
         linear_output = linear_model(x)
         argmax_output = torch.argmax(linear_output.detach(), dim=-1)
         pretrained_output = pretrained_model(argmax_output)
@@ -112,7 +112,6 @@ for ephoc in range(ephocs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
 
     # scheduler.step()
     print(f"ephoc {ephoc} loss {np.mean(e_loss)} acc {np.mean(e_acc)}")
