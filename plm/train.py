@@ -20,36 +20,25 @@ padding_value = input_size
 
 config_name = "prep_random_small_timit"
 
-noise_p = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-
 lr = 5e-4
 
 
 class Scores:
     def __init__(self, name):
         self.name = name
-        self.loss = [0] * len(noise_p)
-        self.acc = [0] * len(noise_p)
-        self.counts = [0] * len(noise_p)
+        self.loss = []
+        self.acc = []
 
-    def update(self, loss, acc, p):
-        i = noise_p.index(p)
-        self.loss[i] += loss
-        self.acc[i] += acc
-        self.counts[i] += 1
+    def update(self, loss, acc):
+        self.loss.append(loss)
+        self.acc.append(acc)
 
     def __repr__(self):
-        loss = [self.loss[i] / self.counts[i] if self.counts[i] > 0 else 0 for i in range(len(noise_p))]
-        acc = [self.acc[i] / self.counts[i] if self.counts[i] > 0 else 0 for i in range(len(noise_p))]
-        tot_loss = sum([l * c for l, c in zip(loss, self.counts)]) / sum(self.counts)
-        tot_acc = sum([a * c for a, c in zip(acc, self.counts)]) / sum(self.counts)
-        return f"{self.name} loss: {loss} \n{self.name} acc: {acc} \n{self.name} counts: {self.counts}" \
-               f"\n{self.name} total loss: {tot_loss} \n{self.name} total acc: {tot_acc}"
+        return f"\n{self.name} loss: {np.mean(self.loss)} \n{self.name} acc: {np.mean(self.acc)}"
 
     def reset(self):
-        self.loss = [0] * len(noise_p)
-        self.acc = [0] * len(noise_p)
-        self.counts = [0] * len(noise_p)
+        self.loss = []
+        self.acc = []
 
 
 class PhonemesDataset(Dataset):
@@ -79,7 +68,6 @@ class PhonemesDataset(Dataset):
             self.y.append(clean)
 
     def __len__(self):
-
         return len(self.x)
 
     def __getitem__(self, idx):
@@ -116,11 +104,8 @@ def single_round(model, x, y, is_train, scorer):
     predicted_labels = torch.argmax(logits, dim=-1)
     predicted_labels = predicted_labels[y != padding_value]
     y = y[y != padding_value]
-    x = x[x != padding_value]
     acc = (predicted_labels == y).sum().item() / y.numel()
-    p = (x != y).cpu().numpy().astype(int).mean()
-    p = round(p, 1)
-    scorer.update(loss.item(), acc, p)
+    scorer.update(loss.item(), acc)
 
 
 if __name__ == '__main__':
@@ -139,6 +124,7 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss().to(device)
 
     train_data = DataLoader(PhonemesDataset("TIMIT_TRAIN_PH"), batch_size=batch_size, shuffle=False, drop_last=True)
+    val_data = DataLoader(PhonemesDataset("TIMIT_TRAIN_VAL_PH"), batch_size=batch_size, shuffle=False, drop_last=True)
     test_data = DataLoader(PhonemesDataset("TIMIT_TEST_PH"), batch_size=batch_size, shuffle=False,
                            drop_last=True)
 
@@ -146,6 +132,7 @@ if __name__ == '__main__':
 
     for epoch in range(0, num_epochs):
         train_scores = Scores("train")
+        val_scores = Scores("val")
         test_scores = Scores("test")
         model.train()
         for (x, y) in tqdm(train_data):
@@ -153,8 +140,11 @@ if __name__ == '__main__':
 
         model.eval()
         with torch.no_grad():
+            for (x, y) in tqdm(val_data):
+                single_round(model, x, y, False, val_scores)
             for (x, y) in tqdm(test_data):
                 single_round(model, x, y, False, test_scores)
+
 
         cp_name = f"models/{config_name}_{epoch}.cp"
         if torch.cuda.device_count() > 1:
@@ -164,11 +154,13 @@ if __name__ == '__main__':
 
         print("Epoch", epoch)
         print(train_scores)
+        print(val_scores)
         print(test_scores)
 
         with open(f"results_{config_name}.txt", "a") as f:
             f.write(f"Epoch {epoch}\n")
             f.write(f"{train_scores}\n")
+            f.write(f"{val_scores}\n")
             f.write(f"{test_scores}\n")
             f.write("\n")
 
