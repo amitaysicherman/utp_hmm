@@ -62,8 +62,6 @@ if __name__ == '__main__':
         test_file = "libri_test.txt"
         g2p = G2p()
         repeats = 10
-    with open(vars.input_file, 'r') as file:
-        lines = file.read().splitlines()
 
     add_noise_to_file(train_file, g2p=g2p, repeats=repeats)
     add_noise_to_file(test_file, g2p=g2p, repeats=repeats)
