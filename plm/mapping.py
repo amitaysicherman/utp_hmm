@@ -4,6 +4,8 @@ phonemes_to_index = {'AA': 0, 'AE': 1, 'AH': 2, 'AO': 3, 'AW': 4, 'AY': 5, 'B': 
                      'TH': 31, 'UH': 32, 'UW': 33, 'V': 34, 'W': 35, 'Y': 36, 'Z': 37, 'ZH': 38}
 index_to_phonemes = {v: k for k, v in phonemes_to_index.items()}
 
+mis_index=max(phonemes_to_index.values())+1
+
 TIMIT_61_39 = {'aa': 'aa',
        'ae': 'ae',
        'ah': 'ah',

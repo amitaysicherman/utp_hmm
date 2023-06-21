@@ -7,6 +7,7 @@ import numpy as np
 from torch.nn.parallel import DataParallel
 from x_transformers import TransformerWrapper, Encoder
 import torch.nn.functional as F
+from mapping import phonemes_to_index, mis_index
 
 input_size = 40  # Number of tokens (0-38 + padding token)
 d_model = 256
@@ -18,7 +19,10 @@ max_len = 50
 mask_value = input_size - 1
 padding_value = input_size
 
-config_name = "prep_random_small_timit"
+train_file = "TIMIT_TRAIN_PH"
+val_file = "TIMIT_TRAIN_VAL_PH"
+test_file = "TIMIT_TEST_PH"
+config_name = "mis_small_timit_noise"
 
 lr = 5e-4
 
@@ -123,9 +127,9 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-    train_data = DataLoader(PhonemesDataset("TIMIT_TRAIN_PH"), batch_size=batch_size, shuffle=False, drop_last=True)
-    val_data = DataLoader(PhonemesDataset("TIMIT_TRAIN_VAL_PH"), batch_size=batch_size, shuffle=False, drop_last=True)
-    test_data = DataLoader(PhonemesDataset("TIMIT_TEST_PH"), batch_size=batch_size, shuffle=False,
+    train_data = DataLoader(PhonemesDataset(train_file), batch_size=batch_size, shuffle=False, drop_last=True)
+    val_data = DataLoader(PhonemesDataset(val_file), batch_size=batch_size, shuffle=False, drop_last=True)
+    test_data = DataLoader(PhonemesDataset(test_file), batch_size=batch_size, shuffle=False,
                            drop_last=True)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
