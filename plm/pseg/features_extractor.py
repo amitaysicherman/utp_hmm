@@ -105,7 +105,7 @@ class HubertFeaturesExtractor:
         )[0]
         features = features[0].detach().cpu().numpy()
         combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
-        phonemes = read_phonemes(audio_file.replace(".wav", ".PHN"))
+        phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
 
         combine_features = []
         for s, e in combine_ranges:
