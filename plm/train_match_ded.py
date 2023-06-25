@@ -17,7 +17,7 @@ units_padding_value = unit_count
 batch_size = 2048
 # blank_value = padding_value + 1
 ephocs = 50
-lr = 0.01
+lr = 0.1
 
 sil_units = [71, 93, 83, 22, 63, 4, 56, 20, 10, 81, 12, 40, 54, 39, 67, 84, 96, 55, 8, 34, 57, 72]
 
