@@ -15,7 +15,7 @@ nhead = 4
 num_layers = 6
 batch_size = 2048
 num_epochs = 100
-max_len = 50
+max_len = 100
 mask_value = input_size - 1
 padding_value = input_size
 
