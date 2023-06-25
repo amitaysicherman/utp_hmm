@@ -6,17 +6,16 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import random
-from torch.nn import CTCLoss
 from jiwer import wer
+import torch.nn.functional as F
 
 unit_count = 100
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cp_file = "./models/prep_random_small_timit_15.cp"
+cp_file = "./models/timit_small_20.cp"
 units_padding_value = unit_count
-batch_size = 1  # 2048
-blank_value = padding_value + 1
+batch_size = 2048
+# blank_value = padding_value + 1
 ephocs = 50
 lr = 0.01
 
@@ -37,8 +36,8 @@ class Evaluator:
             phonemes = f.read().splitlines()
         self.phonemes = [[int(y) for y in x.split()] for x in phonemes]
 
-    def eval_mapping(self, mapping_):
-        mapping = [m if m != blank_value else "" for m in mapping_]
+    def eval_mapping(self, mapping):
+        # mapping = [m if m != blank_value else "" for m in mapping_]
         wer_score = []
         for c, p in zip(self.code100, self.phonemes):
             p_c = [mapping[c_] for c_ in c]
@@ -49,9 +48,9 @@ class Evaluator:
 
 
 def get_superv_mapping():
-    units_to_phonemes = np.zeros((unit_count + 1, blank_value + 1))
+    units_to_phonemes = np.zeros((unit_count + 1, padding_value + 1))
     for i in range(len(units_to_phonemes)):
-        units_to_phonemes[i] = np.random.dirichlet(np.ones(blank_value + 1), size=1)
+        units_to_phonemes[i] = np.random.dirichlet(np.ones(padding_value + 1), size=1)
     return units_to_phonemes
 
 
@@ -77,11 +76,10 @@ class UnitsDataset(Dataset):
             line = [line[0]] + [line[i] for i in range(1, len(line)) if line[i] != line[i - 1]]
             line = [x for x in line if x not in sil_units]
             data.append(line)
-            print(len(line),line)
         self.x = pad_seq(data, max_len, units_padding_value)
 
     def __len__(self):
-        return 1  # len(self.x)
+        return len(self.x)
 
     def __getitem__(self, idx):
         return torch.LongTensor(self.x[idx])
@@ -90,7 +88,7 @@ class UnitsDataset(Dataset):
 # Define the linear model
 class LinearModel(nn.Module):
 
-    def __init__(self, input_dim=unit_count + 1, output_dim=blank_value + 1):
+    def __init__(self, input_dim=unit_count + 1, output_dim=padding_value + 1):
         super(LinearModel, self).__init__()
         self.emb = nn.Embedding(input_dim, output_dim, max_norm=1)
         print(self.emb.weight.data.shape)
@@ -105,8 +103,16 @@ class LinearModel(nn.Module):
         return np.mean(real_map == emb_map)
 
     def forward(self, x):
-        x = self.emb(x)
-        return x
+        probs = self.emb(x)
+        labels = torch.argmax(probs.detach(), dim=-1)
+        labels_ded = torch.zeros_like(labels) + padding_value
+        labels_ded_inv = torch.zeros_like(labels) + padding_value
+        for i in range(len(labels)):
+            ded, inv_ded = torch.unique_consecutive(labels[i], return_inverse=True)
+            labels_ded[i, :len(ded)] = ded
+            labels_ded_inv[i] = inv_ded
+
+        return probs, labels, labels_ded, labels_ded_inv
 
 
 pretrained_model = get_model()
@@ -117,7 +123,7 @@ pretrained_model.eval()
 for param in pretrained_model.parameters():
     param.requires_grad = False
 
-ctc_loss = CTCLoss(blank=blank_value).to(device)
+# ctc_loss = CTCLoss(blank=blank_value).to(device)
 
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
 Evaluator = Evaluator()
@@ -133,58 +139,26 @@ for random_count in [100]:
         print(mapping)
         map_acc = Evaluator.eval_mapping(mapping)
         for j, x in enumerate(train_data):
-            print("map: ", linear_model.emb.weight.data.argmax(axis=1).cpu().detach().numpy().flatten())
             x = x.to(device)
-            # apply the models:
+            probs, labels, labels_ded, labels_ded_inv = linear_model(x)
+            print(labels_ded.shape)
+            labels_ded[x == units_padding_value] = padding_value
 
-            linear_output = linear_model(x)
-            linear_output[:, :, blank_value] = 0
-            argmax_output = torch.argmax(linear_output.detach(), dim=-1)
-            argmax_output[x == units_padding_value] = padding_value
-            argmax_output_ded = []
-            argmax_output_ded_len = []
-            for i in argmax_output:
-                new_seq = [i[0]] + [i[j] for j in range(1, len(i)) if i[j] != i[j - 1]]
-                new_seq = [x for x in new_seq if x != padding_value]
-                argmax_output_ded_len.append(len(new_seq))
-                argmax_output_ded.append(new_seq + [padding_value] * (max_len - len(new_seq)))
-            argmax_output_ded = torch.LongTensor(argmax_output_ded).to(device)
-            argmax_output_ded_len = torch.LongTensor(argmax_output_ded_len).to(device)
-            input_seq_lengths = []
-            for i in range(x.size(0)):
-                seq_length = 0
-                for j in range(len(x[i])):
-                    if x[i][j] != units_padding_value:
-                        seq_length += 1
-                    else:
-                        break
-                input_seq_lengths.append(seq_length)
-
-            input_seq_lengths = torch.tensor(input_seq_lengths, dtype=torch.long)
-
-            # print(argmax_output_ded)
-
-            pretrained_output = pretrained_model(argmax_output_ded)
+            pretrained_output = pretrained_model(labels_ded)
             model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
-            model_predicted_labels[argmax_output_ded == padding_value] = padding_value
-            model_predicted_labels_ded = []
-            model_predicted_labels_ded_len = []
-            for i in model_predicted_labels:
-                new_seq = [i[0]] + [i[j] for j in range(1, len(i)) if i[j] != i[j - 1]]
-                model_predicted_labels_ded_len.append(len(new_seq) - (1 if new_seq[-1] == padding_value else 0))
-                model_predicted_labels_ded.append(new_seq + [padding_value] * (max_len - len(new_seq)))
-            model_predicted_labels_ded = torch.LongTensor(model_predicted_labels_ded).to(device)
-            model_predicted_labels_ded_len = torch.LongTensor(model_predicted_labels_ded_len).to(device)
-            print(input_seq_lengths, model_predicted_labels_ded_len)
-            loss = ctc_loss(linear_output.transpose(0, 1).log_softmax(2), model_predicted_labels_ded, input_seq_lengths,
-                            model_predicted_labels_ded_len)
+            model_predicted_labels_dup = torch.zeros_like(labels) + padding_value
+            for i in range(len(model_predicted_labels_dup)):
+                model_predicted_labels_dup[i, :len(labels_ded_inv[i])] = model_predicted_labels[i, labels_ded_inv[i]]
+            loss = F.cross_entropy(
+                probs.transpose(1, 2),
+                model_predicted_labels_dup,
+                ignore_index=padding_value
+            )
 
-            # print(loss.item())
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
             e_loss.append(loss.item())
-            print(loss.item())
 
         loss_all.append(np.mean(e_loss))
         mapp_all.append(map_acc)
@@ -199,4 +173,5 @@ for random_count in [100]:
     ax3.plot(mapp_all, label="acc_map")
     ax3.legend()
     fig.tight_layout()
+    fig.savefig("tmp.png")
     plt.show()
