@@ -16,6 +16,7 @@ class hp:
     pred_offset: int = 0
     batch_shuffle: bool = False
     latent_dim: int = 0
+    n_negatives: int = 1
 
 
 def replicate_first_k_frames(x, k, dim):
