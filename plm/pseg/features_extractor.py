@@ -146,7 +146,7 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--timit_base', type=str, default="./TIMIT/data/TRAIN/")
+    parser.add_argument('--timit_base', type=str, default="/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN")
     parser.add_argument('--output_base', type=str, default='./data')
     parser.add_argument('--hubert_cp', type=str,
                         default="./models/hubert_base_ls960.pt")
