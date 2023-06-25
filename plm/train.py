@@ -22,7 +22,7 @@ padding_value = input_size
 train_file = "TIMIT_TRAIN_PH"
 val_file = "TIMIT_TRAIN_VAL_PH"
 test_file = "TIMIT_TEST_PH"
-config_name = "mis_small_timit_noise"
+config_name = "timit_small"
 
 lr = 5e-4
 
