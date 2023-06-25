@@ -13,7 +13,7 @@ import random
 unit_count = 100
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cp_file = "./models/prep_random_small_timit_15.cp"
+cp_file = "./models/timit_small_20.cp"
 units_padding_value = unit_count
 batch_size = 2048
 ephocs = 50
