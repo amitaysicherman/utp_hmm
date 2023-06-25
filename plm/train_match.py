@@ -161,7 +161,6 @@ for random_count in [100]*10:
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            optimizer.zero_grad()
 
             model_predicted_labels = model_predicted_labels[y != padding_value]
             predicted_labels = argmax_output[y != padding_value]
