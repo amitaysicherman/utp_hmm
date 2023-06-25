@@ -125,7 +125,7 @@ loss_fn = nn.CrossEntropyLoss().to(device)
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
 
 
-for random_count in [100]*10:
+for iii,random_count in enumerate([100]*10):
     linear_model = LinearModel(random_count=random_count)
     linear_model.to(device)
     optimizer = optim.Adam(linear_model.parameters(), lr=lr)
@@ -189,4 +189,5 @@ for random_count in [100]*10:
     ax3.plot(mapp_all, label="acc_map")
     ax3.legend()
     fig.tight_layout()
+    fig.savefig(f"./tmp{iii}.png")
     plt.show()
