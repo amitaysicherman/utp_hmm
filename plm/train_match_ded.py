@@ -14,7 +14,7 @@ phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cp_file = "./models/timit_small_20.cp"
 units_padding_value = unit_count
-batch_size = 2048
+batch_size = 4
 # blank_value = padding_value + 1
 ephocs = 50
 lr = 0.1
@@ -79,7 +79,7 @@ class UnitsDataset(Dataset):
         self.x = pad_seq(data, max_len, units_padding_value)
 
     def __len__(self):
-        return len(self.x)
+        return 4# len(self.x)
 
     def __getitem__(self, idx):
         return torch.LongTensor(self.x[idx])
@@ -109,6 +109,7 @@ class LinearModel(nn.Module):
         labels_ded_inv = torch.zeros_like(labels) + padding_value
         for i in range(len(labels)):
             ded, inv_ded = torch.unique_consecutive(labels[i], return_inverse=True)
+            print(ded.shape, inv_ded.shape)
             labels_ded[i, :len(ded)] = ded
             labels_ded_inv[i] = inv_ded
 
@@ -162,7 +163,7 @@ for random_count in [100]:
 
         loss_all.append(np.mean(e_loss))
         mapp_all.append(map_acc)
-        print(f"ephoc: {ephoc}, loss: {loss_all[-1]}, map_acc: {mapp_all[-1]}")
+        print(f"ephoc: {ephoc}, loss: {loss_all[-1]}, map_acc: {mapp_all[-1]}",flush=True )
         # torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
 
     fig, (ax1, ax3) = plt.subplots(2, 1, figsize=(10, 10))
