@@ -131,7 +131,7 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
     names = []
     all_phonemes = []
     for audio_file in tqdm(glob.glob(os.path.join(timit_base, "*", "*", "*WAV"))):
-        features, phonemes = hfe.extract_features(audio_file, pseg_model)
+        features, phonemes = hfe.extract_features(audio_file, model)
         features_output_file.append(features)
         lengthes.append(str(len(features)))
         names.append(audio_file.replace(timit_base, ""))
