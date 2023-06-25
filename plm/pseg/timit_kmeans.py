@@ -1,3 +1,4 @@
+#sbatch --gres=gpu:1,vmem:24g --mem=75G --time=7-0 --wrap "python timit_kmeans.py"
 import argparse
 import os.path as osp
 
@@ -7,7 +8,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances
 
 
-def learn_kmeans(feats, nclusters, spherical=False, niter=500, nredo=10, output_file=None, return_centers=True):
+def learn_kmeans(feats, nclusters,  niter=500, nredo=10, output_file=None, return_centers=True):
     kmeans = KMeans(n_clusters=nclusters, n_init=nredo, max_iter=niter, verbose=10, random_state=42)
     kmeans.fit(feats)
     centroids = kmeans.cluster_centers_
@@ -20,7 +21,7 @@ def learn_kmeans(feats, nclusters, spherical=False, niter=500, nredo=10, output_
         return centroids
 
 
-def apply_kmeans(centroids, iterator, spherical=False, output_file=None, return_clusters=False):
+def apply_kmeans(centroids, iterator, output_file=None, return_clusters=False):
     pred_cluster = []
     for f in iterator:
         clusters = pairwise_distances(f, centroids).argmin(axis=-1)
@@ -39,7 +40,6 @@ def features_len_iter(lens, features):
         yield features[curr:curr + l]
         curr += l
 
-
 def main():
     parser = argparse.ArgumentParser()
 
@@ -57,7 +57,7 @@ def main():
     parser.add_argument(
         "--save_dir",
         help="save_dir",
-        default="results",
+        default="data",
     )
     args = parser.parse_args()
     base_dir = args.save_dir

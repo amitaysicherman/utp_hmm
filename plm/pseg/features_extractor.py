@@ -119,8 +119,8 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
     weights = ckpt["state_dict"]
     weights = {k.replace("NFC.", ""): v for k, v in weights.items()}
     model.load_state_dict(weights)
-    model.to(device)
-
+    model.to('cpu')
+    model.eval()
     hfe = HubertFeaturesExtractor(hubert_cp)
     os.makedirs(output_base, exist_ok=True)
     features_file = os.path.join(output_base, "features.npy")
