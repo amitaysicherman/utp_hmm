@@ -16,6 +16,8 @@ from scipy.signal import find_peaks
 import math
 
 step = 320
+
+# to get the labels take the cluster centers, apply PCA into 3 dimensions, and then apply K-means with 2 clusters. one if VAD and the other not.
 vad_labels = np.array(
     [1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1,
      1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1,
@@ -71,7 +73,7 @@ def get_phonemes_ranges(pseg_model, audio):
     preds = preds[1][0]
     preds = replicate_first_k_frames(preds, k=1, dim=1)
     preds = 1 - max_min_norm(preds)
-    preds = detect_peaks(x=preds, lengths=[preds.shape[1]], prominence=0.03)
+    preds = detect_peaks(x=preds, lengths=[preds.shape[1]], prominence=0.05)
 
     preds = preds[0]
     start_end = []
@@ -102,7 +104,6 @@ class HubertFeaturesExtractor:
     def extract_features(self, audio_file, pseg_model):
         audio, _ = torchaudio.load(audio_file)
         audio = audio.to(device)
-
         features = self.model.extract_features(
             source=audio,
             padding_mask=None,
@@ -114,6 +115,7 @@ class HubertFeaturesExtractor:
         is_act = vad_labels[clusters]
 
         vad_audio = []
+
         for i in range(len(is_act)):
             if is_act[i]:
                 vad_audio.append(audio[:, i * self.step:(i + 1) * self.step])
