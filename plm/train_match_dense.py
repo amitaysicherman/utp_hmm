@@ -14,9 +14,13 @@ input_dim = 768
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cp_file = "./models/timit_small_20.cp"
-batch_size =  2048
+batch_size = 2048
 ephocs = 50
 lr = 0.1
+
+features_path = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/features.npy"
+len_path = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/data/features.length"
+phonemes_path = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/data/features.phonemes"
 
 
 def pad_array(data, max_len=max_len):
@@ -42,8 +46,8 @@ def pad_seq(data, max_len, padding_value):
 
 
 class UnitsDataset(Dataset):
-    def __init__(self, features_path="../data/features.npy", len_path='../data/features.length',
-                 phonemes_path="../data/features.phonemes", max_len=max_len,
+    def __init__(self, features_path=features_path, len_path=len_path,
+                 phonemes_path=phonemes_path, max_len=max_len,
                  padding_value=padding_value):
         self.features = np.load(features_path)
         with open(len_path, 'r') as f:
@@ -75,6 +79,7 @@ class LinearModel(nn.Module):
     def __init__(self, input_dim=input_dim, output_dim=padding_value + 1):
         super(LinearModel, self).__init__()
         self.lin = nn.Linear(input_dim, output_dim)
+
     def forward(self, x):
         x = self.lin(x)
         return x
