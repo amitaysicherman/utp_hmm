@@ -17,10 +17,10 @@ cp_file = "./models/timit_small_20.cp"
 batch_size = 2048
 ephocs = 50
 lr = 0.1
-
-features_path = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/features.npy"
-len_path = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/data/features.length"
-phonemes_path = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/data/features.phonemes"
+prefix = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/"
+features_path = f"{prefix}features.npy"
+len_path = f"{prefix}features.length"
+phonemes_path = f"{prefix}features.phonemes"
 
 
 def pad_array(data, max_len=max_len):
