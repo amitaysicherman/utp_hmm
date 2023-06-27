@@ -18,11 +18,13 @@ num_epochs = 100
 max_len = 100
 mask_value = input_size - 1
 padding_value = input_size
-do_dropout = True
-train_file = "TIMIT_TRAIN_PH"
-val_file = "TIMIT_TRAIN_VAL_PH"
-test_file = "TIMIT_TEST_PH"
-config_name = "timit_small_drop_out"
+do_dropout = False
+mis = "_mis"  # ""
+
+train_file = f"TIMIT_TRAIN_PH{mis}"
+val_file = f"TIMIT_TRAIN_VAL_PH{mis}"
+test_file = f"TIMIT_TEST_PH{mis}"
+config_name = f"timit_small{'_drop_out' if do_dropout else ''}{mis}"
 
 lr = 5e-4
 
