@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:2,vmem:24g --mem=75G --time=7-0 --wrap "python train.py"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train.py"
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
