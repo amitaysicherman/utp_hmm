@@ -151,7 +151,7 @@ for random_count in [100]:
             for i in range(len(model_predicted_labels_dup)):
                 model_predicted_labels_dup[i, :len(labels_ded_inv[i])] = model_predicted_labels[i, labels_ded_inv[i]]
             loss = F.cross_entropy(
-                probs.transpose(1, 2),
+                probs.transpose(0, 1).log_softmax(dim=-1),
                 model_predicted_labels_dup,
                 ignore_index=padding_value
             )
