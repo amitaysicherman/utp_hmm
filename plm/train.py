@@ -18,11 +18,11 @@ num_epochs = 100
 max_len = 100
 mask_value = input_size - 1
 padding_value = input_size
-
+do_dropout = True
 train_file = "TIMIT_TRAIN_PH"
 val_file = "TIMIT_TRAIN_VAL_PH"
 test_file = "TIMIT_TEST_PH"
-config_name = "timit_small"
+config_name = "timit_small_drop_out"
 
 lr = 5e-4
 
@@ -79,13 +79,21 @@ class PhonemesDataset(Dataset):
 
 
 def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=num_layers, max_len=max_len):
+    if do_dropout:
+        dropout = 0.25
+    else:
+        dropout = 0.0
     model = TransformerWrapper(
         num_tokens=input_size + 1,
         max_seq_len=max_len,
+        emb_dropout=dropout,
         attn_layers=Encoder(
             dim=d_model,
             depth=num_layers,
-            heads=nhead
+            heads=nhead,
+            layer_dropout=dropout,  # stochastic depth - dropout entire layer
+            attn_dropout=dropout,  # dropout post-attention
+            ff_dropout=dropout  # feedforward dropout
         )
     )
     return model
@@ -148,7 +156,6 @@ if __name__ == '__main__':
                 single_round(model, x, y, False, val_scores)
             for (x, y) in tqdm(test_data):
                 single_round(model, x, y, False, test_scores)
-
 
         cp_name = f"models/{config_name}_{epoch}.cp"
         if torch.cuda.device_count() > 1:
