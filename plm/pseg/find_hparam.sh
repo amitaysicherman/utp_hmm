@@ -7,7 +7,7 @@
 
 LINE=$(sed -n "$SLURM_ARRAY_TASK_ID"p find_hparam.txt)
 p=$(echo "$LINE" | cut -f1 -d " ")
-d=$(echo "$LINE" | cut -f2 -d " ")
+h=$(echo "$LINE" | cut -f2 -d " ")
 t=$(echo "$LINE" | cut -f3 -d " ")
 d=$(echo "$LINE" | cut -f4 -d " ")
 w=$(echo "$LINE" | cut -f5 -d " ")
