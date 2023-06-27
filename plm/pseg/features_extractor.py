@@ -136,7 +136,7 @@ class HubertFeaturesExtractor:
         return np.stack(combine_features), phonemes
 
 
-def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model, km_model):
+def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
     model = NextFrameClassifier()
     ckpt = torch.load(pseg_model, map_location="cpu")
     weights = ckpt["state_dict"]
