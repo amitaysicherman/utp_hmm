@@ -4,7 +4,7 @@ import argparse
 import glob
 import math
 import os
-
+import joblib
 import fairseq
 import numpy as np
 import torch
@@ -15,6 +15,11 @@ from model import NextFrameClassifier
 from scipy.signal import find_peaks
 import math
 
+step = 320
+vad_labels = np.array(
+    [1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1,
+     1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1,
+     1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1])
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TIMIT_61_39 = {'aa': 'aa', 'ae': 'ae', 'ah': 'ah', 'ao': 'aa', 'aw': 'aw', 'ax': 'ah', 'ax-h': 'ah', 'axr': 'er',
                'ay': 'ay', 'b': 'b', 'bcl': 'sil', 'ch': 'ch', 'd': 'd', 'dcl': 'sil', 'dh': 'dh', 'dx': 't',
@@ -97,6 +102,7 @@ class HubertFeaturesExtractor:
     def extract_features(self, audio_file, pseg_model):
         audio, _ = torchaudio.load(audio_file)
         audio = audio.to(device)
+
         features = self.model.extract_features(
             source=audio,
             padding_mask=None,
@@ -104,6 +110,23 @@ class HubertFeaturesExtractor:
             output_layer=self.layer,
         )[0]
         features = features[0].detach().cpu().numpy()
+        clusters = km_model.predict(features)
+        is_act = vad_labels[clusters]
+
+        vad_audio = []
+        for i in range(len(is_act)):
+            if is_act[i]:
+                vad_audio.append(audio[:, i * self.step:(i + 1) * self.step])
+        audio = torch.cat(vad_audio, dim=1)
+        audio = audio.to(device)
+        features = self.model.extract_features(
+            source=audio,
+            padding_mask=None,
+            mask=False,
+            output_layer=self.layer,
+        )[0]
+        features = features[0].detach().cpu().numpy()
+
         combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
         phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
 
@@ -113,7 +136,7 @@ class HubertFeaturesExtractor:
         return np.stack(combine_features), phonemes
 
 
-def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
+def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model, km_model):
     model = NextFrameClassifier()
     ckpt = torch.load(pseg_model, map_location="cpu")
     weights = ckpt["state_dict"]
@@ -151,6 +174,6 @@ if __name__ == "__main__":
     parser.add_argument('--hubert_cp', type=str,
                         default="./models/hubert_base_ls960.pt")
     parser.add_argument('--pseg_model', type=str, default='./models/timit+_pretrained.ckpt')
-
+    km_model = joblib.load("./models/km100.bin")
     args = parser.parse_args()
     save_timit_feaures(args.timit_base, args.output_base, args.hubert_cp, args.pseg_model)
