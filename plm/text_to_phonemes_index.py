@@ -24,8 +24,8 @@ def replace_random_with_mis(x, p):
     for _ in range(add_count):
         i = np.random.randint(0, len(x))
         v = np.random.randint(0, MAX_P)
-        np.insert(x, i, mis_index)
-        np.insert(y, i, v)
+        x = np.insert(x, i, mis_index)
+        y = np.insert(y, i, v)
     return x, y
 
 
@@ -87,6 +87,8 @@ if __name__ == '__main__':
         g2p = G2p()
         repeats = 10
 
-    add_noise_to_file(train_file, output_base=train_file.replace(".txt", ""), g2p=g2p, repeats=repeats,mis_prob=vars.add_mis)
-    add_noise_to_file(train_file, output_base=valid_output_file, g2p=g2p, repeats=repeats,mis_prob=vars.add_mis)
-    add_noise_to_file(test_file, output_base=test_file.replace(".txt", ""), g2p=g2p, repeats=repeats,mis_prob=vars.add_mis)
+    add_noise_to_file(train_file, output_base=train_file.replace(".txt", ""), g2p=g2p, repeats=repeats,
+                      mis_prob=vars.add_mis)
+    add_noise_to_file(train_file, output_base=valid_output_file, g2p=g2p, repeats=repeats, mis_prob=vars.add_mis)
+    add_noise_to_file(test_file, output_base=test_file.replace(".txt", ""), g2p=g2p, repeats=repeats,
+                      mis_prob=vars.add_mis)
