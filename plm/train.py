@@ -10,21 +10,21 @@ import torch.nn.functional as F
 from mapping import phonemes_to_index, mis_index
 
 input_size = 40  # Number of tokens (0-38 + padding token)
-d_model = 256
-nhead = 4
-num_layers = 6
-batch_size = 2048
+d_model = 768# 256
+nhead = 12 #4
+num_layers = 12#6
+batch_size = 512#2048
+
 num_epochs = 100
 max_len = 100
 mask_value = input_size - 1
 padding_value = input_size
-do_dropout = False
-mis = "_mis"  # ""
+do_dropout = True
 
-train_file = f"TIMIT_TRAIN_PH{mis}"
-val_file = f"TIMIT_TRAIN_VAL_PH{mis}"
-test_file = f"TIMIT_TEST_PH{mis}"
-config_name = f"timit_small{'_drop_out' if do_dropout else ''}{mis}"
+train_file = f"lr_train"
+val_file = f"lr_train_val.txt"
+test_file = f"lr_test"
+config_name = f"lr_large_du"#
 
 lr = 5e-4
 

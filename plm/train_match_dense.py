@@ -13,11 +13,11 @@ import random
 input_dim = 768
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cp_file = "./models/timit_small_20.cp"
-batch_size = 2048
+cp_file = "./models/timit_small_drop_out_99.cp"
+batch_size = 512
 ephocs = 50
 lr = 0.1
-prefix = "/cs/labs/adiyoss/amitay.sich/utp_hmm/data/"
+prefix = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/p_superv/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
 phonemes_path = f"{prefix}features.phonemes"
@@ -137,7 +137,7 @@ for ephoc in tqdm(range(ephocs)):
         e_acc.append((predicted_labels == y).sum().item() / y.numel())
         e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
         e_loss.append(loss.item())
-        print(f"loss: {loss.item()}, acc: {e_acc[-1]}, acc_m: {e_acc_m[-1]}")
+    # print(f"loss: {loss.item()}, acc: {e_acc[-1]}, acc_m: {e_acc_m[-1]}")
     loss_all.append(np.mean(e_loss))
     acc_all.append(np.mean(e_acc))
     acc_m_all.append(np.mean(e_acc_m))

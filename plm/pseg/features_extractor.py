@@ -16,7 +16,7 @@ from scipy.signal import find_peaks
 import math
 
 step = 320
-
+P_SUPERV=False
 # to get the labels take the cluster centers, apply PCA into 3 dimensions, and then apply K-means with 2 clusters. one if VAD and the other not.
 vad_labels = np.array(
     [1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1,
@@ -32,66 +32,92 @@ TIMIT_61_39 = {'aa': 'aa', 'ae': 'ae', 'ah': 'ah', 'ao': 'aa', 'aw': 'aw', 'ax':
                'tcl': 'sil', 'th': 'th', 'uh': 'uh', 'uw': 'uw', 'ux': 'uw', 'v': 'v', 'w': 'w', 'y': 'y', 'z': 'z',
                'zh': 'sh'}
 
+#
+# def replicate_first_k_frames(x, k, dim):
+#     return torch.cat([x.index_select(dim=dim, index=torch.LongTensor([0] * k).to(x.device)), x], dim=dim)
+#
+#
+# def max_min_norm(x):
+#     x -= x.min(-1, keepdim=True)[0]
+#     x /= x.max(-1, keepdim=True)[0]
+#     return x
+#
+#
+# def detect_peaks(x, lengths, prominence=0.1, width=None, distance=None):
+#     """detect peaks of next_frame_classifier
+#
+#     Arguments:
+#         x {Tensor} -- batch of confidence per time
+#     """
+#     out = []
+#
+#     for xi, li in zip(x, lengths):
+#         if type(xi) == torch.Tensor:
+#             xi = xi.cpu().detach().numpy()
+#         xi = xi[:li]  # shorten to actual length
+#         xmin, xmax = xi.min(), xi.max()
+#         xi = (xi - xmin) / (xmax - xmin)
+#         peaks, _ = find_peaks(xi, prominence=prominence, width=width, distance=distance)
+#
+#         if len(peaks) == 0:
+#             peaks = np.array([len(xi) - 1])
+#
+#         out.append(peaks)
+#
+#     return out
+#
+#
+# def get_phonemes_ranges(pseg_model, audio):
+#     peak_to_step = 2  # 2 peaks per step (320ms vs 160ms)
+#     preds = pseg_model(audio)
+#     preds = preds[1][0]
+#     preds = replicate_first_k_frames(preds, k=1, dim=1)
+#     preds = 1 - max_min_norm(preds)
+#     preds = detect_peaks(x=preds, lengths=[preds.shape[1]], prominence=0.05)
+#
+#     preds = preds[0]
+#     start_end = []
+#     for i in range(1, len(preds)):
+#         start = math.floor(preds[i - 1] / peak_to_step)
+#         end = math.ceil(preds[i] / peak_to_step)
+#         start_end.append((start, end))
+#     return start_end
+#
 
-def replicate_first_k_frames(x, k, dim):
-    return torch.cat([x.index_select(dim=dim, index=torch.LongTensor([0] * k).to(x.device)), x], dim=dim)
-
-
-def max_min_norm(x):
-    x -= x.min(-1, keepdim=True)[0]
-    x /= x.max(-1, keepdim=True)[0]
-    return x
-
-
-def detect_peaks(x, lengths, prominence=0.1, width=None, distance=None):
-    """detect peaks of next_frame_classifier
-
-    Arguments:
-        x {Tensor} -- batch of confidence per time
-    """
-    out = []
-
-    for xi, li in zip(x, lengths):
-        if type(xi) == torch.Tensor:
-            xi = xi.cpu().detach().numpy()
-        xi = xi[:li]  # shorten to actual length
-        xmin, xmax = xi.min(), xi.max()
-        xi = (xi - xmin) / (xmax - xmin)
-        peaks, _ = find_peaks(xi, prominence=prominence, width=width, distance=distance)
-
-        if len(peaks) == 0:
-            peaks = np.array([len(xi) - 1])
-
-        out.append(peaks)
-
-    return out
-
-
-def get_phonemes_ranges(pseg_model, audio):
-    peak_to_step = 2  # 2 peaks per step (320ms vs 160ms)
-    preds = pseg_model(audio)
-    preds = preds[1][0]
-    preds = replicate_first_k_frames(preds, k=1, dim=1)
-    preds = 1 - max_min_norm(preds)
-    preds = detect_peaks(x=preds, lengths=[preds.shape[1]], prominence=0.05)
-
-    preds = preds[0]
-    start_end = []
-    for i in range(1, len(preds)):
-        start = math.floor(preds[i - 1] / peak_to_step)
-        end = math.ceil(preds[i] / peak_to_step)
-        start_end.append((start, end))
-    return start_end
-
-
-def read_phonemes(phonemes_file):
+def read_phonemes(phonemes_file, step=step):
+    e_index = 1
+    p_index = 2
+    SIL = "sil"
     with open(phonemes_file) as f:
-        lines = f.read().splitlines()
-    phonemes = []
-    for line in lines:
-        line = line.split()
-        phonemes.append(TIMIT_61_39[line[2]])
-    return " ".join(phonemes)
+        phonemes = f.read().splitlines()
+    phonemes = [p.split() for p in phonemes]
+    phonemes = [[int(p[0]), int(p[1]), TIMIT_61_39[p[2]]] for p in phonemes]
+
+    combine_phonemes = [phonemes[0]]
+    for start, end, p in phonemes[1:]:
+        if combine_phonemes[-1][p_index] == p:
+            combine_phonemes[-1][e_index] = end
+        else:
+            combine_phonemes.append([start, end, p])
+    final_ranges = []
+    final_phonemes = []
+    for start, end, p in combine_phonemes:
+        if p == SIL:
+            continue
+        start_range = math.floor(start / step)
+        end_range = math.ceil(end / step)
+        final_ranges.append((start_range, end_range))
+        final_phonemes.append(p)
+    return final_ranges, " ".join(final_phonemes)
+#
+# def read_phonemes(phonemes_file):
+#     with open(phonemes_file) as f:
+#         lines = f.read().splitlines()
+#     phonemes = []
+#     for line in lines:
+#         line = line.split()
+#         phonemes.append(TIMIT_61_39[line[2]])
+#     return " ".join(phonemes)
 
 
 class HubertFeaturesExtractor:
@@ -113,29 +139,34 @@ class HubertFeaturesExtractor:
         features = features[0].detach().cpu().numpy()
         clusters = km_model.predict(features)
         is_act = vad_labels[clusters]
+        features = features[is_act]
+        combine_features=features
 
-        vad_audio = []
+        # vad_audio = []
+        #
+        # for i in range(len(is_act)):
+        #     if is_act[i]:
+        #         vad_audio.append(audio[:, i * self.step:(i + 1) * self.step])
+        # audio = torch.cat(vad_audio, dim=1)
+        # audio = audio.to(device)
+        # features = self.model.extract_features(
+        #     source=audio,
+        #     padding_mask=None,
+        #     mask=False,
+        #     output_layer=self.layer,
+        # )[0]
+        # features = features[0].detach().cpu().numpy()
 
-        for i in range(len(is_act)):
-            if is_act[i]:
-                vad_audio.append(audio[:, i * self.step:(i + 1) * self.step])
-        audio = torch.cat(vad_audio, dim=1)
-        audio = audio.to(device)
-        features = self.model.extract_features(
-            source=audio,
-            padding_mask=None,
-            mask=False,
-            output_layer=self.layer,
-        )[0]
-        features = features[0].detach().cpu().numpy()
+        # combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
 
-        combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
-        phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
+        combine_ranges,phonemes=read_phonemes(audio_file.replace(".WAV", ".PHN"))
 
-        combine_features = []
-        for s, e in combine_ranges:
-            combine_features.append(features[s:e + 1].mean(axis=0))
-        return np.stack(combine_features), phonemes
+        if P_SUPERV:
+            combine_features = []
+            for s, e in combine_ranges:
+                combine_features.append(features[s:e + 1].mean(axis=0))
+            combine_features=np.stack(combine_features)
+        return combine_features, phonemes
 
 
 def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
@@ -171,8 +202,8 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--timit_base', type=str, default="/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN")
-    parser.add_argument('--output_base', type=str, default='./data')
+    parser.add_argument('--timit_base', type=str, default="/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/")
+    parser.add_argument('--output_base', type=str, default='./data/vad/')
     parser.add_argument('--hubert_cp', type=str,
                         default="./models/hubert_base_ls960.pt")
     parser.add_argument('--pseg_model', type=str, default='./models/timit+_pretrained.ckpt')

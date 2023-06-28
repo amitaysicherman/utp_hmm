@@ -44,9 +44,11 @@ def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, mis_prob=0.2
         else:
             phonemes = line.split(' ')
 
-        phonemes = [phonemes_to_index[p] for p in phonemes if p in phonemes_to_index]
+        # phonemes = [phonemes_to_index[p] for p in phonemes if p in phonemes_to_index]
 
         all_phonemes.append(np.array(phonemes))
+    if "val" in output_base:
+        all_phonemes=random.choices(all_phonemes,k=10000)
     final_clean = []
     final_noise = []
     print("start adding noise")
@@ -70,8 +72,8 @@ def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, mis_prob=0.2
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, choices=['tm', 'lr'], default="tm")
-    parser.add_argument('--add_mis', type=float, default=0.2)
+    parser.add_argument('--dataset', type=str, choices=['tm', 'lr'], default="lr")
+    parser.add_argument('--add_mis', type=float, default=0.0)
 
     vars = parser.parse_args()
     if vars.dataset == "tm":
@@ -81,10 +83,10 @@ if __name__ == '__main__':
         g2p = None
         repeats = 500
     else:  # 'lr'
-        train_file = "libri_train.txt"
-        valid_output_file = "libri_train_val"
-        test_file = "libri_test.txt"
-        g2p = G2p()
+        train_file = "lr_train.txt"
+        valid_output_file = "lr_train_val.txt"
+        test_file = "lr_test.txt"
+        g2p = None# G2p()
         repeats = 10
 
     add_noise_to_file(train_file, output_base=train_file.replace(".txt", ""), g2p=g2p, repeats=repeats,
