@@ -11,10 +11,10 @@ from collections import defaultdict
 from mapping import phonemes_to_index, mis_index
 
 input_size = 40  # Number of tokens (0-38 + padding token)
-d_model = 768# 256
-nhead = 12 #4
-num_layers = 12#6
-batch_size = 512#2048
+d_model = 768  # 256
+nhead = 12  # 4
+num_layers = 12  # 6
+batch_size = 512  # 2048
 
 num_epochs = 1000
 max_len = 100
@@ -22,10 +22,10 @@ mask_value = input_size - 1
 padding_value = input_size
 do_dropout = True
 
-train_file = f"lr_train"#"
+train_file = f"lr_train"  # "
 val_file = f"lr_train_val.txt"
 test_file = f"lr_test"
-config_name = f"lr_large_steps"#
+config_name = f"lr_large_steps"  #
 
 lr = 5e-4
 
@@ -58,12 +58,12 @@ class PhonemesDataset(Dataset):
         with open(f'{prefix}_noise.txt', 'r') as f:
             noise_data = f.read().splitlines()
         noise_data = [list(map(int, line.split())) for line in noise_data]
-        self.step=0
+        self.step = 0
         self.x = []
         self.y = []
-        self.noise_levels=defaultdict(list)
-        for i,(clean, noise) in tqdm(enumerate(zip(clean_data, noise_data)), total=len(clean_data)):
-            n=(100*(np.array(noise)!=np.array(clean)).mean())//5
+        self.noise_levels = defaultdict(list)
+        for i, (clean, noise) in tqdm(enumerate(zip(clean_data, noise_data)), total=len(clean_data)):
+            n = (100 * (np.array(noise) != np.array(clean)).mean()) // 5
             self.noise_levels[n].append(i)
             assert len(clean) == len(noise)
             seq_len = len(clean)
@@ -81,7 +81,7 @@ class PhonemesDataset(Dataset):
         return len(self.noise_levels[self.step])
 
     def __getitem__(self, idx):
-        idx=self.noise_levels[self.step][idx]
+        idx = self.noise_levels[self.step][idx]
         return torch.LongTensor(self.x[idx]), torch.LongTensor(self.y[idx])
 
 
@@ -142,17 +142,16 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-
-    train_dataset =PhonemesDataset(train_file)
+    train_dataset = PhonemesDataset(train_file)
     val_dataset = PhonemesDataset(val_file)
     test_dataset = PhonemesDataset(test_file)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     for epoch in range(0, num_epochs):
-        train_data=DataLoader(train_dataset, batch_size = batch_size, shuffle = False, drop_last = True)
-        test_data=DataLoader(val_dataset, batch_size = batch_size, shuffle = False, drop_last = True)
-        val_data=DataLoader(test_dataset, batch_size=batch_size, shuffle=False,drop_last=True)
+        train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+        test_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+        val_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
         train_scores = Scores("train")
         val_scores = Scores("val")
         test_scores = Scores("test")
@@ -185,15 +184,20 @@ if __name__ == '__main__':
             f.write(f"{test_scores}\n")
             f.write("\n")
 
-        train_scores.reset()
-        test_scores.reset()
-        if np.mean(train_scores.acc)>1-(0.5*((1+train_dataset.step)*5)/100):
+        acc = 100 * np.mean(train_scores.acc)
+        noise_level = (0.5 + train_dataset.step) * 5
+        acc_indentity = 100 - noise_level + np.sqrt(noise_level)
+
+        if acc > acc_indentity:
             print("Noise level increased")
-            print(f"Current noise level: {train_dataset.step*5}%")
-            print("epoch",epoch)
-            train_dataset.step+=1
-            val_dataset.step+=1
-            test_dataset.step+=1
-            if train_dataset.step==20:
+            print(f"Current noise level: {train_dataset.step * 5}%")
+            print("epoch", epoch)
+            train_dataset.step += 1
+            val_dataset.step += 1
+            test_dataset.step += 1
+            if train_dataset.step == 20:
                 break
 
+        train_scores.reset()
+        val_scores.reset()
+        test_scores.reset()
