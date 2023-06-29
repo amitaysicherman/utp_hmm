@@ -87,7 +87,7 @@ class PhonemesDataset(Dataset):
 
 def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=num_layers, max_len=max_len):
     if do_dropout:
-        dropout = 0.5
+        dropout = 0.1
     else:
         dropout = 0.0
     model = TransformerWrapper(
