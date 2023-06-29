@@ -147,8 +147,9 @@ if __name__ == '__main__':
     test_dataset = PhonemesDataset(test_file)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
+    step_count = 0
     for epoch in range(0, num_epochs):
+        step_count += 1
         train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
         test_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
         val_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
@@ -189,13 +190,14 @@ if __name__ == '__main__':
         noise_level = (0.5 + train_dataset.step) * 5
         acc_indentity = 100 - noise_level + np.sqrt(noise_level)
 
-        if acc > acc_indentity:
+        if acc > acc_indentity or step_count > 20:
             print("Noise level increased")
             print(f"Current noise level: {train_dataset.step * 5}%")
             print("epoch", epoch)
             train_dataset.step += 1
             val_dataset.step += 1
             test_dataset.step += 1
+            step_count = 0
             if train_dataset.step == 20:
                 break
 
