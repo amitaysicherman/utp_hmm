@@ -171,6 +171,7 @@ if __name__ == '__main__':
             torch.save(model.module.state_dict(), cp_name)
         else:
             torch.save(model.state_dict(), cp_name)
+        torch.save(optimizer.state_dict(), cp_name.replace(".cp", "_opt.cp"))
 
         print("Epoch", epoch)
         print(train_scores)
