@@ -14,10 +14,10 @@ input_size = 40  # Number of tokens (0-38 + padding token)
 d_model = 768  # 256
 nhead = 12  # 4
 num_layers = 12  # 6
-batch_size = 2048
+batch_size = 4096
 
 num_epochs = 1000
-max_len = 25
+max_len = 16
 mask_value = input_size - 1
 padding_value = input_size
 do_dropout = False
@@ -27,7 +27,7 @@ val_file = f"lr_train_val.txt"
 test_file = f"lr_test"
 config_name = "lr_large_001_short"  #
 
-lr = 5e-3
+lr = 1e-3
 
 
 class Scores:
