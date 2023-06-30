@@ -14,10 +14,10 @@ input_size = 40  # Number of tokens (0-38 + padding token)
 d_model = 768  # 256
 nhead = 12  # 4
 num_layers = 12  # 6
-batch_size = 512  # 2048
+batch_size = 2048
 
 num_epochs = 1000
-max_len = 100
+max_len = 25
 mask_value = input_size - 1
 padding_value = input_size
 do_dropout = False
@@ -25,7 +25,7 @@ do_dropout = False
 train_file = f"lr_train"  # "
 val_file = f"lr_train_val.txt"
 test_file = f"lr_test"
-config_name = "lr_large_005"  #
+config_name = "lr_large_001_short"  #
 
 lr = 5e-3
 
@@ -63,13 +63,17 @@ class PhonemesDataset(Dataset):
         self.y = []
         # self.noise_levels = defaultdict(list)
         for i, (clean, noise) in tqdm(enumerate(zip(clean_data, noise_data)), total=len(clean_data)):
-            n = (100 * (np.array(noise) != np.array(clean)).mean()) // 5
+            # n = (100 * (np.array(noise) != np.array(clean)).mean()) // 5
             # self.noise_levels[n].append(i)
             assert len(clean) == len(noise)
             seq_len = len(clean)
             if seq_len > max_len:
-                clean = np.array(list(clean[:max_len]), dtype=np.int8)
-                noise = np.array(list(noise[:max_len]), dtype=np.int8)
+                start_index = np.random.randint(0, seq_len - max_len)
+                clean = clean[start_index:start_index + max_len]
+                noise = noise[start_index:start_index + max_len]
+
+                clean = np.array(list(clean), dtype=np.int8)
+                noise = np.array(list(noise), dtype=np.int8)
             else:
                 clean = np.array(list(clean) + [padding_value] * (max_len - len(clean)), dtype=np.int8)
                 noise = np.array(list(noise) + [padding_value] * (max_len - len(noise)), dtype=np.int8)
@@ -78,7 +82,7 @@ class PhonemesDataset(Dataset):
             self.y.append(clean)
 
     def __len__(self):
-        return len(self.x)# len(self.noise_levels[self.step])
+        return len(self.x)  # len(self.noise_levels[self.step])
 
     def __getitem__(self, idx):
         # idx = self.noise_levels[self.step][idx]
