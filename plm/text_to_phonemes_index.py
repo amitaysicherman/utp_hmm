@@ -44,7 +44,7 @@ def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, dup_prob=0.2
         else:
             phonemes = line.split(' ')
 
-        # phonemes = [phonemes_to_index[p] for p in phonemes if p in phonemes_to_index]
+        phonemes = [phonemes_to_index[p] for p in phonemes if p in phonemes_to_index]
 
         all_phonemes.append(np.array(phonemes))
     if "val" in output_base:
@@ -54,13 +54,17 @@ def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, dup_prob=0.2
     print("start adding noise")
     for i in tqdm(range(repeats)):
         for phonemes in all_phonemes:
+            print(phonemes)
             noise_phones = raplace_random(phonemes, random.random())
-
+            print(noise_phones)
             if dup_prob > 0:
                 phonemes, noise_phones = replace_random_with_dup(phonemes, noise_phones, random.random() * dup_prob)
             final_clean.append(" ".join([str(p) for p in phonemes]))
 
             final_noise.append(" ".join([str(p) for p in noise_phones]))
+            print(final_clean[0])
+            print(final_noise[0])
+            3/0
     dup_name = "_dup" if dup_prob > 0 else ""
     with open(output_base + f"{dup_name}_clean.txt", 'w') as file:
         file.write("\n".join(final_clean))
