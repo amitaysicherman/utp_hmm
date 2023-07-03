@@ -23,7 +23,7 @@ padding_value = input_size
 do_dropout = True
 
 train_file = f"TIMIT_TRAIN_PH_dup"  # "
-val_file = f"TIMIT_TRAIN_VAL_PH_dup.txt"
+val_file = f"TIMIT_TRAIN_VAL_PH_dup"
 test_file = f"TIMIT_TEST_PH_dup"
 config_name = "timit_dup_large_do"  #
 
