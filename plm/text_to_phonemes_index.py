@@ -17,19 +17,19 @@ def raplace_random(x, p):
     return x
 
 
-def replace_random_with_mis(x, p):
+def replace_random_with_dup(x, y, p):
     x = x.copy()
-    y = x.copy()
+    y = y.copy()
     add_count = int(len(x) * p)
     for _ in range(add_count):
-        i = np.random.randint(0, len(x))
-        v = np.random.randint(0, MAX_P)
-        x = np.insert(x, i, mis_index)
-        y = np.insert(y, i, v)
+        i = np.random.randint(1, len(x))
+
+        x = np.insert(x, i, x[i - 1])
+        y = np.insert(y, i, y[i - 1])
     return x, y
 
 
-def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, mis_prob=0.2):
+def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, dup_prob=0.2):
     print("start reading", file_name)
     with open(file_name, 'r') as file:
         lines = file.read().splitlines()
@@ -48,32 +48,30 @@ def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, mis_prob=0.2
 
         all_phonemes.append(np.array(phonemes))
     if "val" in output_base:
-        all_phonemes=random.choices(all_phonemes,k=10000)
+        all_phonemes = random.choices(all_phonemes, k=10000)
     final_clean = []
     final_noise = []
     print("start adding noise")
     for i in tqdm(range(repeats)):
         for phonemes in all_phonemes:
-            if mis_prob > 0:
-                clean_with_mis, noise_with_mis = replace_random_with_mis(phonemes, mis_prob)
-            else:
-                clean_with_mis = phonemes
-                noise_with_mis = phonemes
-            final_clean.append(" ".join([str(p) for p in clean_with_mis]))
-            noise_phones = raplace_random(noise_with_mis, random.random())
+            noise_phones = raplace_random(phonemes, random.random())
+
+            if dup_prob > 0:
+                phonemes, noise_phones = replace_random_with_dup(phonemes, noise_phones, random.random() * dup_prob)
+            final_clean.append(" ".join([str(p) for p in phonemes]))
 
             final_noise.append(" ".join([str(p) for p in noise_phones]))
-    mis_name = "_mis" if mis_prob > 0 else ""
-    with open(output_base + f"{mis_name}_clean.txt", 'w') as file:
+    dup_name = "_dup" if dup_prob > 0 else ""
+    with open(output_base + f"{dup_name}_clean.txt", 'w') as file:
         file.write("\n".join(final_clean))
-    with open(output_base + f"{mis_name}_noise.txt", 'w') as file:
+    with open(output_base + f"{dup_name}_noise.txt", 'w') as file:
         file.write("\n".join(final_noise))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, choices=['tm', 'lr'], default="lr")
-    parser.add_argument('--add_mis', type=float, default=0.0)
+    parser.add_argument('--dataset', type=str, choices=['tm', 'lr'], default="tm")
+    parser.add_argument('--add_dup', type=float, default=0.3)
 
     vars = parser.parse_args()
     if vars.dataset == "tm":
@@ -81,16 +79,20 @@ if __name__ == '__main__':
         valid_output_file = "TIMIT_TRAIN_VAL_PH"
         test_file = "TIMIT_TEST_PH.txt"
         g2p = None
-        repeats = 500
+        train_repeats = 1000
+        val_test_repeats = 10
     else:  # 'lr'
         train_file = "lr_train.txt"
         valid_output_file = "lr_train_val.txt"
         test_file = "lr_test.txt"
-        g2p = None# G2p()
-        repeats = 10
+        g2p = None  # G2p()
+        train_repeats = 10
+        val_test_repeats = 1
+    add_noise_to_file(train_file, output_base=train_file.replace(".txt", ""), g2p=g2p, repeats=train_repeats,
+                      dup_prob=vars.add_dup)
 
-    add_noise_to_file(train_file, output_base=train_file.replace(".txt", ""), g2p=g2p, repeats=repeats,
-                      mis_prob=vars.add_mis)
-    add_noise_to_file(train_file, output_base=valid_output_file, g2p=g2p, repeats=repeats, mis_prob=vars.add_mis)
-    add_noise_to_file(test_file, output_base=test_file.replace(".txt", ""), g2p=g2p, repeats=repeats,
-                      mis_prob=vars.add_mis)
+    add_noise_to_file(train_file, output_base=valid_output_file, g2p=g2p, repeats=val_test_repeats,
+                      dup_prob=vars.add_dup)
+
+    add_noise_to_file(test_file, output_base=test_file.replace(".txt", ""), g2p=g2p, repeats=val_test_repeats,
+                      dup_prob=vars.add_dup)
