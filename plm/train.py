@@ -11,21 +11,21 @@ from collections import defaultdict
 from mapping import phonemes_to_index, mis_index
 
 input_size = 40  # Number of tokens (0-38 + padding token)
-d_model = 768  #
-nhead = 12  # 4
-num_layers = 12  # 6
+d_model = 256#768  #
+nhead = 4#12  # 4
+num_layers = 6#12  # 6
 batch_size = 4096
 
 num_epochs = 1000
 max_len = 100
 mask_value = input_size - 1
 padding_value = input_size
-do_dropout = True
+do_dropout = False
 
 train_file = f"TIMIT_TRAIN_PH_dup"  # "
 val_file = f"TIMIT_TRAIN_VAL_PH_dup"
 test_file = f"TIMIT_TEST_PH_dup"
-config_name = "timit_dup_large_do"  #
+config_name = "timit_dup"  #
 
 lr = 5e-4
 
