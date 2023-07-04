@@ -14,14 +14,12 @@ unit_count = 100
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-cp_file = "./models/timit_dupsmall_9.cp"#timit_small_20.cp"
+cp_file = "./models/prep_random_small_timit_99.cp"#timit_small_20.cp"
 
 units_padding_value = unit_count
 batch_size = 2048
 ephocs = 50
 lr = 0.1
-
-random_count = 85
 
 
 def get_random_mapping():
@@ -181,6 +179,9 @@ for iii, random_count in enumerate([100] * 10):
         acc_m_all.append(np.mean(e_acc_m))
         mapp_all.append(np.mean(map_acc))
         # torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
+    print(f"acc: {e_acc[-1]}")
+    print(f"acc_m: {e_acc_m[-1]}")
+    print(f"map_acc: {map_acc[-1]}")
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 10))
     ax1.plot(loss_all, label="loss")
