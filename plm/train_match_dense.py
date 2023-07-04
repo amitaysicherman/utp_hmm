@@ -13,7 +13,13 @@ import random
 input_dim = 768
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 cp_file = "./models/prep_random_small_timit_99.cp"#timit_dupsmall_13.cp"
+max_len=50
+
+
+
 batch_size = 512
 ephocs = 50
 lr = 0.1
