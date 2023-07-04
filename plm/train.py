@@ -158,9 +158,10 @@ if __name__ == '__main__':
     train_dataset = PhonemesDataset(train_file)
     val_dataset = PhonemesDataset(val_file)
     test_dataset = PhonemesDataset(test_file)
+
     train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
-    test_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
-    val_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+    val_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+    test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     # step_count = 0

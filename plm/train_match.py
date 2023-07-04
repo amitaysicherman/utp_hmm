@@ -13,7 +13,9 @@ import random
 unit_count = 100
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cp_file = "./models/timit_small_20.cp"
+
+cp_file = "./models/timit_dupsmall_9.cp"#timit_small_20.cp"
+
 units_padding_value = unit_count
 batch_size = 2048
 ephocs = 50
@@ -22,14 +24,18 @@ lr = 0.1
 random_count = 85
 
 
-def get_superv_mapping(random_count=0):
+def get_random_mapping():
     units_to_phonemes = np.zeros((unit_count + 1, padding_value + 1))
+    for i in range(len(units_to_phonemes)):
+        units_to_phonemes[i] = np.random.dirichlet(np.ones(padding_value + 1), size=1)
+        units_to_phonemes[i] /= units_to_phonemes[i].sum()
+    return units_to_phonemes
 
+
+def get_superv_mapping(random_count=100):
     if random_count == 100:
-        for i in range(len(units_to_phonemes)):
-            units_to_phonemes[i] = np.random.dirichlet(np.ones(padding_value + 1), size=1)
-            units_to_phonemes[i] /= units_to_phonemes[i].sum()
-        return units_to_phonemes
+        return get_random_mapping()
+
     with open("../data/code100.txt") as f:
         code100 = f.read().splitlines()
     code100 = [[int(y) for y in x.split()] for x in code100]
@@ -90,7 +96,7 @@ class UnitsDataset(Dataset):
 # Define the linear model
 class LinearModel(nn.Module):
 
-    def __init__(self, input_dim=unit_count + 1, output_dim=padding_value + 1,random_count=0):
+    def __init__(self, input_dim=unit_count + 1, output_dim=padding_value + 1, random_count=100):
         super(LinearModel, self).__init__()
         self.emb = nn.Embedding(input_dim, output_dim, )  # max_norm=1, norm_type=1
         print(self.emb.weight.data.shape)
@@ -124,8 +130,7 @@ for param in pretrained_model.parameters():
 loss_fn = nn.CrossEntropyLoss().to(device)
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
 
-
-for iii,random_count in enumerate([100]*10):
+for iii, random_count in enumerate([100] * 10):
     linear_model = LinearModel(random_count=random_count)
     linear_model.to(device)
     optimizer = optim.Adam(linear_model.parameters(), lr=lr)

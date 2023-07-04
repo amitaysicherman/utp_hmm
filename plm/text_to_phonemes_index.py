@@ -47,8 +47,8 @@ def add_noise_to_file(file_name, output_base, g2p=None, repeats=50, dup_prob=0.2
         phonemes = [phonemes_to_index[p] for p in phonemes if p in phonemes_to_index]
 
         all_phonemes.append(np.array(phonemes))
-    if "val" in output_base:
-        all_phonemes = random.choices(all_phonemes, k=10000)
+    # if "val" in output_base:
+    #     all_phonemes = random.choices(all_phonemes, k=10000)
     final_clean = []
     final_noise = []
     print("start adding noise")
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         val_test_repeats = 10
     else:  # 'lr'
         train_file = "lr_train.txt"
-        valid_output_file = "lr_train_val.txt"
+        valid_output_file = "lr_train_val"
         test_file = "lr_test.txt"
         g2p = None  # G2p()
         train_repeats = 10
