@@ -91,7 +91,7 @@ class LinearModel(nn.Module):
         return x
 
 
-pretrained_model = get_model()
+pretrained_model = get_model(max_len=max_len)
 pretrained_model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
 pretrained_model.to(device)
 pretrained_model.eval()
