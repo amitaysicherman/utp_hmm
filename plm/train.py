@@ -10,12 +10,22 @@ import torch.nn.functional as F
 from collections import defaultdict
 from mapping import phonemes_to_index, mis_index
 
-input_size = 40  # Number of tokens (0-38 + padding token)
-d_model = 256#768  #
-nhead = 4#12  # 4
-num_layers = 6#12  # 6
-batch_size = 4096
+config_name = "timit_dup"  #
 
+small = True
+if small:
+    d_model = 256
+    nhead = 4
+    num_layers = 6
+    config_name += "small"
+else:
+    d_model = 768
+    nhead = 12
+    num_layers = 12
+    config_name += "large"
+
+input_size = 40  # Number of tokens (0-38 + padding token)
+batch_size = 512
 num_epochs = 1000
 max_len = 100
 mask_value = input_size - 1
@@ -25,7 +35,6 @@ do_dropout = False
 train_file = f"TIMIT_TRAIN_PH_dup"  # "
 val_file = f"TIMIT_TRAIN_VAL_PH_dup"
 test_file = f"TIMIT_TEST_PH_dup"
-config_name = "timit_dup"  #
 
 lr = 5e-4
 
