@@ -13,10 +13,10 @@ import random
 input_dim = 768
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cp_file = "./models/timit_dupsmall_13.cp"
+cp_file = "./models/prep_random_small_timit_99.cp"#timit_dupsmall_13.cp"
 batch_size = 512
 ephocs = 50
-lr = 0.01
+lr = 0.1
 prefix = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/p_superv/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
