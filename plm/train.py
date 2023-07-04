@@ -12,7 +12,7 @@ from mapping import phonemes_to_index, mis_index
 
 config_name = "timit_dup"  #
 
-small = False
+small = True
 if small:
     d_model = 256
     nhead = 4
