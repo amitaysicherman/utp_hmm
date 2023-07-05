@@ -18,7 +18,7 @@ e_index = 1
 p_index = 2
 SIL = "sil"
 peak_to_step = 2  # 2 peaks per step (320ms vs 160ms)
-prominence = 0.03
+prominence = 0.05
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TIMIT_61_39 = {'aa': 'aa', 'ae': 'ae', 'ah': 'ah', 'ao': 'aa', 'aw': 'aw', 'ax': 'ah', 'ax-h': 'ah', 'axr': 'er',
                'ay': 'ay', 'b': 'b', 'bcl': 'sil', 'ch': 'ch', 'd': 'd', 'dcl': 'sil', 'dh': 'dh', 'dx': 't',
