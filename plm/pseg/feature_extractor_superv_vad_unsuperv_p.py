@@ -27,7 +27,6 @@ TIMIT_61_39 = {'aa': 'aa', 'ae': 'ae', 'ah': 'ah', 'ao': 'aa', 'aw': 'aw', 'ax':
                'zh': 'sh'}
 
 
-
 def replicate_first_k_frames(x, k, dim):
     return torch.cat([x.index_select(dim=dim, index=torch.LongTensor([0] * k).to(x.device)), x], dim=dim)
 
@@ -36,6 +35,7 @@ def max_min_norm(x):
     x -= x.min(-1, keepdim=True)[0]
     x /= x.max(-1, keepdim=True)[0]
     return x
+
 
 def detect_peaks(x, lengths, prominence=0.1, width=None, distance=None):
     out = []
@@ -53,6 +53,8 @@ def detect_peaks(x, lengths, prominence=0.1, width=None, distance=None):
         out.append(peaks)
 
     return out
+
+
 def get_phonemes_ranges(pseg_model, audio):
     peak_to_step = 2  # 2 peaks per step (320ms vs 160ms)
     preds = pseg_model(audio)
@@ -69,11 +71,13 @@ def get_phonemes_ranges(pseg_model, audio):
         start_end.append((start, end))
     return start_end
 
+
 e_index = 1
 p_index = 2
-def read_phonemes(phonemes_file, step=step):
+SIL = "sil"
 
-    SIL = "sil"
+
+def read_phonemes(phonemes_file, step=step):
     with open(phonemes_file) as f:
         phonemes = f.read().splitlines()
     phonemes = [p.split() for p in phonemes]
@@ -97,8 +101,13 @@ def read_phonemes(phonemes_file, step=step):
     return final_ranges, " ".join(final_phonemes)
 
 
-def get_sil_ranges(phonemes_file, step=step):
-
+def get_superv_vad_ranges(phonemes_file):
+    with open(phonemes_file) as f:
+        phonemes = f.read().splitlines()
+    phonemes = [p.split() for p in phonemes]
+    phonemes = [[int(p[0]), int(p[1]), TIMIT_61_39[p[2]]] for p in phonemes]
+    ranges = [(x, y) for (x, y, z) in phonemes if z != SIL]
+    return ranges
 
 
 class HubertFeaturesExtractor:
@@ -118,14 +127,10 @@ class HubertFeaturesExtractor:
             output_layer=self.layer,
         )[0]
         features = features[0].detach().cpu().numpy()
-
-
-
+        vad_ranges = get_superv_vad_ranges(audio_file.replace(".WAV", ".PHN"))
         vad_audio = []
-
-        for i in range(len(is_act)):
-            if is_act[i]:
-                vad_audio.append(audio[:, i * self.step:(i + 1) * self.step])
+        for start,end in vad_ranges:
+            vad_audio.append(audio[:, i * self.step:(i + 1) * self.step])
         audio = torch.cat(vad_audio, dim=1)
         audio = audio.to(device)
         features = self.model.extract_features(
@@ -138,7 +143,6 @@ class HubertFeaturesExtractor:
         combine_ranges, phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
 
         combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
-
 
         if P_SUPERV:
             combine_features = []
