@@ -40,8 +40,6 @@ phonemes_path = f"{prefix}features.phonemes"
 def eval_mapping(x, y):
     wer_score = []
     for c, p in zip(x, y):
-        print(c.shape)
-        print(p.shape)
         c = list(c.detach().cpu().numpy())
         p = list(p.detach().cpu().numpy())
 
@@ -167,11 +165,13 @@ for ephoc in tqdm(range(ephocs)):
             print("model_predicted_labels")
             print(model_predicted_labels[0])
         model_predicted_labels = model_predicted_labels[y != padding_value]
-        predicted_labels = argmax_output[y != padding_value]
 
         e_acc.append(eval_mapping(argmax_output, y))
         e_acc_m.append(eval_mapping(model_predicted_labels, y))
+
         y = y[y != padding_value]
+        predicted_labels = argmax_output[y != padding_value]
+
         conf_indx = predicted_labels != model_predicted_labels
 
         # e_acc.append((predicted_labels == y).sum().item() / y.numel())
