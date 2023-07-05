@@ -191,7 +191,7 @@ for ephoc in tqdm(range(ephocs)):
         # e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
         e_loss.append(loss.item())
 
-    print(f"loss: {loss.item()}, acc: {e_acc[-1]}, acc_m: {e_acc_m[-1]}")
+    print(f"loss: {e_loss[0]}, acc: {e_acc[0]}, acc_m: {e_acc_m[0]}")
     loss_all.append(np.mean(e_loss))
     acc_all.append(np.mean(e_acc))
     acc_m_all.append(np.mean(e_acc_m))
