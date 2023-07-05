@@ -146,9 +146,12 @@ for ephoc in tqdm(range(ephocs)):
         linear_output = linear_model(x)
         argmax_output = torch.argmax(linear_output.detach(), dim=-1)
         argmax_output[y == padding_value] = padding_value
+
         if j == 0:
             print("argmax_output")
             print(argmax_output[0])
+            print("y")
+            print(y[0])
         pretrained_output = pretrained_model(argmax_output)
         model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
         model_predicted_labels[y == padding_value] = padding_value
