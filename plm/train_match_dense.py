@@ -155,7 +155,10 @@ for ephoc in tqdm(range(ephocs)):
         # apply the models:
         linear_output = linear_model(x)
         argmax_output = torch.argmax(linear_output.detach(), dim=-1)
-        argmax_output[y == padding_value] = padding_value
+        x_padding_mask = x.sum(axis=-1) == 0
+        argmax_output[x_padding_mask] = padding_value
+
+        # argmax_output[y == padding_value] = padding_value
 
         if j == 0:
             print("argmax_output")
