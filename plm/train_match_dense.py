@@ -8,17 +8,23 @@ from tqdm import tqdm
 from mapping import phonemes_to_index, mis_index
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-import random
+import argparse
 
 input_dim = 768
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+parser = argparse.ArgumentParser()
 
-cp_file = "./models/prep_random_small_timit_99.cp"#timit_dupsmall_13.cp"
-max_len=50
+parser.add_argument('--model_name', type=str,
+                    default="prep_random_small_timit_99")
+args = parser.parse_args()
 
-
+cp_file = f"./models/{args.model_name}"  # timit_dupsmall_13.cp"
+if args.model_name == "prep_random_small_timit_99":
+    max_len = 50
+else:
+    max_len = 100
 
 batch_size = 512
 ephocs = 50
