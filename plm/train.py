@@ -13,16 +13,7 @@ from mapping import phonemes_to_index, mis_index
 config_name = "timit_dup"  #
 
 small = True
-if small:
-    d_model = 256
-    nhead = 4
-    num_layers = 6
-    config_name += "small"
-else:
-    d_model = 768
-    nhead = 12
-    num_layers = 12
-    config_name += "large"
+config_name += "_large" if not small else "_small"
 
 input_size = 40  # Number of tokens (0-38 + padding token)
 batch_size = 512
@@ -98,7 +89,18 @@ class PhonemesDataset(Dataset):
         return torch.LongTensor(self.x[idx]), torch.LongTensor(self.y[idx])
 
 
-def get_model(input_size=input_size, d_model=d_model, nhead=nhead, num_layers=num_layers, max_len=max_len):
+def get_model(small=small,input_size=input_size, max_len=max_len):
+    if small:
+        d_model = 256
+        nhead = 4
+        num_layers = 6
+    else:
+        d_model = 768
+        nhead = 12
+        num_layers = 12
+
+
+
     if do_dropout:
         dropout = 0.1
     else:

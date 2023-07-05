@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G --time=0:10:0 --wrap "python train_match_dense.py --model_name=timit_dupsmall_99.cp"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G --time=0:10:0 --wrap "python train_match_dense.py --model_name=timit_duplarge_7.cp" --max_len=100 --small=0
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,15 +19,15 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--model_name', type=str,
                     default="prep_random_small_timit_99")
+parser.add_argument('--max_len', type=int, default=50)
+parser.add_argument('--small', type=int, default=1)
 args = parser.parse_args()
 
 cp_file = f"./models/{args.model_name}"  # timit_dupsmall_13.cp"
-if args.model_name == "prep_random_small_timit_99":
-    max_len = 50
-else:
-    max_len = 100
 
-batch_size =  512
+max_len = args.max_len
+
+batch_size = 512
 ephocs = 50
 lr = 0.1
 prefix = "pseg/data/p_superv/"
@@ -98,7 +98,7 @@ class LinearModel(nn.Module):
         return x
 
 
-pretrained_model = get_model(max_len=max_len)
+pretrained_model = get_model(small=args.small, max_len=args.max_len)
 pretrained_model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
 pretrained_model.to(device)
 pretrained_model.eval()
@@ -128,7 +128,7 @@ for ephoc in tqdm(range(ephocs)):
         linear_output = linear_model(x)
         argmax_output = torch.argmax(linear_output.detach(), dim=-1)
         argmax_output[y == padding_value] = padding_value
-        if j==0:
+        if j == 0:
             print("argmax_output")
             print(argmax_output[0])
         pretrained_output = pretrained_model(argmax_output)
