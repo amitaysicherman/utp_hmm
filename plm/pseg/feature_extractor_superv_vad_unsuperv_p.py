@@ -56,13 +56,13 @@ def read_phonemes(phonemes_file):
 
     ranges_phonemes = [p.split() for p in ranges_phonemes]
     ranges_phonemes = [[int(p[0]), int(p[1]), TIMIT_61_39[p[2]]] for p in ranges_phonemes]
+    ranges_phonemes = [(x, y, z) for (x, y, z) in ranges_phonemes if z != SIL]
 
     phonemes = [TIMIT_61_39[p[2]] for p in ranges_phonemes]
-    phonemes = [p for p in phonemes if p != SIL]
     phonemes = [phonemes[0]] + [p for i, p in enumerate(phonemes[1:]) if p != phonemes[i - 1]]
     phonemes = " ".join(phonemes)
 
-    vad_ranges = [(x, y) for (x, y, z) in ranges_phonemes if z != SIL]
+    vad_ranges = [(x, y) for (x, y, z) in ranges_phonemes]
 
     return phonemes, vad_ranges
 
