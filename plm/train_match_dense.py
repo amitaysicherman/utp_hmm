@@ -27,7 +27,7 @@ cp_file = f"./models/{args.model_name}"  # timit_dupsmall_13.cp"
 
 max_len = args.max_len
 
-batch_size = 512
+batch_size = 2048
 ephocs = 50
 lr = 0.1
 prefix = "pseg/data/p_superv/"
