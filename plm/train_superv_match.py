@@ -21,11 +21,10 @@ max_len = 100
 batch_size = 2048
 ephocs = 50
 lr = 0.01
-prefix = "pseg/data/sup_vad/"
+prefix = "./pseg/data/p_superv/"#sup_vad/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
 phonemes_path = f"{prefix}features.phonemes"
-
 
 def eval_mapping(x, y):
     wer_score = []
@@ -134,16 +133,16 @@ for ephoc in tqdm(range(ephocs)):
     for j, (x, y, len_x, len_y) in tqdm(enumerate(train_data)):
         x = x.to(device)
         y = y.to(device)
-        len_x = len_x.to(device)
-        len_y = len_y.to(device)
+        len_x = len_x.to(device).flatten()
+        len_y = len_y.to(device).flatten()
         linear_output = linear_model(x)
 
         loss = F.ctc_loss(
-            linear_output.log_softmax(dim=-1),
+            linear_output.log_softmax(dim=-1).transpose(0, 1),
             y,
             len_x,
-            len_y
-
+            len_y,
+            blank=padding_value,
         )
         loss.backward()
         optimizer.step()
