@@ -21,10 +21,11 @@ max_len = 100
 batch_size = 2048
 ephocs = 50
 lr = 0.01
-prefix = "./pseg/data/p_superv/"#sup_vad/"
+prefix = "./pseg/data/sup_vad/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
 phonemes_path = f"{prefix}features.phonemes"
+
 
 def eval_mapping(x, y):
     wer_score = []
