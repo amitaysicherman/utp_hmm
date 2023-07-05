@@ -144,6 +144,8 @@ for ephoc in tqdm(range(ephocs)):
             len_x,
             len_y,
             blank=padding_value,
+            zero_infinity=True
+
         )
         loss.backward()
         optimizer.step()
