@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser()
 
 max_len = 100
 batch_size = 2048
-ephocs = 150
+ephocs = 50
 lr = 0.01
 prefix = "pseg/data/sup_vad/"
 features_path = f"{prefix}features.npy"
@@ -127,8 +127,6 @@ linear_model.to(device)
 optimizer = optim.Adam(linear_model.parameters(), lr=lr)
 loss_all = []
 acc_all = []
-acc_m_all = []
-mapp_all = []
 for ephoc in tqdm(range(ephocs)):
     e_loss = []
     e_acc = []
@@ -154,8 +152,6 @@ for ephoc in tqdm(range(ephocs)):
         e_acc.append(eval_mapping(argmax_output, y))
         e_loss.append(loss.item())
 
-    print(f"loss: {loss.item()}, acc: {e_acc[-1]}, acc_m: {e_acc_m[-1]}")
-    loss_all.append(np.mean(e_loss))
-    acc_all.append(np.mean(e_acc))
-    acc_m_all.append(np.mean(e_acc_m))
+    print(f"loss: {e_loss[-1]}, acc: {e_acc[-1]}")
+
     torch.save(linear_model.state_dict(), f"./models/linear_{ephoc}.cp")
