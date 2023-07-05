@@ -132,6 +132,7 @@ train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, dr
 linear_model = LinearModel()
 ckpt = torch.load("models/linear_49.cp", map_location="cpu")
 linear_model.load_state_dict(ckpt)
+linear_model.lin.bias.data[padding_value] = -float("inf")
 
 linear_model.to(device)
 optimizer = optim.Adam(linear_model.parameters(), lr=lr)
