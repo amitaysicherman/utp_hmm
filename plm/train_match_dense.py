@@ -112,11 +112,6 @@ class LinearModel(nn.Module):
     def __init__(self, input_dim=input_dim, output_dim=padding_value + 1):
         super(LinearModel, self).__init__()
         self.lin = nn.Linear(input_dim, output_dim)
-        # x = np.load("models/linear_14.npz")
-        # w = torch.FloatTensor(x['w'])
-        # b = torch.FloatTensor(x['b'])
-        # self.lin.weight.data.copy_(w)
-        # self.lin.bias.data.copy_(b)
 
     def forward(self, x):
         x = self.lin(x)
@@ -167,7 +162,7 @@ for ephoc in tqdm(range(ephocs)):
             print(y[0])
         pretrained_output = pretrained_model(argmax_output)
         model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
-        model_predicted_labels[y == padding_value] = padding_value
+        model_predicted_labels[x_padding_mask] = padding_value
 
         loss = F.cross_entropy(
             linear_output.transpose(1, 2),
