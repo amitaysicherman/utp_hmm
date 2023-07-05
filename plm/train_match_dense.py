@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G --time=0:10:0 --wrap "python train_match_dense.py --model_name=timit_duplarge_7.cp" --max_len=100 --small=0
+# sbatch --gres=gpu:1,vmem:24g --mem=75G --time=0:10:0 --wrap "python train_match_dense.py --model_name=timit_duplarge_7.cp --max_len=100 --small=0"
 import torch
 import torch.nn as nn
 import torch.optim as optim
