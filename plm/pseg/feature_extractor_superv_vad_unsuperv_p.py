@@ -2,9 +2,7 @@
 
 import argparse
 import glob
-import math
 import os
-import joblib
 import fairseq
 import numpy as np
 import torch
@@ -37,7 +35,7 @@ def max_min_norm(x):
     return x
 
 
-def detect_peaks(x, lengths, prominence=0.1, width=None, distance=None):
+def detect_peaks(x, lengths, prominence=0.05, width=None, distance=None):
     out = []
     for xi, li in zip(x, lengths):
         if type(xi) == torch.Tensor:
@@ -62,7 +60,6 @@ def get_phonemes_ranges(pseg_model, audio):
     preds = replicate_first_k_frames(preds, k=1, dim=1)
     preds = 1 - max_min_norm(preds)
     preds = detect_peaks(x=preds, lengths=[preds.shape[1]], prominence=0.05)
-
     preds = preds[0]
     start_end = []
     for i in range(1, len(preds)):
@@ -81,24 +78,10 @@ def read_phonemes(phonemes_file, step=step):
     with open(phonemes_file) as f:
         phonemes = f.read().splitlines()
     phonemes = [p.split() for p in phonemes]
-    phonemes = [[int(p[0]), int(p[1]), TIMIT_61_39[p[2]]] for p in phonemes]
-
-    combine_phonemes = [phonemes[0]]
-    for start, end, p in phonemes[1:]:
-        if combine_phonemes[-1][p_index] == p:
-            combine_phonemes[-1][e_index] = end
-        else:
-            combine_phonemes.append([start, end, p])
-    final_ranges = []
-    final_phonemes = []
-    for start, end, p in combine_phonemes:
-        if p == SIL:
-            continue
-        start_range = math.floor(start / step)
-        end_range = math.ceil(end / step)
-        final_ranges.append((start_range, end_range))
-        final_phonemes.append(p)
-    return final_ranges, " ".join(final_phonemes)
+    phonemes = [TIMIT_61_39[p[2]] for p in phonemes]
+    phonemes = [p for p in phonemes if p != SIL]
+    phonemes = [phonemes[0]] + [p for i, p in enumerate(phonemes[1:]) if p != phonemes[i - 1]]
+    return " ".join(phonemes)
 
 
 def get_superv_vad_ranges(phonemes_file):
@@ -119,19 +102,13 @@ class HubertFeaturesExtractor:
 
     def extract_features(self, audio_file, pseg_model):
         audio, _ = torchaudio.load(audio_file)
-        audio = audio.to(device)
-        features = self.model.extract_features(
-            source=audio,
-            padding_mask=None,
-            mask=False,
-            output_layer=self.layer,
-        )[0]
-        features = features[0].detach().cpu().numpy()
+
         vad_ranges = get_superv_vad_ranges(audio_file.replace(".WAV", ".PHN"))
         vad_audio = []
         for start, end in vad_ranges:
             vad_audio.append(audio[:, start:end])
         audio = torch.cat(vad_audio, dim=1)
+
         audio = audio.to(device)
         features = self.model.extract_features(
             source=audio,
@@ -140,15 +117,13 @@ class HubertFeaturesExtractor:
             output_layer=self.layer,
         )[0]
         features = features[0].detach().cpu().numpy()
-        combine_ranges, phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
 
         combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
-
-        if P_SUPERV:
-            combine_features = []
-            for s, e in combine_ranges:
-                combine_features.append(features[s:e + 1].mean(axis=0))
-            combine_features = np.stack(combine_features)
+        combine_features = []
+        for s, e in combine_ranges:
+            combine_features.append(features[s:e + 1].mean(axis=0))
+        combine_features = np.stack(combine_features)
+        phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
         return combine_features, phonemes
 
 
@@ -186,9 +161,8 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--timit_base', type=str, default="/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/")
-    parser.add_argument('--output_base', type=str, default='./data/vad/')
-    parser.add_argument('--hubert_cp', type=str,
-                        default="./models/hubert_base_ls960.pt")
+    parser.add_argument('--output_base', type=str, default='./data/sup_vad/')
+    parser.add_argument('--hubert_cp', type=str, default="./models/hubert_base_ls960.pt")
     parser.add_argument('--pseg_model', type=str, default='./models/timit+_pretrained.ckpt')
     args = parser.parse_args()
     save_timit_feaures(args.timit_base, args.output_base, args.hubert_cp, args.pseg_model)
