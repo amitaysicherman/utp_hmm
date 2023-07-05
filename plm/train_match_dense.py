@@ -1,4 +1,4 @@
-#sbatch --gres=gpu:1,vmem:24g --mem=75G --time=2:0:0 --wrap "python train_match_dense.py --model_name=timit_dupsmall_99.cp"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G --time=0:10:0 --wrap "python train_match_dense.py --model_name=timit_dupsmall_99.cp"
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -27,10 +27,10 @@ if args.model_name == "prep_random_small_timit_99":
 else:
     max_len = 100
 
-batch_size = 512
+batch_size =  512
 ephocs = 50
 lr = 0.1
-prefix = "/cs/labs/adiyoss/amitay.sich/utp_hmm/plm/pseg/data/p_superv/"
+prefix = "pseg/data/p_superv/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
 phonemes_path = f"{prefix}features.phonemes"
@@ -128,7 +128,9 @@ for ephoc in tqdm(range(ephocs)):
         linear_output = linear_model(x)
         argmax_output = torch.argmax(linear_output.detach(), dim=-1)
         argmax_output[y == padding_value] = padding_value
-
+        if j==0:
+            print("argmax_output")
+            print(argmax_output[0])
         pretrained_output = pretrained_model(argmax_output)
         model_predicted_labels = torch.argmax(pretrained_output, dim=-1)
         model_predicted_labels[y == padding_value] = padding_value
@@ -141,7 +143,9 @@ for ephoc in tqdm(range(ephocs)):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-
+        if j == 0:
+            print("model_predicted_labels")
+            print(model_predicted_labels[0])
         model_predicted_labels = model_predicted_labels[y != padding_value]
         predicted_labels = argmax_output[y != padding_value]
         y = y[y != padding_value]
@@ -150,9 +154,7 @@ for ephoc in tqdm(range(ephocs)):
         e_acc.append((predicted_labels == y).sum().item() / y.numel())
         e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
         e_loss.append(loss.item())
-        if j==0:
-            print(argmax_output[0])
-            print(model_predicted_labels[0])
+
     print(f"loss: {loss.item()}, acc: {e_acc[-1]}, acc_m: {e_acc_m[-1]}")
     loss_all.append(np.mean(e_loss))
     acc_all.append(np.mean(e_acc))
