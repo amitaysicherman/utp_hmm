@@ -22,6 +22,8 @@ parser.add_argument('--model_name', type=str,
                     default="prep_random_small_timit_99")
 parser.add_argument('--max_len', type=int, default=50)
 parser.add_argument('--small', type=int, default=1)
+parser.add_argument('--data', type=str, default="sup_vad_km")
+
 args = parser.parse_args()
 
 cp_file = f"./models/{args.model_name}"  # timit_dupsmall_13.cp"
@@ -31,7 +33,7 @@ max_len = args.max_len
 batch_size = 2048
 ephocs = 150
 lr = 0.01
-prefix = "pseg/data/sup_vad/"
+prefix = f"pseg/data/{args.data}/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
 phonemes_path = f"{prefix}features.phonemes"
