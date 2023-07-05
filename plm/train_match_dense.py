@@ -31,8 +31,8 @@ cp_file = f"./models/{args.model_name}"  # timit_dupsmall_13.cp"
 max_len = args.max_len
 
 batch_size = 2048
-ephocs = 150
-lr = 0.01
+ephocs = 50
+lr = 0.1
 prefix = f"pseg/data/{args.data}/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
