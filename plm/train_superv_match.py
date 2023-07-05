@@ -17,7 +17,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 parser = argparse.ArgumentParser()
 
-max_len = 100
+max_len = 200
 batch_size = 2048
 ephocs = 50
 lr = 0.1
