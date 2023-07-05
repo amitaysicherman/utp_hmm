@@ -69,10 +69,10 @@ def get_phonemes_ranges(pseg_model, audio):
         start_end.append((start, end))
     return start_end
 
-
+e_index = 1
+p_index = 2
 def read_phonemes(phonemes_file, step=step):
-    e_index = 1
-    p_index = 2
+
     SIL = "sil"
     with open(phonemes_file) as f:
         phonemes = f.read().splitlines()
@@ -97,15 +97,8 @@ def read_phonemes(phonemes_file, step=step):
     return final_ranges, " ".join(final_phonemes)
 
 
+def get_sil_ranges(phonemes_file, step=step):
 
-def read_phonemes(phonemes_file):
-    with open(phonemes_file) as f:
-        lines = f.read().splitlines()
-    phonemes = []
-    for line in lines:
-        line = line.split()
-        phonemes.append(TIMIT_61_39[line[2]])
-    return " ".join(phonemes)
 
 
 class HubertFeaturesExtractor:
@@ -125,10 +118,8 @@ class HubertFeaturesExtractor:
             output_layer=self.layer,
         )[0]
         features = features[0].detach().cpu().numpy()
-        clusters = km_model.predict(features)
-        is_act = vad_labels[clusters]
-        features = features[is_act]
-        combine_features = features
+
+
 
         vad_audio = []
 
@@ -144,10 +135,10 @@ class HubertFeaturesExtractor:
             output_layer=self.layer,
         )[0]
         features = features[0].detach().cpu().numpy()
+        combine_ranges, phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
 
         combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
 
-        combine_ranges, phonemes = read_phonemes(audio_file.replace(".WAV", ".PHN"))
 
         if P_SUPERV:
             combine_features = []
@@ -195,6 +186,5 @@ if __name__ == "__main__":
     parser.add_argument('--hubert_cp', type=str,
                         default="./models/hubert_base_ls960.pt")
     parser.add_argument('--pseg_model', type=str, default='./models/timit+_pretrained.ckpt')
-    km_model = joblib.load("./models/km100.bin")
     args = parser.parse_args()
     save_timit_feaures(args.timit_base, args.output_base, args.hubert_cp, args.pseg_model)
