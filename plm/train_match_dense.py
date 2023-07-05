@@ -40,8 +40,8 @@ phonemes_path = f"{prefix}features.phonemes"
 def eval_mapping(x, y):
     wer_score = []
     for c, p in zip(x, y):
-        c = c.detach().cpu().numpy().to_list()
-        p = p.detach().cpu().numpy().to_list()
+        c = list(c.detach().cpu().numpy())
+        p = list(p.detach().cpu().numpy())
 
         c = [c[0]] + [c[i] for i in range(1, len(c)) if c[i] != c[i - 1]]
         p = [p[0]] + [p[i] for i in range(1, len(p)) if p[i] != p[i - 1]]
