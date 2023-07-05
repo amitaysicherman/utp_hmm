@@ -19,9 +19,6 @@ class hp:
     n_negatives: int = 1
 
 
-def replicate_first_k_frames(x, k, dim):
-    return torch.cat([x.index_select(dim=dim, index=torch.LongTensor([0] * k).to(x.device)), x], dim=dim)
-
 
 class LambdaLayer(nn.Module):
     def __init__(self, lambd):

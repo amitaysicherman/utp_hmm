@@ -12,6 +12,7 @@ from tqdm import tqdm
 from model import NextFrameClassifier
 from scipy.signal import find_peaks
 import math
+import joblib
 
 step = 320
 e_index = 1
@@ -69,10 +70,12 @@ def read_phonemes(phonemes_file):
 
 
 class HubertFeaturesExtractor:
-    def __init__(self, ckpt_path, layer=6):
+    def __init__(self, ckpt_path, km_path, use_kmeans, layer=6):
         models, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task([ckpt_path])
         self.model = models[0].to(device)
         self.layer = layer
+        self.km = joblib.load(km_path)
+        self.use_kmeans = use_kmeans
         self.step = 320
 
     def extract_features(self, audio_file, pseg_model):
@@ -85,8 +88,17 @@ class HubertFeaturesExtractor:
             mask=False,
             output_layer=self.layer,
         )[0][0].detach().cpu().numpy()
-
-        combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
+        if not self.use_kmeans:
+            combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
+        else:
+            clusters = self.km.predict(features)
+            start = 0
+            combine_ranges = []
+            for c in range(1, len(clusters)):
+                if clusters[c] != clusters[c - 1]:
+                    combine_ranges.append((start, c - 1))
+                    start = c
+            combine_ranges.append((start, len(clusters) - 1))
         combine_features = np.stack([features[s:e + 1].mean(axis=0) for s, e in combine_ranges])
         return combine_features, phonemes
 
@@ -102,9 +114,10 @@ def load_pseg_model(pseg_model):
     return model
 
 
-def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
+def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model, km_model, use_kmeans):
     model = load_pseg_model(pseg_model)
-    hfe = HubertFeaturesExtractor(hubert_cp)
+
+    hfe = HubertFeaturesExtractor(hubert_cp, km_model, use_kmeans)
     os.makedirs(output_base, exist_ok=True)
     features_file = os.path.join(output_base, "features.npy")
     if os.path.exists(features_file):
@@ -130,8 +143,13 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--timit_base', type=str, default="/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/")
-    parser.add_argument('--output_base', type=str, default='./data/sup_vad/')
     parser.add_argument('--hubert_cp', type=str, default="./models/hubert_base_ls960.pt")
     parser.add_argument('--pseg_model', type=str, default='./models/timit+_pretrained.ckpt')
+    parser.add_argument('--kmeans_model', type=str, default='./models/km100.bin')
+    parser.add_argument('--use_kmeans', type=int, default=1)
+
+    parser.add_argument('--output_base', type=str, default='./data/sup_vad_km/')
+
     args = parser.parse_args()
-    save_timit_feaures(args.timit_base, args.output_base, args.hubert_cp, args.pseg_model)
+    save_timit_feaures(args.timit_base, args.output_base, args.hubert_cp, args.pseg_model, args.kmeans_model,
+                       args.use_kmeans)
