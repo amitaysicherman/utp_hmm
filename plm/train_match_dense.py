@@ -10,6 +10,7 @@ from mapping import phonemes_to_index, mis_index
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import argparse
+from jiwer import wer
 
 input_dim = 768
 phonemes_count = input_size - 1
@@ -34,6 +35,23 @@ prefix = "pseg/data/p_superv/"
 features_path = f"{prefix}features.npy"
 len_path = f"{prefix}features.length"
 phonemes_path = f"{prefix}features.phonemes"
+
+
+def eval_mapping(x, y):
+    wer_score = []
+    for c, p in zip(x, y):
+        c = c.detach().cpu().numpy().to_list()
+        p = p.detach().cpu().numpy().to_list()
+
+        c = [c[0]] + [c[i] for i in range(1, len(c)) if c[i] != c[i - 1]]
+        p = [p[0]] + [p[i] for i in range(1, len(p)) if p[i] != p[i - 1]]
+
+        c = " ".join([str(c_) for c_ in c if c_ != padding_value])
+        p = " ".join([str(p_) for p_ in p if p_ != padding_value])
+        p = " ".join([str(xx) for xx in p])
+        c = " ".join([str(xx) for xx in c])
+        wer_score.append(wer(p, c))
+    return 100 * (1 - np.mean(wer_score))
 
 
 def pad_array(data, max_len=max_len):
@@ -151,8 +169,11 @@ for ephoc in tqdm(range(ephocs)):
         y = y[y != padding_value]
         conf_indx = predicted_labels != model_predicted_labels
 
-        e_acc.append((predicted_labels == y).sum().item() / y.numel())
-        e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
+        e_acc.append(eval_mapping(argmax_output, y))
+        e_acc_m.append(eval_mapping(model_predicted_labels, y))
+
+        # e_acc.append((predicted_labels == y).sum().item() / y.numel())
+        # e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
         e_loss.append(loss.item())
 
     print(f"loss: {loss.item()}, acc: {e_acc[-1]}, acc_m: {e_acc_m[-1]}")
