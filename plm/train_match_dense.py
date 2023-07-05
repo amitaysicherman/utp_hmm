@@ -12,8 +12,6 @@ import matplotlib.pyplot as plt
 import argparse
 from jiwer import wer
 
-
-
 input_dim = 768
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -114,7 +112,7 @@ class LinearModel(nn.Module):
         self.lin = nn.Linear(input_dim, output_dim)
 
         x = np.load("models/linear_14.npz")
-        w= torch.FloatTensor(x['w'])
+        w = torch.FloatTensor(x['w'])
         b = torch.FloatTensor(x['b'])
         self.lin.weight.data.copy_(w)
         self.lin.bias.data.copy_(b)
