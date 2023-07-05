@@ -129,8 +129,8 @@ class HubertFeaturesExtractor:
         features = features[0].detach().cpu().numpy()
         vad_ranges = get_superv_vad_ranges(audio_file.replace(".WAV", ".PHN"))
         vad_audio = []
-        for start,end in vad_ranges:
-            vad_audio.append(audio[:, i * self.step:(i + 1) * self.step])
+        for start, end in vad_ranges:
+            vad_audio.append(audio[:, start:end])
         audio = torch.cat(vad_audio, dim=1)
         audio = audio.to(device)
         features = self.model.extract_features(
