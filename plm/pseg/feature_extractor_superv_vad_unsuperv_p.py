@@ -1,4 +1,4 @@
-# sbatch --time=3-0 --gres=gpu:1,vmem:24g --mem=64G --wrap "python timit_feature_extractor.py --timit_base=/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN --hubert_cp=/cs/labs/adiyoss/amitay.sich/textless-speech-disorders/hubert_base_ls960.pt"
+# sbatch --time=3-0 --gres=gpu:1,vmem:24g --mem=64G --wrap "python feature_extractor_superv_vad_unsuperv_p.py"
 
 import argparse
 import glob
