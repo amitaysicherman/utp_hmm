@@ -47,7 +47,8 @@ def get_phonemes_ranges(pseg_model, audio):
     if len(peaks) == 0:
         peaks = np.array([len(preds) - 1])
 
-    return [(math.floor(peaks[i - 1]) / peak_to_step, math.ceil(peaks[i]) / peak_to_step) for i in range(1, len(peaks))]
+    return [(int(math.floor(peaks[i - 1]) / peak_to_step), int(math.ceil(peaks[i]) / peak_to_step)) for i in
+            range(1, len(peaks))]
 
 
 def read_phonemes(phonemes_file):
