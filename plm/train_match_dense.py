@@ -1,3 +1,4 @@
+#sbatch --gres=gpu:1,vmem:24g --mem=75G --time=2:0:0 --wrap "python train_match_dense.py --model_name=timit_dupsmall_99.cp"
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -149,6 +150,9 @@ for ephoc in tqdm(range(ephocs)):
         e_acc.append((predicted_labels == y).sum().item() / y.numel())
         e_acc_m.append((model_predicted_labels == y).sum().item() / y.numel())
         e_loss.append(loss.item())
+        if j==0:
+            print(argmax_output[0])
+            print(model_predicted_labels[0])
     print(f"loss: {loss.item()}, acc: {e_acc[-1]}, acc_m: {e_acc_m[-1]}")
     loss_all.append(np.mean(e_loss))
     acc_all.append(np.mean(e_acc))
