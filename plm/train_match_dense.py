@@ -112,12 +112,11 @@ class LinearModel(nn.Module):
     def __init__(self, input_dim=input_dim, output_dim=padding_value + 1):
         super(LinearModel, self).__init__()
         self.lin = nn.Linear(input_dim, output_dim)
-
-        x = np.load("models/linear_14.npz")
-        w = torch.FloatTensor(x['w'])
-        b = torch.FloatTensor(x['b'])
-        self.lin.weight.data.copy_(w)
-        self.lin.bias.data.copy_(b)
+        # x = np.load("models/linear_14.npz")
+        # w = torch.FloatTensor(x['w'])
+        # b = torch.FloatTensor(x['b'])
+        # self.lin.weight.data.copy_(w)
+        # self.lin.bias.data.copy_(b)
 
     def forward(self, x):
         x = self.lin(x)
@@ -136,6 +135,9 @@ loss_fn = nn.CrossEntropyLoss().to(device)
 train_data = DataLoader(UnitsDataset(), batch_size=batch_size, shuffle=False, drop_last=True)
 
 linear_model = LinearModel()
+ckpt = torch.load("models/linear_49.cp", map_location="cpu")
+linear_model.load_state_dict(ckpt)
+
 linear_model.to(device)
 optimizer = optim.Adam(linear_model.parameters(), lr=lr)
 loss_all = []
