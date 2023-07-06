@@ -18,7 +18,7 @@ parser.add_argument('--size', type=str, default="small", choices=["small", "medi
 parser.add_argument('--data_train', type=str, default="TIMIT_TRAIN_PH_dup")
 parser.add_argument('--data_val', type=str, default="TIMIT_TRAIN_VAL_PH_dup")
 parser.add_argument('--data_test', type=str, default="TIMIT_TEST_PH_dup")
-parser.add_argument('--batch_size', type=int, default=512)
+parser.add_argument('--batch_size', type=int, default=128)
 parser.add_argument('--lr', type=float, default=5e-4)
 parser.add_argument('--drop_out', type=float, default=0.0)
 parser.add_argument('--epochs', type=int, default=100)
