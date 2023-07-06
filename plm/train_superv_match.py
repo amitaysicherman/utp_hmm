@@ -108,12 +108,6 @@ class LinearModel(nn.Module):
         super(LinearModel, self).__init__()
         self.lin = nn.Linear(input_dim, output_dim)
 
-        x = np.load("models/linear_14.npz")
-        w = torch.FloatTensor(x['w'])
-        b = torch.FloatTensor(x['b'])
-        self.lin.weight.data.copy_(w)
-        self.lin.bias.data.copy_(b)
-
     def forward(self, x):
         x = self.lin(x)
         return x

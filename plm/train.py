@@ -7,27 +7,26 @@ import numpy as np
 from torch.nn.parallel import DataParallel
 from x_transformers import TransformerWrapper, Encoder
 import torch.nn.functional as F
-from collections import defaultdict
-from mapping import phonemes_to_index, mis_index
+from mapping import phonemes_to_index
+import argparse
+from conv_encoder import get_conv_encoder_model
 
-config_name = "timit_dup"  #
+parser = argparse.ArgumentParser()
+parser.add_argument('--model', type=str, choices=["conv", "transformer"], default="conv")
+parser.add_argument('--max_len', type=int, default=100)
+parser.add_argument('--size', type=str, default="small", choices=["small", "medium", "large"])
+parser.add_argument('--data_train', type=str, default="TIMIT_TRAIN_PH_dup")
+parser.add_argument('--data_val', type=str, default="TIMIT_TRAIN_VAL_PH_dup")
+parser.add_argument('--data_test', type=str, default="TIMIT_TEST_PH_dup")
+parser.add_argument('--batch_size', type=int, default=512)
+parser.add_argument('--lr', type=float, default=5e-4)
+parser.add_argument('--drop_out', type=float, default=0.0)
+parser.add_argument('--epochs', type=int, default=100)
+args = parser.parse_args()
+config_name = f"{args.model}_{args.size}_{args.data_train.replace('TRAIN', '')}"
 
-small = True
-config_name += "_large" if not small else "_small"
-
-input_size = 40  # Number of tokens (0-38 + padding token)
-batch_size = 512
-num_epochs = 1000
-max_len = 100
-mask_value = input_size - 1
-padding_value = input_size
-do_dropout = False
-
-train_file = f"TIMIT_TRAIN_PH_dup"  # "
-val_file = f"TIMIT_TRAIN_VAL_PH_dup"
-test_file = f"TIMIT_TEST_PH_dup"
-
-lr = 5e-4
+INPUT_SIZE = len(phonemes_to_index) + 1
+PADDING_VALUE = INPUT_SIZE
 
 
 class Scores:
@@ -49,8 +48,7 @@ class Scores:
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, prefix, max_len=max_len,
-                 padding_value=padding_value):
+    def __init__(self, prefix, max_len, padding_value=PADDING_VALUE):
 
         with open(f'{prefix}_clean.txt', 'r') as f:
             clean_data = f.read().splitlines()
@@ -61,64 +59,53 @@ class PhonemesDataset(Dataset):
         self.step = 0
         self.x = []
         self.y = []
-        # self.noise_levels = defaultdict(list)
         for i, (clean, noise) in tqdm(enumerate(zip(clean_data, noise_data)), total=len(clean_data)):
-            # n = (100 * (np.array(noise) != np.array(clean)).mean()) // 5
-            # self.noise_levels[n].append(i)
             assert len(clean) == len(noise)
             seq_len = len(clean)
             if seq_len > max_len:
                 start_index = np.random.randint(0, seq_len - max_len)
                 clean = clean[start_index:start_index + max_len]
                 noise = noise[start_index:start_index + max_len]
-
                 clean = np.array(list(clean), dtype=np.int8)
                 noise = np.array(list(noise), dtype=np.int8)
             else:
                 clean = np.array(list(clean) + [padding_value] * (max_len - len(clean)), dtype=np.int8)
                 noise = np.array(list(noise) + [padding_value] * (max_len - len(noise)), dtype=np.int8)
-
             self.x.append(noise)
             self.y.append(clean)
 
     def __len__(self):
-        return len(self.x)  # len(self.noise_levels[self.step])
+        return len(self.x)
 
     def __getitem__(self, idx):
-        # idx = self.noise_levels[self.step][idx]
         return torch.LongTensor(self.x[idx]), torch.LongTensor(self.y[idx])
 
 
-def get_model(small=small,input_size=input_size, max_len=max_len):
-    if small:
-        d_model = 256
-        nhead = 4
-        num_layers = 6
-    else:
-        d_model = 768
-        nhead = 12
-        num_layers = 12
-
-
-
-    if do_dropout:
-        dropout = 0.1
-    else:
-        dropout = 0.0
-    model = TransformerWrapper(
-        num_tokens=input_size + 1,
-        max_seq_len=max_len,
-        emb_dropout=dropout,
-        attn_layers=Encoder(
-            dim=d_model,
-            depth=num_layers,
-            heads=nhead,
-            layer_dropout=dropout,  # stochastic depth - dropout entire layer
-            attn_dropout=dropout,  # dropout post-attention
-            ff_dropout=dropout  # feedforward dropout
+def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
+    if arc == "transformer":
+        if size == "small":
+            d_model = 256
+            nhead = 4
+            num_layers = 6
+        else:
+            d_model = 768
+            nhead = 12
+            num_layers = 12
+        return TransformerWrapper(
+            num_tokens=vocab + 1,
+            max_seq_len=max_len,
+            emb_dropout=dropout,
+            attn_layers=Encoder(
+                dim=d_model,
+                depth=num_layers,
+                heads=nhead,
+                layer_dropout=dropout,
+                attn_dropout=dropout,
+                ff_dropout=dropout
+            )
         )
-    )
-    return model
+    else:
+        return get_conv_encoder_model(size)
 
 
 def single_round(model, x, y, is_train, scorer):
@@ -128,7 +115,7 @@ def single_round(model, x, y, is_train, scorer):
     loss = F.cross_entropy(
         logits.transpose(1, 2),
         y,
-        ignore_index=padding_value
+        ignore_index=PADDING_VALUE
     )
     if is_train:
         loss.backward()
@@ -136,8 +123,8 @@ def single_round(model, x, y, is_train, scorer):
         optimizer.zero_grad()
 
     predicted_labels = torch.argmax(logits, dim=-1)
-    predicted_labels = predicted_labels[y != padding_value]
-    y = y[y != padding_value]
+    predicted_labels = predicted_labels[y != PADDING_VALUE]
+    y = y[y != PADDING_VALUE]
     acc = (predicted_labels == y).sum().item() / y.numel()
     scorer.update(loss.item(), acc)
 
@@ -157,19 +144,16 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-    train_dataset = PhonemesDataset(train_file)
-    val_dataset = PhonemesDataset(val_file)
-    test_dataset = PhonemesDataset(test_file)
+    train_dataset = PhonemesDataset(args.data_train, args.max_len)
+    val_dataset = PhonemesDataset(args.data_val, args.max_len)
+    test_dataset = PhonemesDataset(args.data_test, args.max_len)
 
-    train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
-    val_data = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
-    test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+    train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
+    val_data = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
+    test_data = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    # step_count = 0
-    for epoch in range(0, num_epochs):
-        # step_count += 1
-
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    for epoch in range(args.epochs):
         train_scores = Scores("train")
         val_scores = Scores("val")
         test_scores = Scores("test")
@@ -202,21 +186,6 @@ if __name__ == '__main__':
             f.write(f"{val_scores}\n")
             f.write(f"{test_scores}\n")
             f.write("\n")
-
-        # acc = 100 * np.mean(train_scores.acc)
-        # noise_level = (0.5 + train_dataset.step) * 5
-        # acc_indentity = 100 - noise_level + np.sqrt(noise_level)
-        #
-        # if acc > acc_indentity or step_count > 20:
-        #     print("Noise level increased")
-        #     print(f"Current noise level: {train_dataset.step * 5}%")
-        #     print("epoch", epoch)
-        #     train_dataset.step += 1
-        #     val_dataset.step += 1
-        #     test_dataset.step += 1
-        #     step_count = 0
-        #     if train_dataset.step == 20:
-        #         break
 
         train_scores.reset()
         val_scores.reset()
