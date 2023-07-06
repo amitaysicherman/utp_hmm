@@ -13,7 +13,7 @@ from conv_encoder import get_conv_encoder_model
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, choices=["conv", "transformer"], default="conv")
-parser.add_argument('--max_len', type=int, default=16)
+parser.add_argument('--max_len', type=int, default=32)
 parser.add_argument('--size', type=str, default="small", choices=["small", "medium", "large"])
 parser.add_argument('--data_train', type=str, default="TIMIT_TRAIN_PH_dup")
 parser.add_argument('--data_val', type=str, default="TIMIT_TRAIN_VAL_PH_dup")
