@@ -81,6 +81,27 @@ class PhonemesDataset(Dataset):
         return torch.LongTensor(self.x[idx]), torch.LongTensor(self.y[idx])
 
 
+def single_round(model, x, y, is_train, scorer):
+    x = x.to(device)
+    y = y.to(device)
+    logits = model(x)
+    loss = F.cross_entropy(
+        logits.transpose(1, 2),
+        y,
+        ignore_index=PADDING_VALUE
+    )
+    if is_train:
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+
+    predicted_labels = torch.argmax(logits, dim=-1)
+    predicted_labels = predicted_labels[y != PADDING_VALUE]
+    y = y[y != PADDING_VALUE]
+    acc = (predicted_labels == y).sum().item() / y.numel()
+    scorer.update(loss.item(), acc)
+
+
 def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
     if arc == "transformer":
         if size == "small":
@@ -108,29 +129,8 @@ def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
         return get_conv_encoder_model(size)
 
 
-def single_round(model, x, y, is_train, scorer):
-    x = x.to(device)
-    y = y.to(device)
-    logits = model(x)
-    loss = F.cross_entropy(
-        logits.transpose(1, 2),
-        y,
-        ignore_index=PADDING_VALUE
-    )
-    if is_train:
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-
-    predicted_labels = torch.argmax(logits, dim=-1)
-    predicted_labels = predicted_labels[y != PADDING_VALUE]
-    y = y[y != PADDING_VALUE]
-    acc = (predicted_labels == y).sum().item() / y.numel()
-    scorer.update(loss.item(), acc)
-
-
 if __name__ == '__main__':
-    model = get_model()
+    model = get_model(args.model, args.size, args.max_len, args.drop_out)
 
     print(model)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
