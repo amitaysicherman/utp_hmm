@@ -2,17 +2,19 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from train import get_model, input_size, max_len, padding_value
+from train import get_model, PADDING_VALUE
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from tqdm import tqdm
-from mapping import phonemes_to_index, mis_index
+from mapping import phonemes_to_index
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import argparse
 from jiwer import wer
 
+padding_value = PADDING_VALUE
 input_dim = 768
+input_size = len(phonemes_to_index) + 1
 phonemes_count = input_size - 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

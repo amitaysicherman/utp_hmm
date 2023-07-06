@@ -17,7 +17,7 @@ class ConvEncoder(nn.Module):
     ):
         super().__init__()
         self.dropout = dropout
-        self.emb = nn.Embedding(vocab_size, model_dim)
+        self.emb = nn.Embedding(vocab_size+1, model_dim)
 
         self.conv_layers = nn.ModuleList()
         for i in range(n_layers):
