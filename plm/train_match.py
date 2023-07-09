@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from train import get_model, input_size, max_len, padding_value
+from train import input_size, max_len, padding_value
+from plm.utils import get_model
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from tqdm import tqdm

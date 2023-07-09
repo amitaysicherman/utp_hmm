@@ -42,6 +42,6 @@ def write_phonemes_to_file(base_dir, output_file):
 
 if __name__ == '__main__':
     timit_train = "/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/"
-    write_phonemes_to_file(timit_train, "TIMIT_TRAIN_PH.txt")
+    write_phonemes_to_file(timit_train, "data/TIMIT_TRAIN_PH.txt")
     timit_test = "/cs/labs/adiyoss/amitay.sich/TIMIT/data/TEST/"
-    write_phonemes_to_file(timit_test, "TIMIT_TEST_PH.txt")
+    write_phonemes_to_file(timit_test, "data/TIMIT_TEST_PH.txt")

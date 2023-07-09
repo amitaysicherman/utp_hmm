@@ -9,7 +9,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 import time
-from train import get_model, input_size, max_len, padding_value
+from train import input_size, max_len, padding_value
+from plm.utils import get_model
 import numpy as np
 from tqdm import tqdm
 
@@ -22,7 +23,7 @@ writer = SummaryWriter(log_dir=log_dir)
 
 
 class ReplacePhonemesDataset(PhonemesDataset):
-    def __init__(self, data_path='LR960_PH.npz', data_len_path="LR960_PH_LEN.txt", max_len=max_len,
+    def __init__(self, data_path='data/LR960_PH.npz', data_len_path="data/LR960_PH_LEN.txt", max_len=max_len,
                  padding_value=padding_value, n_units=n_units):
         super().__init__(data_path, data_len_path, max_len, padding_value)
 
@@ -78,8 +79,8 @@ class LinearModel(nn.Module):
 
 if __name__ == '__main__':
     cp_file = "./models/best.cp"
-    data_path = 'LR960_PH.npz'
-    data_len_path = 'LR960_PH_LEN.txt'
+    data_path = 'data/LR960_PH.npz'
+    data_len_path = 'data/LR960_PH_LEN.txt'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = get_model()
     model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))

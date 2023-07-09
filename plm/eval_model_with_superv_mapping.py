@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-from train import get_model
+from plm.utils import get_model
 
 from mapping import phonemes_to_index
 

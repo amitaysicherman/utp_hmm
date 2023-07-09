@@ -1,6 +1,4 @@
-# https://github.com/lucidrains/mlm-pytorch
 import math
-import random
 from functools import reduce
 
 import torch
@@ -73,11 +71,7 @@ class MLM(nn.Module):
         # also do not include these special tokens in the tokens chosen at random
 
         no_mask = mask_with_tokens(seq, self.mask_ignore_token_ids)
-        if self.mask_prob != -1:
-            p = self.mask_prob
-        else:
-            p = random.random()
-        mask = get_mask_subset_with_prob(~no_mask, p)
+        mask = get_mask_subset_with_prob(~no_mask, self.mask_prob)
 
         # mask input with mask tokens with probability of `replace_prob` (keep tokens the same with probability 1 - replace_prob)
 
@@ -88,20 +82,16 @@ class MLM(nn.Module):
         labels = seq.masked_fill(~mask, self.pad_token_id)
 
         # if random token probability > 0 for mlm
-        if self.random_token_prob == -1:
-            p = random.random()
-        else:
-            p = self.random_token_prob
 
-        if p > 0:
+        if self.random_token_prob > 0:
             assert self.num_tokens is not None, 'num_tokens keyword must be supplied when instantiating MLM if using random token replacement'
-            random_token_prob = prob_mask_like(seq, p)
+            random_token_prob = prob_mask_like(seq, self.random_token_prob)
             random_tokens = torch.randint(0, self.num_tokens, seq.shape, device=seq.device)
             random_no_mask = mask_with_tokens(random_tokens, self.mask_ignore_token_ids)
             random_token_prob &= ~random_no_mask
             masked_seq = torch.where(random_token_prob, random_tokens, masked_seq)
 
-            # remove tokens that were substituted by random to be [mask]ed later
+            # remove tokens that were substituted randomly from being [mask]ed later
             mask = mask & ~random_token_prob
 
         # [mask] input
@@ -119,4 +109,4 @@ class MLM(nn.Module):
             ignore_index=self.pad_token_id
         )
 
-        return mlm_loss
+        return mlm_loss,logits,labels

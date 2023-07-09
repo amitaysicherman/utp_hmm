@@ -74,16 +74,16 @@ if __name__ == '__main__':
 
     vars = parser.parse_args()
     if vars.dataset == "tm":
-        train_file = "TIMIT_TRAIN_PH.txt"
-        valid_output_file = "TIMIT_TRAIN_VAL_PH"
-        test_file = "TIMIT_TEST_PH.txt"
+        train_file = "data/TIMIT_TRAIN_PH.txt"
+        valid_output_file = "data/TIMIT_TRAIN_VAL_PH"
+        test_file = "data/TIMIT_TEST_PH.txt"
         g2p = None
         train_repeats = 1000
         val_test_repeats = 10
     else:  # 'lr'
-        train_file = "lr_train.txt"
-        valid_output_file = "lr_train_val"
-        test_file = "lr_test.txt"
+        train_file = "data/lr_train.txt"
+        valid_output_file = "data/lr_train_val"
+        test_file = "data/lr_test.txt"
         g2p = None  # G2p()
         train_repeats = 10
         val_test_repeats = 1

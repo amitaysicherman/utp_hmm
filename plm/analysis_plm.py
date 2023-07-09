@@ -2,13 +2,14 @@ import random
 
 import numpy as np
 from sklearn.cluster import KMeans, MiniBatchKMeans
-from train import  PhonemesDataset, padding_value
+from train import  PhonemesDataset, PADDING_VALUE
 import torch
-from train import get_model
+from plm.utils import get_model
 
+padding_value = PADDING_VALUE
 cp_file = "./models/best.cp"
-data_path = 'LR960_PH.npz'
-data_len_path = 'LR960_PH_LEN.txt'
+data_path = 'data/LR960_PH.npz'
+data_len_path = 'data/LR960_PH_LEN.txt'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

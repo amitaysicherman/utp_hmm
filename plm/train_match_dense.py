@@ -2,7 +2,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from train import get_model, PADDING_VALUE
+from train import PADDING_VALUE
+from plm.utils import get_model
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from tqdm import tqdm

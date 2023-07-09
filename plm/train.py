@@ -5,46 +5,14 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import numpy as np
 from torch.nn.parallel import DataParallel
-from x_transformers import TransformerWrapper, Encoder
 import torch.nn.functional as F
 from mapping import phonemes_to_index
-import argparse
-from conv_encoder import get_conv_encoder_model
+from plm.utils import args_parser, get_model_from_args, save_model, Scores, get_config_name
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--model', type=str, choices=["conv", "transformer"], default="conv")
-parser.add_argument('--max_len', type=int, default=32)
-parser.add_argument('--size', type=str, default="small", choices=["small", "medium", "large"])
-parser.add_argument('--data_train', type=str, default="TIMIT_TRAIN_PH_dup")
-parser.add_argument('--data_val', type=str, default="TIMIT_TRAIN_VAL_PH_dup")
-parser.add_argument('--data_test', type=str, default="TIMIT_TEST_PH_dup")
-parser.add_argument('--batch_size', type=int, default=4096)
-parser.add_argument('--lr', type=float, default=5e-4)
-parser.add_argument('--drop_out', type=float, default=0.0)
-parser.add_argument('--epochs', type=int, default=100)
-args = parser.parse_args()
-config_name = f"{args.model}_{args.size}_{args.data_train.replace('TRAIN', '')}"
+args = args_parser()
 
 INPUT_SIZE = len(phonemes_to_index) + 1
 PADDING_VALUE = INPUT_SIZE
-
-
-class Scores:
-    def __init__(self, name):
-        self.name = name
-        self.loss = []
-        self.acc = []
-
-    def update(self, loss, acc):
-        self.loss.append(loss)
-        self.acc.append(acc)
-
-    def __repr__(self):
-        return f"\n{self.name} loss: {np.mean(self.loss)} \n{self.name} acc: {np.mean(self.acc)}"
-
-    def reset(self):
-        self.loss = []
-        self.acc = []
 
 
 class PhonemesDataset(Dataset):
@@ -94,43 +62,11 @@ def single_round(model, x, y, is_train, scorer):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-
-    predicted_labels = torch.argmax(logits, dim=-1)
-    predicted_labels = predicted_labels[y != PADDING_VALUE]
-    y = y[y != PADDING_VALUE]
-    acc = (predicted_labels == y).sum().item() / y.numel()
-    scorer.update(loss.item(), acc)
-
-
-def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
-    if arc == "transformer":
-        if size == "small":
-            d_model = 256
-            nhead = 4
-            num_layers = 6
-        else:
-            d_model = 768
-            nhead = 12
-            num_layers = 12
-        return TransformerWrapper(
-            num_tokens=vocab + 1,
-            max_seq_len=max_len,
-            emb_dropout=dropout,
-            attn_layers=Encoder(
-                dim=d_model,
-                depth=num_layers,
-                heads=nhead,
-                layer_dropout=dropout,
-                attn_dropout=dropout,
-                ff_dropout=dropout
-            )
-        )
-    else:
-        return get_conv_encoder_model(size)
+    scorer.update(y, logits, loss)
 
 
 if __name__ == '__main__':
-    model = get_model(args.model, args.size, args.max_len, args.drop_out)
+    model = get_model_from_args(args)
 
     print(model)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -154,9 +90,10 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.epochs):
-        train_scores = Scores("train")
-        val_scores = Scores("val")
-        test_scores = Scores("test")
+        config_name = get_config_name(args)
+        train_scores = Scores("train", config_name)
+        val_scores = Scores("val", config_name)
+        test_scores = Scores("test", config_name)
         model.train()
         for (x, y) in tqdm(train_data):
             single_round(model, x, y, True, train_scores)
@@ -167,26 +104,12 @@ if __name__ == '__main__':
                 single_round(model, x, y, False, val_scores)
             for (x, y) in tqdm(test_data):
                 single_round(model, x, y, False, test_scores)
-
-        cp_name = f"models/{config_name}_{epoch}.cp"
-        if torch.cuda.device_count() > 1:
-            torch.save(model.module.state_dict(), cp_name)
-        else:
-            torch.save(model.state_dict(), cp_name)
-        torch.save(optimizer.state_dict(), cp_name.replace(".cp", "_opt.cp"))
-
+        save_model(model, optimizer, args, epoch)
         print("Epoch", epoch)
         print(train_scores)
         print(val_scores)
         print(test_scores)
 
-        with open(f"results_{config_name}.txt", "a") as f:
-            f.write(f"Epoch {epoch}\n")
-            f.write(f"{train_scores}\n")
-            f.write(f"{val_scores}\n")
-            f.write(f"{test_scores}\n")
-            f.write("\n")
-
-        train_scores.reset()
-        val_scores.reset()
-        test_scores.reset()
+        train_scores.save_and_reset()
+        val_scores.save_and_reset()
+        test_scores.save_and_reset()

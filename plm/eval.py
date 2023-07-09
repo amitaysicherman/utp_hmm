@@ -4,7 +4,7 @@ import pandas as pd
 from train import PhonemesDataset, padding_value
 import torch
 from tqdm import tqdm
-from train import get_model
+from plm.utils import get_model
 import torch.nn.functional as F
 from scipy.stats import entropy
 
