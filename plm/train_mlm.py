@@ -65,13 +65,13 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            train_scores.update(data, logits, loss)
+            train_scores.update(data, logits, loss.item())
         model.eval()
         with torch.no_grad():
             for data in tqdm(test_data):
                 data=data.to(device)
                 loss, logits, y = trainer(data)
-                test_scores.update(data, logits, loss)
+                test_scores.update(data, logits, loss.item())
         save_model(model, optimizer, args, epoch)
         print("Epoch", epoch)
         print(train_scores)
