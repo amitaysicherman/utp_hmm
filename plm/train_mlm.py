@@ -75,7 +75,8 @@ if __name__ == '__main__':
                     data = data.to(device)
                     loss, logits, y = trainer(data)
                     test_scores.update(data, logits, loss.item())
-            save_model(model, optimizer, args, epoch, suf="_" + str(random_token_prob))
+            if epoch % 10 == 0:
+                save_model(model, optimizer, args, epoch, suf="_" + str(random_token_prob))
             print(f"random_token_prob {random_token_prob} Epoch", epoch)
             print(train_scores)
             print(test_scores)
