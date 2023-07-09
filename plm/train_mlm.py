@@ -8,7 +8,7 @@ import numpy as np
 from torch.nn.parallel import DataParallel
 
 import torch
-from utils import args_parser, get_model, PADDING_VALUE, MASK_VALUE, get_config_name, Scores, save_model,N_TOKENS
+from utils import args_parser, get_model, PADDING_VALUE, MASK_VALUE, get_config_name, Scores, save_model, N_TOKENS
 
 
 class PhonemesDataset(Dataset):
@@ -46,38 +46,39 @@ if __name__ == '__main__':
     train_data = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
     test_data = DataLoader(test_ds, batch_size=args.batch_size, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    trainer = MLM(
-        model,
-        mask_token_id=MASK_VALUE,  # the token id reserved for masking
-        pad_token_id=PADDING_VALUE,  # the token id for padding
-        mask_prob=0.15,  # masking probability for masked language modeling
-        random_token_prob=0.10,  # masking probability for a random token
-        num_tokens=N_TOKENS,  # number of tokens in the dataset
-        replace_prob=0.90,
-        # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
-    ).to(device)
-    for epoch in range(args.epochs):
-        config_name = get_config_name(args)
-        train_scores = Scores("train", config_name)
-        test_scores = Scores("test", config_name)
-        model.train()
-        for data in tqdm(train_data):
-            data=data.to(device)
-            loss, logits, y = trainer(data)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            train_scores.update(data, logits, loss.item())
-        model.eval()
-        with torch.no_grad():
-            for data in tqdm(test_data):
-                data=data.to(device)
+    for random_token_prob in [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
+        trainer = MLM(
+            model,
+            mask_token_id=MASK_VALUE,  # the token id reserved for masking
+            pad_token_id=PADDING_VALUE,  # the token id for padding
+            mask_prob=0.15,  # masking probability for masked language modeling
+            random_token_prob=random_token_prob,  # masking probability for a random token
+            num_tokens=N_TOKENS,  # number of tokens in the dataset
+            replace_prob=0.90,
+            # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
+        ).to(device)
+        for epoch in range(args.epochs):
+            config_name = get_config_name(args)
+            train_scores = Scores("train", config_name)
+            test_scores = Scores("test", config_name)
+            model.train()
+            for data in tqdm(train_data):
+                data = data.to(device)
                 loss, logits, y = trainer(data)
-                test_scores.update(data, logits, loss.item())
-        save_model(model, optimizer, args, epoch)
-        print("Epoch", epoch)
-        print(train_scores)
-        print(test_scores)
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                train_scores.update(data, logits, loss.item())
+            model.eval()
+            with torch.no_grad():
+                for data in tqdm(test_data):
+                    data = data.to(device)
+                    loss, logits, y = trainer(data)
+                    test_scores.update(data, logits, loss.item())
+            save_model(model, optimizer, args, epoch, suf="_" + str(random_token_prob))
+            print(f"random_token_prob {random_token_prob} Epoch", epoch)
+            print(train_scores)
+            print(test_scores)
 
-        train_scores.save_and_reset()
-        test_scores.save_and_reset()
+            train_scores.save_and_reset()
+            test_scores.save_and_reset()
