@@ -24,9 +24,9 @@ max_len = args.max_len
 batch_size = args.batch_size
 ephocs = args.epochs
 lr = args.lr
-features_path = f"{args.match_data}features.npy"
-len_path = f"{args.match_data}features.length"
-phonemes_path = f"{args.match_data}features.phonemes"
+features_path = f"{args.match_data}/features.npy"
+len_path = f"{args.match_data}/features.length"
+phonemes_path = f"{args.match_data}/features.phonemes"
 
 
 def eval_mapping(x, y):
