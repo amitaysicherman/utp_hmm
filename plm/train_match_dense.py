@@ -1,5 +1,5 @@
 
-# sbatch --gres=gpu:1,vmem:24g --mem=75G --time=0:10:0 --wrap "python train_match_dense.py --lr=0.01 --epochs=50 --match_data=./pseg/data/p_superv --match_cp=./models/transformer_small_lr_100_0.0005_0.0_90_0.8_opt.cp"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G --time=0:10:0 --wrap "python train_match_dense.py --lr=0.01 --epochs=50 --model=transformer --match_data=./pseg/data/p_superv --match_cp=./models/transformer_small_lr_100_0.0005_0.0_90_0.8.cp"
 
 
 
