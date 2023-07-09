@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import torch
 from x_transformers import TransformerWrapper, Encoder
-from plm.conv_encoder import get_conv_encoder_model
+from conv_encoder import get_conv_encoder_model
 from mapping import phonemes_to_index
 
 INPUT_SIZE = len(phonemes_to_index) + 1

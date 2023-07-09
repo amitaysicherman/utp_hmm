@@ -7,7 +7,7 @@ import numpy as np
 from torch.nn.parallel import DataParallel
 import torch.nn.functional as F
 from mapping import phonemes_to_index
-from plm.utils import args_parser, get_model_from_args, save_model, Scores, get_config_name
+from utils import args_parser, get_model_from_args, save_model, Scores, get_config_name
 
 args = args_parser()
 

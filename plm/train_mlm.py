@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train.py --model=transformer --data_train=data/lr_train.txt --data_test=data/lr_test.txt"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_mlm.py --model=transformer --data_train=data/lr_train.txt --data_test=data/lr_test.txt"
 
 
 from mlm import MLM
