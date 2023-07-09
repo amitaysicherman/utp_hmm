@@ -8,7 +8,7 @@ import numpy as np
 from torch.nn.parallel import DataParallel
 
 import torch
-from utils import args_parser, get_model, PADDING_VALUE, MASK_VALUE, get_config_name, Scores, save_model
+from utils import args_parser, get_model, PADDING_VALUE, MASK_VALUE, get_config_name, Scores, save_model,N_TOKENS
 
 
 class PhonemesDataset(Dataset):
@@ -51,6 +51,8 @@ if __name__ == '__main__':
         mask_token_id=MASK_VALUE,  # the token id reserved for masking
         pad_token_id=PADDING_VALUE,  # the token id for padding
         mask_prob=0.15,  # masking probability for masked language modeling
+        random_token_prob=0.10,  # masking probability for a random token
+        num_tokens=N_TOKENS,  # number of tokens in the dataset
         replace_prob=0.90,
         # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
     ).to(device)

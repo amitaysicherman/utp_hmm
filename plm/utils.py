@@ -6,7 +6,8 @@ from x_transformers import TransformerWrapper, Encoder
 from conv_encoder import get_conv_encoder_model
 from mapping import phonemes_to_index
 
-INPUT_SIZE = len(phonemes_to_index) + 1
+N_TOKENS = len(phonemes_to_index)
+INPUT_SIZE = N_TOKENS + 1
 PADDING_VALUE = INPUT_SIZE
 MASK_VALUE = PADDING_VALUE + 1
 
@@ -17,10 +18,17 @@ def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
             d_model = 256
             nhead = 4
             num_layers = 6
-        else:
+        elif size == "medium":
             d_model = 768
             nhead = 12
             num_layers = 12
+        elif size == "large":
+            d_model = 1024
+            nhead = 16
+            num_layers = 16
+        else:
+            raise ValueError(f"Unknown size {size}")
+
         return TransformerWrapper(
             num_tokens=vocab + 1,
             max_seq_len=max_len,
@@ -34,6 +42,7 @@ def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
                 ff_dropout=dropout
             )
         )
+
     else:
         return get_conv_encoder_model(size)
 
@@ -62,6 +71,8 @@ def get_config_name(args):
     data_name = args.data_train.split("/")[-1]
     data_name = data_name.replace("_train", "")
     data_name = data_name.replace("_TRAIN", "")
+    data_name = data_name.replace(".txt", "")
+
     return f"{args.model}_{args.size}_{data_name}_{args.epochs}_{args.lr}_{args.drop_out}"
 
 
