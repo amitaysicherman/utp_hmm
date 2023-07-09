@@ -6,7 +6,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from utils import get_model_from_args, args_parser, PADDING_VALUE, INPUT_SIZE
+from utils import get_model, args_parser, PADDING_VALUE, INPUT_SIZE,MASK_VALUE
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from tqdm import tqdm
@@ -109,7 +109,7 @@ class LinearModel(nn.Module):
         return x
 
 
-pretrained_model = get_model_from_args(args)
+pretrained_model = get_model(args.model, args.size, args.max_len, args.drop_out, MASK_VALUE + 1)
 
 pretrained_model.load_state_dict(torch.load(args.match_cp, map_location=torch.device('cpu')))
 pretrained_model.to(device)
