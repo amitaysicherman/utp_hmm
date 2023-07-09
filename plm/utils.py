@@ -59,7 +59,10 @@ def args_parser():
 
 
 def get_config_name(args):
-    return f"{args.model}_{args.size}_{args.data_train}_{args.epochs}_{args.lr}_{args.drop_out}"
+    data_name = args.data_train.split("/")[-1]
+    data_name = data_name.replace("_train", "")
+    data_name = data_name.replace("_TRAIN", "")
+    return f"{args.model}_{args.size}_{data_name}_{args.epochs}_{args.lr}_{args.drop_out}"
 
 
 def save_model(model, optimizer, args, ephoc):
@@ -73,7 +76,7 @@ def save_model(model, optimizer, args, ephoc):
 
 
 class Scores:
-    def __init__(self, name,output_file):
+    def __init__(self, name, output_file):
         self.name = name
         self.output_file = f"results/{output_file}.txt"
         self.loss = []
@@ -97,7 +100,6 @@ class Scores:
     def reset(self):
         self.loss = []
         self.acc = []
-
 
     def save_and_reset(self):
         self.save()
