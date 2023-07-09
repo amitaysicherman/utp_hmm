@@ -105,7 +105,7 @@ class Scores:
         return f"{self.name} loss: {np.mean(self.loss)} \n{self.name} acc: {np.mean(self.acc)}\n"
 
     def save(self):
-        with open(self.output_file, "w") as f:
+        with open(self.output_file, "a") as f:
             f.write(repr(self))
 
     def reset(self):
