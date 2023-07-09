@@ -63,6 +63,12 @@ def args_parser():
     parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--drop_out', type=float, default=0.0)
     parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--match_data', type=str, default="./pseg/data/p_superv")
+    parser.add_argument('--match_cp', type=str, default="./models/transformer_small_lr_100_0.0005_0.0_90_0.8_opt.cp")
+
+
+
+
     args = parser.parse_args()
     return args
 
@@ -73,7 +79,7 @@ def get_config_name(args):
     data_name = data_name.replace("_TRAIN", "")
     data_name = data_name.replace(".txt", "")
 
-    return f"{args.model}_{args.size}_{data_name}_{args.epochs}_{args.lr}_{args.drop_out}"
+    return f"{args.model}_{args.size}_{data_name}_{args.lr}_{args.drop_out}"
 
 
 def save_model(model, optimizer, args, ephoc, suf=""):
