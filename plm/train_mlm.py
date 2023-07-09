@@ -60,6 +60,7 @@ if __name__ == '__main__':
         test_scores = Scores("test", config_name)
         model.train()
         for data in tqdm(train_data):
+            data=data.to(device)
             loss, logits, y = trainer(data)
             loss.backward()
             optimizer.step()
@@ -68,6 +69,7 @@ if __name__ == '__main__':
         model.eval()
         with torch.no_grad():
             for data in tqdm(test_data):
+                data=data.to(device)
                 loss, logits, y = trainer(data)
                 test_scores.update(data, logits, loss)
         save_model(model, optimizer, args, epoch)
