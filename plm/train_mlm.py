@@ -54,7 +54,7 @@ if __name__ == '__main__':
     train_scores = Scores("train", config_name)
     test_scores = Scores("test", config_name)
     warmup = 10
-    ephochs = range(-warmup, 0) + range(args.epochs + 1)
+    ephochs = range(-warmup, args.epochs + 1)
     random_token_probs = [0] * warmup + list(np.linspace(0, RANDOM_MAX_PROB, args.epochs + 1))
     for epoch, random_token_prob in zip(ephochs, random_token_probs):
         trainer = MLM(
