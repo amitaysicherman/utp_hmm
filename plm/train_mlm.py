@@ -51,12 +51,11 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     config_name = get_config_name(args)
 
-    random_token_probs = np.linspace(0, RANDOM_MAX_PROB, args.epochs + 1)
     train_scores = Scores("train", config_name)
     test_scores = Scores("test", config_name)
-
-    for epoch in range(args.epochs):
-        random_token_prob = random_token_probs[epoch]
+    ephochs = range(-50, 0) + range(args.epochs + 1)
+    random_token_probs = [0] * 50 + list(np.linspace(0, RANDOM_MAX_PROB, args.epochs + 1))
+    for epoch, random_token_prob in zip(ephochs, random_token_probs):
         trainer = MLM(
             model,
             mask_token_id=MASK_VALUE,  # the token id reserved for masking
@@ -64,7 +63,7 @@ if __name__ == '__main__':
             mask_prob=MASK_PROB,  # masking probability for masked language modeling
             random_token_prob=random_token_prob,  # masking probability for a random token
             num_tokens=N_TOKENS,  # number of tokens in the dataset
-            replace_prob=1.0,
+            replace_prob=1.0 if random_token_prob > 0 else 0.9,
             # 1- probability that token will not be masked, but included in loss, as detailed in the epaper
         ).to(device)
 
