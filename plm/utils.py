@@ -59,15 +59,13 @@ def args_parser():
     parser.add_argument('--data_train', type=str, default="TIMIT_TRAIN_PH_dup")
     parser.add_argument('--data_val', type=str, default="TIMIT_TRAIN_VAL_PH_dup")
     parser.add_argument('--data_test', type=str, default="TIMIT_TEST_PH_dup")
-    parser.add_argument('--batch_size', type=int, default=4096)
-    parser.add_argument('--lr', type=float, default=5e-4)
+    parser.add_argument('--batch_size', type=int, default=1024)
+    parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--drop_out', type=float, default=0.0)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--match_data', type=str, default="./pseg/data/p_superv")
-    parser.add_argument('--match_cp', type=str, default="./models/transformer_small_lr_100_0.0005_0.0_90_0.8_opt.cp")
-
-
-
+    parser.add_argument('--match_cp', type=str, default="./models/transformer_small_lr_100_0.0005_0.0_90_0.8.cp")
+    parser.add_argument('--km_model', type=str, default="./models/km100.bin")
 
     args = parser.parse_args()
     return args
