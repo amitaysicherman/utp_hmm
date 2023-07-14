@@ -106,7 +106,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            train_scores.update(y, logits, loss)
+            train_scores.update(y, logits, loss.item())
             if i % 250 == 0:
                 print(train_scores)
         print("Epoch", epoch)
