@@ -108,8 +108,8 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             train_scores.update(y, logits, loss.item())
             if i % 250 == 0:
+                print("Epoch", epoch)
                 print(train_scores)
-        print("Epoch", epoch)
-        print(train_scores)
-        train_scores.save_and_reset()
+                train_scores.save_and_reset()
+
         save_model_to_name(model, optimizer, f"models/{config_name}_{epoch}.pt")
