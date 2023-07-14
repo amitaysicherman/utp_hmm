@@ -1,7 +1,7 @@
 #sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-5"
 import random
 from torch.utils.data import Dataset, DataLoader
-from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores
+from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores,save_model_to_name
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -110,3 +110,4 @@ if __name__ == '__main__':
         print("Epoch", epoch)
         print(train_scores)
         train_scores.save_and_reset()
+        save_model_to_name(model,optimizer, f"models/{config_name}_{epoch}.pt")

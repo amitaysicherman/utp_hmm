@@ -87,14 +87,18 @@ def get_config_name(args):
     return f"{args.model}_{args.size}_{data_name}_{args.lr}_{args.drop_out}"
 
 
-def save_model(model, optimizer, args, ephoc, suf=""):
-    config_name = get_config_name(args) + "_" + str(ephoc) + suf
-    cp_name = f"models/{config_name}.cp"
+def save_model_to_name(model,optimizer, cp_name):
     if torch.cuda.device_count() > 1:
         torch.save(model.module.state_dict(), cp_name)
     else:
         torch.save(model.state_dict(), cp_name)
     torch.save(optimizer.state_dict(), cp_name.replace(".cp", "_opt.cp"))
+
+def save_model(model, optimizer, args, ephoc, suf=""):
+    config_name = get_config_name(args) + "_" + str(ephoc) + suf
+    cp_name = f"models/{config_name}.cp"
+    save_model_to_name(model,optimizer, cp_name)
+
 
 
 class Scores:
