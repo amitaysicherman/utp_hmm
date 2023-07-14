@@ -1,7 +1,7 @@
-#sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-5"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-5"
 import random
 from torch.utils.data import Dataset, DataLoader
-from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores,save_model_to_name
+from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores, save_model_to_name
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         config_name = "long_marix"
         train_scores = Scores("train", config_name)
         model.train()
-        for (x, y) in tqdm(train_data):
+        for i, (x, y) in tqdm(enumerate(train_data), total=len(train_data)):
             x = x.to(device)
             y = y.to(device)
             logits = model(x)
@@ -107,7 +107,9 @@ if __name__ == '__main__':
             optimizer.step()
             optimizer.zero_grad()
             train_scores.update(y, logits, loss)
+            if i % 250 == 0:
+                print(train_scores)
         print("Epoch", epoch)
         print(train_scores)
         train_scores.save_and_reset()
-        save_model_to_name(model,optimizer, f"models/{config_name}_{epoch}.pt")
+        save_model_to_name(model, optimizer, f"models/{config_name}_{epoch}.pt")
