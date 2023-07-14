@@ -1,4 +1,4 @@
-#sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=128 --lr=1e-5"
+#sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-5"
 import random
 from torch.utils.data import Dataset, DataLoader
 from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores
@@ -16,7 +16,7 @@ PROB = 1
 
 class PhonemesDataset(Dataset):
     def __init__(self, phonemes_file="pseg/data/p_superv/features.phonemes", target_units=100, max_len=1024,
-                 sep=PADDING_VALUE, size=100_000):
+                 sep=PADDING_VALUE, size=1_000_000):
         self.target_units = target_units
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
