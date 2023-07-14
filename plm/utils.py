@@ -12,7 +12,13 @@ PADDING_VALUE = INPUT_SIZE
 MASK_VALUE = PADDING_VALUE + 1
 
 
-def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
+def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE, output_dim=None):
+    num_tokens = vocab + 1
+    if output_dim is None:
+        logits_dim = vocab + 1
+    else:
+        logits_dim = output_dim
+
     if arc == "transformer":
         if size == "small":
             d_model = 256
@@ -30,9 +36,10 @@ def get_model(arc, size, max_len, dropout, vocab=INPUT_SIZE):
             raise ValueError(f"Unknown size {size}")
 
         return TransformerWrapper(
-            num_tokens=vocab + 1,
+            num_tokens=num_tokens,
             max_seq_len=max_len,
             emb_dropout=dropout,
+            logits_dim=logits_dim,
             attn_layers=Encoder(
                 dim=d_model,
                 depth=num_layers,
