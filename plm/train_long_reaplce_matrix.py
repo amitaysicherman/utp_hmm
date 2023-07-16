@@ -46,6 +46,12 @@ class PhonemesDataset(Dataset):
         for i, u in enumerate(units_mapping):
             inv_mapping[u].append(i)
         return inv_mapping
+    def build_mapping_prob(self):
+        mapping_prob = np.zeros((N_TOKENS, self.target_units))
+        for i in range(N_TOKENS):
+            mapping_prob[i, :] = np.random.dirichlet(np.ones(self.target_units), size=1)
+
+
 
     def build_mapping(self, type=ONE):
         if type == ONE:
@@ -114,4 +120,4 @@ if __name__ == '__main__':
 
             if i % 1000 == 0:
                 n = len(train_dataset) * epoch + i
-                save_model_to_name(model, optimizer, f"models/{config_name}_{n}.pt")
+                save_model_to_name(model, optimizer, f"models/{config_name}_{n}.cp")
