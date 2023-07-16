@@ -118,6 +118,6 @@ if __name__ == '__main__':
                 print(train_scores)
                 train_scores.save_and_reset()
 
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 n = len(train_dataset) * epoch + i
                 save_model_to_name(model, optimizer, f"models/{config_name}_{n}.cp")
