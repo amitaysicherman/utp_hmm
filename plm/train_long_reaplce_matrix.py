@@ -92,6 +92,7 @@ if __name__ == '__main__':
     print("load_step", load_step, flush=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    optimizer=optimizer.to(device)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
 
