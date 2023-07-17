@@ -73,6 +73,7 @@ def args_parser():
     parser.add_argument('--match_data', type=str, default="./pseg/data/p_superv")
     parser.add_argument('--match_cp', type=str, default="./models/transformer_small_lr_100_0.0005_0.0_90_0.8.cp")
     parser.add_argument('--km_model', type=str, default="./models/km100.bin")
+    parser.add_argument('--load_cp', type=str, default="")
 
     args = parser.parse_args()
     return args
@@ -87,18 +88,24 @@ def get_config_name(args):
     return f"{args.model}_{args.size}_{data_name}_{args.lr}_{args.drop_out}"
 
 
-def save_model_to_name(model,optimizer, cp_name):
+def save_model_to_name(model, optimizer, cp_name):
     if torch.cuda.device_count() > 1:
         torch.save(model.module.state_dict(), cp_name)
     else:
         torch.save(model.state_dict(), cp_name)
     torch.save(optimizer.state_dict(), cp_name.replace(".cp", "_opt.cp"))
 
+
+def load_model(name, model, optimizer):
+    model.load_state_dict(torch.load(name,map_location='cpu'))
+    optimizer.load_state_dict(torch.load(name.replace(".cp", "_opt.cp"), map_location='cpu'))
+    return model, optimizer
+
+
 def save_model(model, optimizer, args, ephoc, suf=""):
     config_name = get_config_name(args) + "_" + str(ephoc) + suf
     cp_name = f"models/{config_name}.cp"
-    save_model_to_name(model,optimizer, cp_name)
-
+    save_model_to_name(model, optimizer, cp_name)
 
 
 class Scores:

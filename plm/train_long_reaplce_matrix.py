@@ -1,7 +1,7 @@
 # sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-5"
 import random
 from torch.utils.data import Dataset, DataLoader
-from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores, save_model_to_name
+from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores, save_model_to_name, load_model
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -46,12 +46,11 @@ class PhonemesDataset(Dataset):
         for i, u in enumerate(units_mapping):
             inv_mapping[u].append(i)
         return inv_mapping
+
     def build_mapping_prob(self):
         mapping_prob = np.zeros((N_TOKENS, self.target_units))
         for i in range(N_TOKENS):
             mapping_prob[i, :] = np.random.dirichlet(np.ones(self.target_units), size=1)
-
-
 
     def build_mapping(self, type=ONE):
         if type == ONE:
@@ -85,17 +84,21 @@ if __name__ == '__main__':
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f'{params:,} trainable parameters')
-
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    load_step = 0
+    if args.load_cp:
+        model, optimizer = load_model(args.load_cp, model, optimizer)
+        load_step = int(args.load_cp.split("_")[-1].repalce(".cp", ""))
+    print("load_step", load_step, flush=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
 
     criterion = nn.CrossEntropyLoss().to(device)
-
+    load_model()
     train_dataset = PhonemesDataset()
     train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     for epoch in range(args.epochs):
         config_name = "long_marix"
         train_scores = Scores("train", config_name)
@@ -119,5 +122,5 @@ if __name__ == '__main__':
                 train_scores.save_and_reset()
 
             if i % 10000 == 0:
-                n = len(train_dataset) * epoch + i
+                n = len(train_dataset) * epoch + i + load_step
                 save_model_to_name(model, optimizer, f"models/{config_name}_{n}.cp")
