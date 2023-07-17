@@ -86,12 +86,14 @@ if __name__ == '__main__':
     print(f'{params:,} trainable parameters')
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     load_step = 0
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model = model.to(device)
+
     if args.load_cp:
         model, optimizer = load_model(args.load_cp, model, optimizer)
         load_step = int(args.load_cp.split("_")[-1].replace(".cp", ""))
     print("load_step", load_step, flush=True)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
 
