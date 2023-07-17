@@ -96,7 +96,6 @@ if __name__ == '__main__':
         model = DataParallel(model)
 
     criterion = nn.CrossEntropyLoss().to(device)
-    load_model()
     train_dataset = PhonemesDataset()
     train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
     for epoch in range(args.epochs):
