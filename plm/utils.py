@@ -97,8 +97,8 @@ def save_model_to_name(model, optimizer, cp_name):
 
 
 def load_model(name, model, optimizer):
-    model.load_state_dict(torch.load(name,map_location='cpu'))
-    optimizer.load_state_dict(torch.load(name.replace(".cp", "_opt.cp"), map_location='cpu'))
+    model.load_state_dict(torch.load(name))
+    optimizer.load_state_dict(torch.load(name.replace(".cp", "_opt.cp")))
     return model, optimizer
 
 
