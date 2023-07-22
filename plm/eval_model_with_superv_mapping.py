@@ -1,57 +1,92 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-from plm.utils import get_model
-
+from utils import get_model, PADDING_VALUE, N_TOKENS
+from  train_long_reaplce_matrix import PhonemesDataset
 from mapping import phonemes_to_index
 
-cp_file = "./models/prep_random_small_timit_15.cp"
+# cp_file = "./models/prep_random_small_timit_15.cp"
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-model = get_model()
-model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
-
-model = model.to(device)
-model.eval()
-
-with open("../data/code100.txt") as f:
+with open("./pseg/data/p_superv/features.clusters") as f:
     code100 = f.read().splitlines()
 code100 = [[int(y) for y in x.split()] for x in code100]
 
-with open("../data/phonemes.txt") as f:
+with open("./pseg/data/p_superv/features.phonemes") as f:
     phonemes = f.read().splitlines()
 phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
             phonemes]
 
+sep = PADDING_VALUE
+noise_sep = 100
+data = []
+code_data = []
+max_len = 1024
+sample = []
+sample_code = []
+for p, c in zip(phonemes, code100):
+    sample += p
+    sample_code += c
+    if len(sample) >= max_len:
+        sample += [sep]
+        sample_code += [noise_sep]
+        sample = sample[:max_len]
+        sample_code = sample_code[:max_len]
+        data.append(sample)
+        code_data.append(sample_code)
+        sample = []
+        sample_code = []
+
+data = torch.LongTensor(data)
+
+code_data = torch.LongTensor(code_data)
 units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 for i, (u, p) in enumerate(tqdm(zip(sum(code100, []), sum(phonemes, [])))):
     units_to_phonemes[u, p] += 1
 
 superv_mapping = units_to_phonemes.argmax(axis=1)
 
-superv_phonmes = []
-acc = []
-acc_m = []
-for c, p in zip(code100, phonemes):
-    if len(p) > 50:
-        continue
-    p_s = [superv_mapping[u] for u in c]
-    acc.append((np.array(p_s) == np.array(p)).mean())
-    superv_phonmes.append(p_s)
+model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
+model.load_state_dict(torch.load("./models/long_marix_9080000.cp", map_location=torch.device('cpu')))
+train_dataset = PhonemesDataset(size=100)
+x,y=train_dataset[0]
 
-    x = torch.LongTensor(p_s).to(device)
-    logits = model(x.unsqueeze(0))
-    predicted_labels = torch.argmax(logits, dim=-1)
-    acc_m.append((predicted_labels[0].cpu().numpy() == np.array(p)).mean())
-    print(acc[-1], acc_m[-1])
+res = model(code_data[0:1,:])
+pred = res.argmax(dim=-1)
+print(pred.detach().numpy()[0])
+print(data[0].numpy())
 
-print(np.mean(acc))
-print(np.quantile(acc, 0.25))
-print(np.quantile(acc, 0.5))
-print(np.quantile(acc, 0.75))
-
-print(np.mean(acc_m))
-print(np.quantile(acc_m, 0.25))
-print(np.quantile(acc_m, 0.5))
-print(np.quantile(acc_m, 0.75))
+#
+#
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#
+# model = get_model()
+# model.load_state_dict(torch.load(cp_file, map_location=torch.device('cpu')))
+#
+# model = model.to(device)
+# model.eval()
+#
+# superv_phonmes = []
+# acc = []
+# acc_m = []
+# for c, p in zip(code100, phonemes):
+#     if len(p) > 50:
+#         continue
+#     p_s = [superv_mapping[u] for u in c]
+#     acc.append((np.array(p_s) == np.array(p)).mean())
+#     superv_phonmes.append(p_s)
+#
+#     x = torch.LongTensor(p_s).to(device)
+#     logits = model(x.unsqueeze(0))
+#     predicted_labels = torch.argmax(logits, dim=-1)
+#     acc_m.append((predicted_labels[0].cpu().numpy() == np.array(p)).mean())
+#     print(acc[-1], acc_m[-1])
+#
+# print(np.mean(acc))
+# print(np.quantile(acc, 0.25))
+# print(np.quantile(acc, 0.5))
+# print(np.quantile(acc, 0.75))
+#
+# print(np.mean(acc_m))
+# print(np.quantile(acc_m, 0.25))
+# print(np.quantile(acc_m, 0.5))
+# print(np.quantile(acc_m, 0.75))

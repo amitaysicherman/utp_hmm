@@ -98,10 +98,11 @@ if __name__ == '__main__':
         model = DataParallel(model)
 
     criterion = nn.CrossEntropyLoss().to(device)
-    train_dataset = PhonemesDataset()
-    train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
+    config_name = "long_marix"
+
     for epoch in range(args.epochs):
-        config_name = "long_marix"
+        train_dataset = PhonemesDataset()
+        train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
         train_scores = Scores("train", config_name)
         model.train()
         for i, (x, y) in tqdm(enumerate(train_data), total=len(train_data)):
