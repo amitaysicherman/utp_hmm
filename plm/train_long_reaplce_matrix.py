@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-5"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-4 --load_cp=models/long_marix_19100000.cp"
 import random
 from torch.utils.data import Dataset, DataLoader
 from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores, save_model_to_name, load_model
@@ -12,11 +12,46 @@ import torch.nn.functional as F
 
 ONE = 0
 PROB = 1
+type_ = PROB
+# each 1|2 phones maping to 1|2 units.
+# 1,1. one to one mapping
+# 1,2. one to two mapping - single phone maps to two units.
+# 2,1. two to one mapping - two phones map to single unit.
+
+# each unit can be mapped to more than one phones (probebility) -  use  scipy.stats.expon with scale between 0-4
+# choose in random for each unit. the acctual phonemes in suffle the order .
+
+# how to combine this two?
+# choose p1% to conbine and use this as pair (that will map to single phone) [for all this appers of this pair]
+# for each phoneme mapping add %n double-units and use them in the probebily.
+from scipy.stats import expon
+
+
+def get_phone_to_unit_probes(n_units=100):
+    scale = np.clip(np.random.normal(loc=1.3, scale=1), 0.001, 5)
+    probs = expon.pdf(range(n_units), scale=scale)
+    probs /= probs.sum()
+
+    np.random.shuffle(probs)
+    return np.arange(n_units), probs
+
+
+def convert_to_units(phonemes):
+    double_prob = 0.01
+    all_pairs = set([(phonemes[i], phonemes[i - 1]) for i in range(1, len(phonemes))])
+    double_pairs = np.random.choice(all_pairs, int(len(all_pairs) * double_prob))
+    mapping = dict()
+    for i in range(len(phonemes)):
+        p = phonemes[i]
+        p_next = phonemes[i + 1] if i + 1 < len(phonemes) else None
+
+        if p_next and (p, p_next) in double_pairs and (p, p_next) not in mapping:
+            mapping[(p, p_next)] = get_phone_to_unit_probes()
 
 
 class PhonemesDataset(Dataset):
     def __init__(self, phonemes_file="pseg/data/p_superv/features.phonemes", target_units=100, max_len=1024,
-                 sep=PADDING_VALUE, size=1_000_000):
+                 sep=PADDING_VALUE, size=1_000_000, type_=ONE):
         self.target_units = target_units
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
@@ -31,6 +66,7 @@ class PhonemesDataset(Dataset):
                 sample += phonemes_data[np.random.randint(0, len(phonemes_data))]
                 sample += [sep]
             sample = sample[:max_len]
+            self.type = type_
             self.data.append(sample)
 
     def __len__(self):
@@ -48,26 +84,34 @@ class PhonemesDataset(Dataset):
         return inv_mapping
 
     def build_mapping_prob(self):
-        mapping_prob = np.zeros((N_TOKENS, self.target_units))
-        for i in range(N_TOKENS):
-            mapping_prob[i, :] = np.random.dirichlet(np.ones(self.target_units), size=1)
+        inv_mapping = {i: [] for i in range(N_TOKENS)}
 
-    def build_mapping(self, type=ONE):
-        if type == ONE:
+        for i in range(N_TOKENS):
+            inv_mapping[i] = get_phone_to_unit_probes(self.target_units)
+        return inv_mapping
+
+    def build_mapping(self):
+        if self.type == ONE:
             return self.build_mapping_one()
-        # elif type==PROB:
-        #     return self.build_mapping_prob()
+        elif self.type == PROB:
+            return self.build_mapping_prob()
         else:
             raise ValueError("Unknown type")
 
     def add_noise(self, clean):
         inv_mapping = self.build_mapping()
         noise = []
+
         for c in clean:
             if c == self.sep:
                 noise.append(self.noise_sep)
             else:
-                noise.append(random.choice(inv_mapping[c]))
+                if self.type == ONE:
+                    noise.append(random.choice(inv_mapping[c]))
+                elif self.type == PROB:
+                    noise.append(np.random.choice(inv_mapping[c][0], p=inv_mapping[c][1]))
+                else:
+                    raise ValueError("Unknown type")
         return noise
 
     def __getitem__(self, idx):
@@ -98,10 +142,10 @@ if __name__ == '__main__':
         model = DataParallel(model)
 
     criterion = nn.CrossEntropyLoss().to(device)
-    config_name = "long_marix"
+    config_name = f"long_marix_{type_}"
 
     for epoch in range(args.epochs):
-        train_dataset = PhonemesDataset()
+        train_dataset = PhonemesDataset(type_=type_)
         train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
         train_scores = Scores("train", config_name)
         model.train()
