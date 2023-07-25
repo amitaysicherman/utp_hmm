@@ -2,10 +2,13 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from utils import get_model, PADDING_VALUE, N_TOKENS
-from train_long_reaplce_matrix import PhonemesDataset,PROB,ONE
+from train_long_reaplce_matrix import PhonemesDataset, PROB, ONE
 from mapping import phonemes_to_index
+import argparse
 
-# cp_file = "./models/prep_random_small_timit_15.cp"
+parser = argparse.ArgumentParser()
+parser.add_argument('--cp', type=str, default="./models/long_marix_16090000.cp")
+args = parser.parse_args()
 
 with open("./pseg/data/p_superv/features.clusters") as f:
     code100 = f.read().splitlines()
@@ -46,27 +49,26 @@ for i, (u, p) in enumerate(tqdm(zip(sum(code100, []), sum(phonemes, [])))):
 
 superv_mapping = units_to_phonemes.argmax(axis=1)
 
-# acc = 0
-# tot = 0
-# for x, y in zip(code_data.numpy(), data.numpy()):
-#     y_hat = [superv_mapping[x_] for x_ in x]
-#     print((y_hat == y).mean())
-#     acc += (y_hat == y).sum()
-#     tot += len(y)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
-model.load_state_dict(torch.load("./models/long_marix_16090000.cp", map_location=torch.device('cpu')))
-train_dataset = PhonemesDataset(size=100,type_=PROB)
-# for x,y in train_dataset:
+model.load_state_dict(torch.load(args.cp, map_location=torch.device('cpu')))
+model = model.to(device)
+
+train_dataset = PhonemesDataset(size=100, type_=PROB)
 model_units_to_phonemes = np.zeros((100 + 1, len(phonemes_to_index) + 1))
 
-# for x, y in zip(code_data, data):
-for x,y in train_dataset:
-
+scores = []
+clusters_scores = 0
+for x, y in zip(code_data, data):
+    x = x.to(device)
     res = model(x.unsqueeze(0))
     pred = res.argmax(dim=-1)
     for c_, l_ in zip(x, pred[0]):
         model_units_to_phonemes[c_.item(), l_.item()] += 1
-    print('s', (pred.detach().numpy()[0] == y.numpy()).mean())
-    model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
-    print('m', (model_superv_mapping == superv_mapping).sum())
+    scores.append((pred.detach().cpu().numpy()[0] == y.numpy()).mean())
+
+model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
+clusters_scores = (model_superv_mapping == superv_mapping).sum()
+print("scores", np.mean(scores))
+print("cluster", clusters_scores)
