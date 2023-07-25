@@ -90,6 +90,7 @@ print("cluster", clusters_scores)
 
 scores = []
 clusters_scores = 0
+model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     x = [model_superv_mapping[i] if i != noise_sep else noise_sep for i in x]
