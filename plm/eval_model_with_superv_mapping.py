@@ -59,8 +59,18 @@ train_dataset = PhonemesDataset(size=100, type_=PROB)
 model_units_to_phonemes = np.zeros((100 + 1, len(phonemes_to_index) + 1))
 
 scores = []
+for x, y in tqdm(train_dataset):
+    x = x.to(device)
+    res = model(x.unsqueeze(0))
+    pred = res.argmax(dim=-1)
+    scores.append((pred.detach().cpu().numpy()[0] == y.numpy()).mean())
+print(np.mean(scores))
+
+scores = []
 clusters_scores = 0
-for x, y in zip(code_data, data):
+
+
+for x, y in tqdm(zip(code_data, data),total=len(code_data)):
     x = x.to(device)
     res = model(x.unsqueeze(0))
     pred = res.argmax(dim=-1)
