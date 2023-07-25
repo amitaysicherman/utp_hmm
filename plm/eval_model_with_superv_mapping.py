@@ -56,7 +56,6 @@ model.load_state_dict(torch.load(args.cp, map_location=torch.device('cpu')))
 model = model.to(device)
 
 train_dataset = PhonemesDataset(size=100, type_=PROB)
-model_units_to_phonemes = np.zeros((100 + 1, len(phonemes_to_index) + 1))
 
 scores = []
 for x, y in tqdm(train_dataset):
@@ -69,14 +68,20 @@ print(np.mean(scores))
 scores = []
 clusters_scores = 0
 
+model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 
-for x, y in tqdm(zip(code_data, data),total=len(code_data)):
+for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     x = x.to(device)
-    res = model(x.unsqueeze(0))
+    res = model(x.unsqueeze(0))[0]
+    for i in range(len(x)):
+        c_ = x[i].item()
+        if c_ == noise_sep:
+            continue
+
+        model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
+
     pred = res.argmax(dim=-1)
-    for c_, l_ in zip(x, pred[0]):
-        model_units_to_phonemes[c_.item(), l_.item()] += 1
-    scores.append((pred.detach().cpu().numpy()[0] == y.numpy()).mean())
+    scores.append((pred.detach().cpu().numpy() == y.numpy()).mean())
 
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 clusters_scores = (model_superv_mapping == superv_mapping).sum()
