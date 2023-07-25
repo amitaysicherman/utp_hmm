@@ -1,3 +1,4 @@
+# sbatch --killable --gres=gpu:1,vmem:8g --mem=16G --time=0-3 --wrap "python eval_model_with_superv_mapping.py --cp=models/long_marix_1_20130000.cp"
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -106,6 +107,8 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
 
     pred = res.argmax(dim=-1)
     scores.append((pred.detach().cpu().numpy() == y.numpy()).mean())
+
+model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 clusters_scores = (model_superv_mapping == superv_mapping).sum()
 
 
