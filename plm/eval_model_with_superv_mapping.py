@@ -66,8 +66,6 @@ for x, y in tqdm(train_dataset):
 print(np.mean(scores))
 
 scores = []
-clusters_scores = 0
-
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
@@ -108,6 +106,7 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
 
     pred = res.argmax(dim=-1)
     scores.append((pred.detach().cpu().numpy() == y.numpy()).mean())
+clusters_scores = (model_superv_mapping == superv_mapping).sum()
 
 
 print("scores", np.mean(scores))
