@@ -93,12 +93,14 @@ clusters_scores = 0
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
+    x_save=x[:]
+
     x = [model_superv_mapping[i] if i != noise_sep else noise_sep for i in x]
     x= torch.LongTensor(x)
     x = x.to(device)
     res = model(x.unsqueeze(0))[0]
     for i in range(len(x)):
-        c_ = x[i].item()
+        c_ = x_save[i].item()
         if c_ == noise_sep:
             continue
 
