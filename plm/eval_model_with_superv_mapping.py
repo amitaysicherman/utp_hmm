@@ -64,11 +64,10 @@ for x, y in tqdm(train_dataset):
     res = model(x.unsqueeze(0))
     pred = res.argmax(dim=-1)
     scores.append((pred.detach().cpu().numpy()[0] == y.numpy()).mean())
-print(np.mean(scores))
+print("scores datset",np.mean(scores))
 
 scores = []
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
-
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     x = x.to(device)
     res = model(x.unsqueeze(0))[0]
@@ -76,24 +75,18 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
         c_ = x[i].item()
         if c_ == noise_sep:
             continue
-
         model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
-
     pred = res.argmax(dim=-1)
     scores.append((pred.detach().cpu().numpy() == y.numpy()).mean())
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 clusters_scores = (model_superv_mapping == superv_mapping).sum()
-
 print("scores", np.mean(scores))
 print("cluster", clusters_scores)
 
 scores = []
-clusters_scores = 0
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
-
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     x_save=x[:]
-
     x = [model_superv_mapping[i] if i != noise_sep else noise_sep for i in x]
     x= torch.LongTensor(x)
     x = x.to(device)
@@ -102,15 +95,17 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
         c_ = x_save[i].item()
         if c_ == noise_sep:
             continue
-
         model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
-
     pred = res.argmax(dim=-1)
     scores.append((pred.detach().cpu().numpy() == y.numpy()).mean())
-
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 clusters_scores = (model_superv_mapping == superv_mapping).sum()
+print("scores2", np.mean(scores))
+print("cluster2", clusters_scores)
 
 
-print("scores", np.mean(scores))
-print("cluster", clusters_scores)
+scores = []
+for x, y in tqdm(zip(code_data, data), total=len(code_data)):
+    pred = np.array([superv_mapping[i] if i != noise_sep else noise_sep for i in x])
+    scores.append((pred == y.numpy()).mean())
+print("scores3", np.mean(scores))
