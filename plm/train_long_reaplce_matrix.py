@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-4 --load_cp=models/long_marix_19100000.cp"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-4 --load_cp=models/long_marix_1_21110000.cp"
 import random
 from torch.utils.data import Dataset, DataLoader
 from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores, save_model_to_name, load_model
@@ -13,6 +13,7 @@ import torch.nn.functional as F
 ONE = 0
 PROB = 1
 type_ = PROB
+DUP = True
 # each 1|2 phones maping to 1|2 units.
 # 1,1. one to one mapping
 # 1,2. one to two mapping - single phone maps to two units.
@@ -51,7 +52,7 @@ def convert_to_units(phonemes):
 
 class PhonemesDataset(Dataset):
     def __init__(self, phonemes_file="pseg/data/p_superv/features.phonemes", target_units=100, max_len=1024,
-                 sep=PADDING_VALUE, size=1_000_000, type_=ONE):
+                 sep=PADDING_VALUE, size=1_000_000, type_=ONE, dup=DUP):
         self.target_units = target_units
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
@@ -67,6 +68,7 @@ class PhonemesDataset(Dataset):
                 sample += [sep]
             sample = sample[:max_len]
             self.type = type_
+            self.dup = dup
             self.data.append(sample)
 
     def __len__(self):
@@ -100,23 +102,26 @@ class PhonemesDataset(Dataset):
 
     def add_noise(self, clean):
         inv_mapping = self.build_mapping()
-        noise = []
-
+        length = random.choices([0, 1, 2, 3], weights=[0.1, 0.5, 0.3, 0.2], k=len(clean))
+        final_clean = []
+        final_noise = []
         for c in clean:
             if c == self.sep:
-                noise.append(self.noise_sep)
+                final_clean.append(self.sep)
+                final_noise.append(self.noise_sep)
             else:
-                if self.type == ONE:
-                    noise.append(random.choice(inv_mapping[c]))
-                elif self.type == PROB:
-                    noise.append(np.random.choice(inv_mapping[c][0], p=inv_mapping[c][1]))
-                else:
-                    raise ValueError("Unknown type")
-        return noise
+                for _ in range(length.pop()):
+                    final_clean.append(c)
+                    if self.type == ONE:
+                        final_noise.append(random.choice(inv_mapping[c]))
+                    elif self.type == PROB:
+                        final_noise.append(np.random.choice(inv_mapping[c][0], p=inv_mapping[c][1]))
+                    else:
+                        raise ValueError("Unknown type")
+        return final_clean, final_noise
 
     def __getitem__(self, idx):
-        clean = self.data[idx]
-        noise = self.add_noise(clean)
+        clean, noise = self.add_noise(self.data[idx])
         return torch.LongTensor(noise), torch.LongTensor(clean)
 
 
@@ -142,7 +147,7 @@ if __name__ == '__main__':
         model = DataParallel(model)
 
     criterion = nn.CrossEntropyLoss().to(device)
-    config_name = f"long_marix_{type_}"
+    config_name = f"long_marix_{type_}{DUP}"
 
     for epoch in range(args.epochs):
         train_dataset = PhonemesDataset(type_=type_)
