@@ -20,7 +20,6 @@ with open("./pseg/data/p_superv/features.phonemes") as f:
 phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
             phonemes]
 
-
 sep = PADDING_VALUE
 noise_sep = 100
 data = []
@@ -65,7 +64,7 @@ for x, y in tqdm(train_dataset):
     res = model(x.unsqueeze(0))
     pred = res.argmax(dim=-1)
     scores.append((pred.detach().cpu().numpy()[0] == y.numpy()).mean())
-print("scores datset",np.mean(scores))
+print("scores datset", np.mean(scores))
 
 scores = []
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
@@ -87,9 +86,9 @@ print("cluster", clusters_scores)
 scores = []
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
-    x_save=x[:]
+    x_save = x[:]
     x = [model_superv_mapping[i] if i != noise_sep else noise_sep for i in x]
-    x= torch.LongTensor(x)
+    x = torch.LongTensor(x)
     x = x.to(device)
     res = model(x.unsqueeze(0))[0]
     for i in range(len(x)):
@@ -104,9 +103,37 @@ clusters_scores = (model_superv_mapping == superv_mapping).sum()
 print("scores2", np.mean(scores))
 print("cluster2", clusters_scores)
 
-
 scores = []
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     pred = np.array([superv_mapping[i] if i != noise_sep else noise_sep for i in x])
     scores.append((pred == y.numpy()).mean())
 print("scores3", np.mean(scores))
+
+
+# not equel len :
+with open("./pseg/data/sup_vad_km/features.clusters") as f:
+    code100 = f.read().splitlines()
+code100 = [[int(y) for y in x.split()] for x in code100]
+code_data = []
+sample_code = []
+for c in code100:
+    sample_code += c
+    sample_code += [noise_sep]
+    if len(sample_code) >= max_len:
+        sample_code = sample_code[:max_len]
+        code_data.append(sample_code)
+        sample_code = []
+code_data = torch.LongTensor(code_data)
+
+model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
+for x in tqdm(code_data):
+    x = x.to(device)
+    res = model(x.unsqueeze(0))[0]
+    for i in range(len(x)):
+        c_ = x[i].item()
+        if c_ == noise_sep:
+            continue
+        model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
+model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
+clusters_scores = (model_superv_mapping == superv_mapping).sum()
+print("not eq len cluster", clusters_scores)
