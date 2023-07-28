@@ -20,6 +20,7 @@ with open("./pseg/data/p_superv/features.phonemes") as f:
 phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
             phonemes]
 
+
 sep = PADDING_VALUE
 noise_sep = 100
 data = []
