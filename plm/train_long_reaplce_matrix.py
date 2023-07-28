@@ -59,6 +59,7 @@ class PhonemesDataset(Dataset):
         phonemes_data = [[phonemes_to_index[x.upper()] if x.upper() != "DX" else phonemes_to_index["T"] for x in
                           line.strip().split()] for line in phonemes_data]
         self.sep = sep
+        self.max_len = max_len
         self.noise_sep = target_units
         self.data = []
         for _ in range(size):
@@ -118,6 +119,8 @@ class PhonemesDataset(Dataset):
                         final_noise.append(np.random.choice(inv_mapping[c][0], p=inv_mapping[c][1]))
                     else:
                         raise ValueError("Unknown type")
+        final_clean = final_clean[:self.max_len]
+        final_noise = final_noise[:self.max_len]
         return final_clean, final_noise
 
     def __getitem__(self, idx):
