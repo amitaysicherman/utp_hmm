@@ -19,8 +19,8 @@ superv_seg = False
 
 def wer_np(y, y_hat):
     y_hat = np.array([y_hat[0] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]])
-    # y_hat = y_hat[y_hat != sep]
-    # y = y[y != sep]
+    y_hat = y_hat[y_hat != sep]
+    y = y[y != sep]
     y = " ".join([str(x) for x in y])
     y_hat = " ".join([str(x) for x in y_hat])
     return wer(y, y_hat)
@@ -100,8 +100,11 @@ for p, c in zip(phonemes, code100):
     sample += [sep]
     sample_code += [noise_sep]
 
-    if len(sample) >= max_len:
-        sample = sample[:max_len]
+    if len(sample_code) >= max_len:
+        if len(sample) >= max_len:
+            sample = sample[:max_len]
+        else:
+            sample += [sep] * (max_len - len(sample))
         sample_code = sample_code[:max_len]
         data.append(sample)
         code_data.append(sample_code)
