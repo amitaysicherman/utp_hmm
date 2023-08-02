@@ -89,7 +89,7 @@ print("Supervision Clustering Score: ", np.mean(scores), "WER: ", np.mean(scores
 ###############################################
 
 if not superv_seg:
-    with open("./pseg/data/sup_vad_km/features.clusters") as f:
+    with open("./pseg/data/sup_vad/features.clusters") as f:
         code100_dup = f.read().splitlines()
 
     code100_dup = [[int(y) for y in x.split()] for x in code100_dup]
