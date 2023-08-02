@@ -129,10 +129,10 @@ def main():
     code100 = []
     for line in code100_dup:
         code100.append([line[0]] + [line[i] for i in range(1, len(line)) if line[i] != line[i - 1]])
-    with open("./pseg/data/sup_vad_km/features.phonemes") as f:
-        phonemes = f.read().splitlines()
-    phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
-                phonemes]
+    # with open("./pseg/data/sup_vad_km/features.phonemes") as f:
+    #     phonemes = f.read().splitlines()
+    # phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
+    #             phonemes]
 
     wer_sep = eval_data_with_mapping(phonemes, code100, superv_mapping)
     print("Supervision Real Data Clustering WER: ", wer_sep)
