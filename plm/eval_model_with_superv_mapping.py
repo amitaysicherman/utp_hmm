@@ -57,15 +57,13 @@ def eval_data_with_model(data, code_data):
         y_hat[x.cpu().numpy() == noise_sep] = sep
         y_hat = remove_sep_and_dup(y_hat)
         y = remove_sep_and_dup(y)
-        print(y.shape, y_hat.shape)
         if len(y) == len(y_hat):
             scores.append((y == y_hat).mean())
-
         wer_score.append(wer_np(y, y_hat))
     return np.mean(scores), np.mean(wer_score), model_units_to_phonemes
 
 
-def evel_data_with_mapping(phonemes, code100, mapping):
+def eval_data_with_mapping(phonemes, code100, mapping):
     scores_wer = []
     for x, y in tqdm(zip(code100, phonemes), total=len(phonemes)):
         pred = np.array([mapping[i] if i != noise_sep else noise_sep for i in x])
@@ -86,16 +84,7 @@ def wer_np(y, y_hat):
     y_hat = " ".join([str(x) for x in y_hat])
     return wer(y, y_hat)
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cp', type=str, default="./models/long_marix_1True_27130000.cp")
-    args = parser.parse_args()
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
-    model.load_state_dict(torch.load(args.cp, map_location=torch.device('cpu')))
-    model = model.to(device)
+def main():
     ###############################################
     # dataset score:
     ###############################################
@@ -129,7 +118,7 @@ if __name__ == '__main__':
         units_to_phonemes[u, p] += 1
     superv_mapping = units_to_phonemes.argmax(axis=1)
 
-    scores_wer = evel_data_with_mapping(phonemes, code100, superv_mapping)
+    scores_wer = eval_data_with_mapping(phonemes, code100, superv_mapping)
     print("Supervision Clustering Score WER: ", scores_wer)
 
     ###############################################
@@ -148,13 +137,14 @@ if __name__ == '__main__':
                 phonemes]
 
     data, code_data = data_to_tensor(phonemes, code100)
-    wer_sep = evel_data_with_mapping(phonemes, code100, superv_mapping)
+    wer_sep = eval_data_with_mapping(phonemes, code100, superv_mapping)
     print("Supervision Real Data Clustering Score WER: ", wer_sep)
 
-    scores, wer, model_units_to_phonemes = eval_data_with_model(data, code_data)
+    scores, wer_model_score, model_units_to_phonemes = eval_data_with_model(data, code_data)
+    print("Model Clustering Score: ", scores,wer_model_score)
     model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
-    wer_model = evel_data_with_mapping(phonemes, code100, model_superv_mapping)
-    print("Supervision Model Clustering Score WER: ", wer_model)
+    wer_model_mapping = eval_data_with_mapping(phonemes, code100, model_superv_mapping)
+    print("Supervision Model Clustering Score WER: ", wer_model_mapping)
 
     print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
     print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes - units_to_phonemes)).mean())
@@ -171,11 +161,6 @@ if __name__ == '__main__':
         x = torch.LongTensor(x)
         x = x.to(device)
         res = model(x.unsqueeze(0))[0]
-        for i in range(len(x)):
-            c_ = x_save[i].item()
-        if c_ == noise_sep:
-            continue
-        model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
         pred = res.argmax(dim=-1)
         y_hat = pred.detach().cpu().numpy()
         y_hat[x.cpu().numpy() == noise_sep] = sep
@@ -186,8 +171,26 @@ if __name__ == '__main__':
         if len(y) == len(y_hat):
             scores.append((y == y_hat).mean())
         scores_wer.append(wer_np(y, y_hat))
+
+        for i in range(len(x)):
+            c_ = x_save[i].item()
+            if c_ == noise_sep:
+                continue
+            model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
     print("Mapping + Model Cluster To Phoneme scores: ", np.mean(scores))
     print("Mapping + Model Cluster To Phoneme WER: ", np.mean(scores_wer))
     model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
     print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
     print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes - units_to_phonemes)).mean())
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cp', type=str, default="./models/long_marix_1True_27130000.cp")
+    args = parser.parse_args()
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
+    model.load_state_dict(torch.load(args.cp, map_location=torch.device('cpu')))
+    model = model.to(device)
+    main()
