@@ -134,10 +134,10 @@ def main():
     phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
                 phonemes]
 
-    data, code_data = data_to_tensor(phonemes, code100)
     wer_sep = eval_data_with_mapping(phonemes, code100, superv_mapping)
     print("Supervision Real Data Clustering WER: ", wer_sep)
 
+    data, code_data = data_to_tensor(phonemes, code100)
     wer_model_score, model_units_to_phonemes = eval_data_with_model(data, code_data)
     print("Model Clustering WER: ", wer_model_score)
     model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]

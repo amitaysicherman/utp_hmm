@@ -1,9 +1,10 @@
 import joblib
 import numpy as np
 import os
-input_file = "data/sup_vad/features.npy"
-len_file = "data/sup_vad/features.length"
-output_file = "data/sup_vad/features.clusters"
+data_name="p_superv"
+input_file = f"data/{data_name}/features.npy"
+len_file = f"data/{data_name}/features.length"
+output_file = f"data/{data_name}/features.clusters"
 km_file = "models/km100.bin"
 
 km = joblib.load(km_file)
