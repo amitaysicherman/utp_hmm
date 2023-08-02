@@ -16,10 +16,18 @@ noise_sep = 100
 max_len = 1024
 superv_seg = False
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
+model.load_state_dict(torch.load(args.cp, map_location=torch.device('cpu')))
+model = model.to(device)
+
 
 def remove_sep_and_dup(x):
+    print(len(x),end=" ")
     x = np.array([x[0]] + [x[i] for i in range(1, len(x)) if x[i] != x[i - 1]])
-    x = x[x != sep]
+    print(len(x))
+    # x = x[x != sep]
+    print(len(x))
     return x
 
 
@@ -32,22 +40,18 @@ def wer_np(y, y_hat):
 ###############################################
 # dataset score:
 ###############################################
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
-model.load_state_dict(torch.load(args.cp, map_location=torch.device('cpu')))
-model = model.to(device)
-train_dataset = PhonemesDataset(size=100, type_=PROB)
-scores = []
-wer_scores = []
-for x, y in tqdm(train_dataset):
-    x = x.to(device)
-    res = model(x.unsqueeze(0))
-    pred = res.argmax(dim=-1)
-    y = y.numpy()
-    y_hat = pred.detach().cpu().numpy()[0]
-    scores.append((y == y_hat).mean())
-    wer_scores.append(wer_np(y, y_hat))
-print("scores dataset", np.mean(scores), "WER dataset", np.mean(wer_scores))
+# train_dataset = PhonemesDataset(size=100, type_=PROB)
+# scores = []
+# wer_scores = []
+# for x, y in tqdm(train_dataset):
+#     x = x.to(device)
+#     res = model(x.unsqueeze(0))
+#     pred = res.argmax(dim=-1)
+#     y = y.numpy()
+#     y_hat = pred.detach().cpu().numpy()[0]
+#     scores.append((y == y_hat).mean())
+#     wer_scores.append(wer_np(y, y_hat))
+# print("scores dataset", np.mean(scores), "WER dataset", np.mean(wer_scores))
 
 ###############################################
 # Build Supervision mapping:
@@ -102,7 +106,6 @@ for p, c in zip(phonemes, code100):
     sample_code += c
     sample += [sep]
     sample_code += [noise_sep]
-
     if len(sample_code) >= max_len:
         if len(sample) >= max_len:
             sample = sample[:max_len]
@@ -143,7 +146,7 @@ print("Model Cluster To Phoneme scores: ", np.mean(scores))
 print("Model Cluster To Phoneme WER: ", np.mean(wer_score))
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
-print("Clusters Eq Superv (TOT %)", (model_units_to_phonemes == units_to_phonemes).mean())
+print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes- units_to_phonemes)).mean())
 
 ###############################################
 # Eval Learned Mapping
@@ -191,4 +194,4 @@ print("Mapping + Model Cluster To Phoneme scores: ", np.mean(scores))
 print("Mapping + Model Cluster To Phoneme WER: ", np.mean(wer_score))
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
-print("Clusters Eq Superv (TOT %)", (model_units_to_phonemes == units_to_phonemes).mean())
+print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes - units_to_phonemes)).mean())
