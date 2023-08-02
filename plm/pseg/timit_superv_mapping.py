@@ -40,7 +40,7 @@ def read_phonemes_range(phonemes_file):
         ranges_phonemes = f.read().splitlines()
     ranges_phonemes = [p.split() for p in ranges_phonemes]
     results = []
-    for p, s, e in ranges_phonemes:
+    for s, e, p in ranges_phonemes:
         if p not in TIMIT_61_39:
             print(f"phoneme {p} not in TIMIT_61_39")
             continue
