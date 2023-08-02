@@ -23,11 +23,8 @@ model = model.to(device)
 
 
 def remove_sep_and_dup(x):
-    print(len(x), end=" ")
     x = np.array([x[0]] + [x[i] for i in range(1, len(x)) if x[i] != x[i - 1]])
-    print(len(x))
     # x = x[x != sep]
-    print(len(x))
     return x
 
 
@@ -41,6 +38,7 @@ def wer_np(y, y_hat):
 # dataset score:
 ###############################################
 train_dataset = PhonemesDataset(size=100, type_=PROB)
+
 scores = []
 wer_scores = []
 for x, y in tqdm(train_dataset):
@@ -52,7 +50,6 @@ for x, y in tqdm(train_dataset):
     scores.append((y == y_hat).mean())
     wer_scores.append(wer_np(y, y_hat))
 print("scores dataset", np.mean(scores), "WER dataset", np.mean(wer_scores))
-
 ###############################################
 # Build Supervision mapping:
 ###############################################
@@ -97,7 +94,7 @@ if not superv_seg:
     for line in code100_dup:
         code100.append([line[0]] + [line[i] for i in range(1, len(line)) if line[i] != line[i - 1]])
 
-    with open("./pseg/data/sup_vad_km/features.phonemes") as f:
+    with open("./pseg/data/sup_vad/features.phonemes") as f:
         phonemes = f.read().splitlines()
     phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
                 phonemes]
@@ -138,6 +135,7 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
         model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
     pred = res.argmax(dim=-1)
     y_hat = pred.detach().cpu().numpy()
+    y_hat[x == noise_sep] = sep
     y_hat = remove_sep_and_dup(y_hat)
     y = remove_sep_and_dup(y)
     print(y.shape, y_hat.shape)
