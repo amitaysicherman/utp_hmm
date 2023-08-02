@@ -1,4 +1,4 @@
-# sbatch --time=3-0 --gres=gpu:1,vmem:24g --mem=64G --wrap "python feature_extractor_superv_vad_unsuperv_p.py"
+# sbatch --time=1-0 --gres=gpu:1,vmem:24g --mem=64G --wrap "python timit_superv_mapping.py"
 
 import argparse
 import glob
