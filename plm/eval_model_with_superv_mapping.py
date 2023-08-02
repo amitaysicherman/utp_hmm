@@ -125,13 +125,13 @@ def main():
     # Learn Mapping from model:
     ###############################################
 
-    with open("./pseg/data/sup_vad/features.clusters") as f:
+    with open("./pseg/data/sup_vad_km/features.clusters") as f:
         code100_dup = f.read().splitlines()
     code100_dup = [[int(y) for y in x.split()] for x in code100_dup]
     code100 = []
     for line in code100_dup:
         code100.append([line[0]] + [line[i] for i in range(1, len(line)) if line[i] != line[i - 1]])
-    with open("./pseg/data/sup_vad/features.phonemes") as f:
+    with open("./pseg/data/sup_vad_km/features.phonemes") as f:
         phonemes = f.read().splitlines()
     phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
                 phonemes]
