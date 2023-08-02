@@ -1,6 +1,5 @@
 # sbatch --time=1-0 --gres=gpu:1,vmem:24g --mem=64G --wrap "python timit_superv_mapping.py"
 
-import argparse
 import glob
 import os
 import fairseq
@@ -8,12 +7,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torchaudio
-from npy_append_array import NpyAppendArray
 from tqdm import tqdm
-from model import NextFrameClassifier
 import dataclasses
 import joblib
-import math
 
 step = 320
 SIL = "sil"
@@ -99,55 +95,3 @@ if __name__ == "__main__":
     matching = mapping.argmax(axis=1)
     pd.DataFrame(mapping).to_csv("mapping.csv", index=False)
     pd.DataFrame(matching).to_csv("matching.csv", index=False)
-
-
-def load_pseg_model(pseg_model):
-    model = NextFrameClassifier()
-    ckpt = torch.load(pseg_model, map_location="cpu")
-    weights = ckpt["state_dict"]
-    weights = {k.replace("NFC.", ""): v for k, v in weights.items()}
-    model.load_state_dict(weights)
-    model = model.to('cpu')
-    model = model.eval()
-    return model
-
-
-def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model, km_model, use_kmeans):
-    model = load_pseg_model(pseg_model)
-
-    hfe = HubertFeaturesExtractor(hubert_cp, km_model, use_kmeans)
-    os.makedirs(output_base, exist_ok=True)
-    features_file = os.path.join(output_base, "features.npy")
-    if os.path.exists(features_file):
-        os.remove(features_file)
-    features_output_file = NpyAppendArray(features_file)
-    lengthes = []
-    names = []
-    all_phonemes = []
-    for audio_file in tqdm(glob.glob(os.path.join(timit_base, "*", "*", "*WAV"))):
-        features, phonemes = hfe.extract_features(audio_file, model)
-        features_output_file.append(features)
-        lengthes.append(str(len(features)))
-        names.append(audio_file.replace(timit_base, ""))
-        all_phonemes.append(phonemes)
-    with open(os.path.join(output_base, "features.length"), 'w') as f:
-        f.write("\n".join(lengthes))
-    with open(os.path.join(output_base, "features.names"), 'w') as f:
-        f.write("\n".join(names))
-    with open(os.path.join(output_base, "features.phonemes"), 'w') as f:
-        f.write("\n".join(all_phonemes))
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--timit_base', type=str, default="/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/")
-    parser.add_argument('--hubert_cp', type=str, default=)
-    parser.add_argument('--pseg_model', type=str, default='./models/timit+_pretrained.ckpt')
-    parser.add_argument('--kmeans_model', type=str, default=)
-    parser.add_argument('--use_kmeans', type=int, default=1)
-
-    parser.add_argument('--output_base', type=str, default='./data/sup_vad_km/')
-
-    args = parser.parse_args()
-    save_timit_feaures(args.timit_base, args.output_base, args.hubert_cp, args.pseg_model, args.kmeans_model,
-                       args.use_kmeans)
