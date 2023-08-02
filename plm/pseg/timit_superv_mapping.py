@@ -5,21 +5,18 @@ import glob
 import os
 import fairseq
 import numpy as np
+import pandas as pd
 import torch
 import torchaudio
 from npy_append_array import NpyAppendArray
 from tqdm import tqdm
 from model import NextFrameClassifier
-from scipy.signal import find_peaks
-import math
+import dataclasses
 import joblib
+import math
 
 step = 320
-e_index = 1
-p_index = 2
 SIL = "sil"
-peak_to_step = 2  # 2 peaks per step (320ms vs 160ms)
-prominence = 0.05
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TIMIT_61_39 = {'aa': 'aa', 'ae': 'ae', 'ah': 'ah', 'ao': 'aa', 'aw': 'aw', 'ax': 'ah', 'ax-h': 'ah', 'axr': 'er',
                'ay': 'ay', 'b': 'b', 'bcl': 'sil', 'ch': 'ch', 'd': 'd', 'dcl': 'sil', 'dh': 'dh', 'dx': 't',
@@ -29,76 +26,79 @@ TIMIT_61_39 = {'aa': 'aa', 'ae': 'ae', 'ah': 'ah', 'ao': 'aa', 'aw': 'aw', 'ax':
                'oy': 'oy', 'p': 'p', 'pau': 'sil', 'pcl': 'sil', 'q': 'sil', 'r': 'r', 's': 's', 'sh': 'sh', 't': 't',
                'tcl': 'sil', 'th': 'th', 'uh': 'uh', 'uw': 'uw', 'ux': 'uw', 'v': 'v', 'w': 'w', 'y': 'y', 'z': 'z',
                'zh': 'sh'}
+phonemes_to_index = {'aa': 0, 'ae': 1, 'ah': 2, 'ao': 3, 'aw': 4, 'ay': 5, 'b': 6, 'ch': 7, 'd': 8, 'dh': 9, 'eh': 10,
+                     'er': 11, 'ey': 12, 'f': 13, 'g': 14, 'hh': 15, 'ih': 16, 'iy': 17, 'jh': 18, 'k': 19, 'l': 20,
+                     'm': 21, 'n': 22, 'ng': 23, 'ow': 24, 'oy': 25, 'p': 26, 'r': 27, 's': 28, 'sh': 29, 't': 30,
+                     'th': 31, 'uh': 32, 'uw': 33, 'v': 34, 'w': 35, 'y': 36, 'z': 37, 'zh': 38}
 
 
-def get_phonemes_ranges(pseg_model, audio):
-    preds = pseg_model(audio)
-
-    preds = preds[1][0]
-    preds = torch.cat([preds.index_select(dim=1, index=torch.LongTensor([0] * 1).to(preds.device)), preds], dim=1)
-    preds -= preds.min(-1, keepdim=True)[0]
-    preds /= preds.max(-1, keepdim=True)[0]
-    preds = 1 - preds
-    preds = preds[0]
-    preds = preds.cpu().detach().numpy()
-    xmin, xmax = preds.min(), preds.max()
-    preds = (preds - xmin) / (xmax - xmin)
-
-    peaks, _ = find_peaks(preds, prominence=prominence)
-    if len(peaks) == 0:
-        peaks = np.array([len(preds) - 1])
-
-    return [(int(math.floor(peaks[i - 1]) / peak_to_step), int(math.ceil(peaks[i]) / peak_to_step)) for i in
-            range(1, len(peaks))]
+@dataclasses.dataclass
+class TimitRow:
+    phonemes: int
+    start: float
+    end: float
 
 
-def read_phonemes(phonemes_file):
+def read_phonemes_range(phonemes_file):
     with open(phonemes_file) as f:
         ranges_phonemes = f.read().splitlines()
-
     ranges_phonemes = [p.split() for p in ranges_phonemes]
-    ranges_phonemes = [[int(p[0]), int(p[1]), TIMIT_61_39[p[2]]] for p in ranges_phonemes]
-    phonemes = [p[2] for p in ranges_phonemes]
-    phonemes = [phonemes[0]] + [p for i, p in enumerate(phonemes[1:]) if (p != phonemes[i - 1] and p != SIL)]
-    phonemes = " ".join(phonemes)
-
-    vad_ranges = [(x, y) for (x, y, z) in ranges_phonemes if z != SIL]
-
-    return phonemes, vad_ranges
+    results = []
+    for p, s, e in ranges_phonemes:
+        if p not in TIMIT_61_39:
+            print(f"phoneme {p} not in TIMIT_61_39")
+            continue
+        results.append(TimitRow(phonemes=phonemes_to_index[TIMIT_61_39[p]], start=int(s) / step, end=int(e) / step))
+    return results
 
 
 class HubertFeaturesExtractor:
-    def __init__(self, ckpt_path, km_path, use_kmeans, layer=6):
-        models, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task([ckpt_path])
-        self.model = models[0].to(device)
-        self.layer = layer
-        self.km = joblib.load(km_path)
-        self.use_kmeans = use_kmeans
-        self.step = 320
+    def __init__(self, ):
+        models, _, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(["./models/hubert_base_ls960.pt"])
+        model = models[0].eval()
+        self.model = model.to(device)
+        self.km = joblib.load('./models/km100.bin')
+        for parameter in self.model.parameters():
+            parameter.requires_grad_(False)
 
-    def extract_features(self, audio_file, pseg_model):
+    def get_cluster(self, audio_file):
         audio, _ = torchaudio.load(audio_file)
-        phonemes, vad_ranges = read_phonemes(audio_file.replace(".WAV", ".PHN"))
-        audio = torch.cat([audio[:, start:end] for start, end in vad_ranges], dim=1).to(device)
+        audio = audio.to(device)
         features = self.model.extract_features(
             source=audio,
             padding_mask=None,
             mask=False,
-            output_layer=self.layer,
+            output_layer=6,
         )[0][0].detach().cpu().numpy()
-        if not self.use_kmeans:
-            combine_ranges = get_phonemes_ranges(pseg_model, audio.to("cpu"))
-        else:
-            clusters = self.km.predict(features)
-            start = 0
-            combine_ranges = []
-            for c in range(1, len(clusters)):
-                if clusters[c] != clusters[c - 1]:
-                    combine_ranges.append((start, c - 1))
-                    start = c
-            combine_ranges.append((start, len(clusters) - 1))
-        combine_features = np.stack([features[s:e + 1].mean(axis=0) for s, e in combine_ranges])
-        return combine_features, phonemes
+        return self.km.predict(features)
+
+
+def fill_mapping(mapping, clusters, phonemes_ranges):
+    for i, cluster in enumerate(clusters):
+        for pr in phonemes_ranges:
+            start, end, phoneme = pr.start, pr.end, pr.phonemes
+            if i <= start < i + 1:
+                if i <= end < i + 1:
+                    weight = end - start
+                else:
+                    weight = i + 1 - start
+                mapping[cluster, phoneme] += weight
+            elif i <= end < i + 1:
+                weight = end - i
+                mapping[cluster, phoneme] += weight
+
+
+if __name__ == "__main__":
+    timit_base = "/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/"
+    hubert_features_extractor = HubertFeaturesExtractor()
+    mapping = np.zeros((100, 39))
+    for audio_file in tqdm(glob.glob(os.path.join(timit_base, "*", "*", "*WAV"))):
+        phonemes_ranges = read_phonemes_range(audio_file.replace(".WAV", ".PHN"))
+        clusters = hubert_features_extractor.get_cluster(audio_file)
+        fill_mapping(mapping, clusters, phonemes_ranges)
+    matching = mapping.argmax(axis=1)
+    pd.DataFrame(mapping).to_csv("mapping.csv", index=False)
+    pd.DataFrame(matching).to_csv("matching.csv", index=False)
 
 
 def load_pseg_model(pseg_model):
@@ -141,9 +141,9 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, pseg_model, km_model,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--timit_base', type=str, default="/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/")
-    parser.add_argument('--hubert_cp', type=str, default="./models/hubert_base_ls960.pt")
+    parser.add_argument('--hubert_cp', type=str, default=)
     parser.add_argument('--pseg_model', type=str, default='./models/timit+_pretrained.ckpt')
-    parser.add_argument('--kmeans_model', type=str, default='./models/km100.bin')
+    parser.add_argument('--kmeans_model', type=str, default=)
     parser.add_argument('--use_kmeans', type=int, default=1)
 
     parser.add_argument('--output_base', type=str, default='./data/sup_vad_km/')

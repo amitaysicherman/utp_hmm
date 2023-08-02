@@ -147,7 +147,7 @@ def main():
     print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
     print("Clusters Eq Superv (TOT %)", (np.abs(
         model_units_to_phonemes / (model_units_to_phonemes.sum()) - units_to_phonemes / (
-            units_to_phonemes.sum()))).mean())
+            units_to_phonemes.sum()))).sum())
 
     ###############################################
     # Learned Mapping + Model
@@ -182,7 +182,7 @@ def main():
     print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
     print("Clusters Eq Superv (TOT %)", (np.abs(
         model_units_to_phonemes / (model_units_to_phonemes.sum()) - units_to_phonemes / (
-            units_to_phonemes.sum()))).mean())
+            units_to_phonemes.sum()))).sum())
 
 
 if __name__ == '__main__':
