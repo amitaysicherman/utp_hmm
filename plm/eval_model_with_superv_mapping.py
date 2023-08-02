@@ -40,18 +40,18 @@ def wer_np(y, y_hat):
 ###############################################
 # dataset score:
 ###############################################
-# train_dataset = PhonemesDataset(size=100, type_=PROB)
-# scores = []
-# wer_scores = []
-# for x, y in tqdm(train_dataset):
-#     x = x.to(device)
-#     res = model(x.unsqueeze(0))
-#     pred = res.argmax(dim=-1)
-#     y = y.numpy()
-#     y_hat = pred.detach().cpu().numpy()[0]
-#     scores.append((y == y_hat).mean())
-#     wer_scores.append(wer_np(y, y_hat))
-# print("scores dataset", np.mean(scores), "WER dataset", np.mean(wer_scores))
+train_dataset = PhonemesDataset(size=100, type_=PROB)
+scores = []
+wer_scores = []
+for x, y in tqdm(train_dataset):
+    x = x.to(device)
+    res = model(x.unsqueeze(0))
+    pred = res.argmax(dim=-1)
+    y = y.numpy()
+    y_hat = pred.detach().cpu().numpy()[0]
+    scores.append((y == y_hat).mean())
+    wer_scores.append(wer_np(y, y_hat))
+print("scores dataset", np.mean(scores), "WER dataset", np.mean(wer_scores))
 
 ###############################################
 # Build Supervision mapping:
