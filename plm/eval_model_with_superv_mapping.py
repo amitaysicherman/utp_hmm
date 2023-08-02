@@ -23,7 +23,7 @@ model = model.to(device)
 
 
 def remove_sep_and_dup(x):
-    print(len(x),end=" ")
+    print(len(x), end=" ")
     x = np.array([x[0]] + [x[i] for i in range(1, len(x)) if x[i] != x[i - 1]])
     print(len(x))
     # x = x[x != sep]
@@ -90,8 +90,13 @@ print("Supervision Clustering Score: ", np.mean(scores), "WER: ", np.mean(scores
 
 if not superv_seg:
     with open("./pseg/data/sup_vad_km/features.clusters") as f:
-        code100 = f.read().splitlines()
-    code100 = [[int(y) for y in x.split()] for x in code100]
+        code100_dup = f.read().splitlines()
+
+    code100_dup = [[int(y) for y in x.split()] for x in code100_dup]
+    code100 = []
+    for line in code100_dup:
+        code100.append([line[0]] + [line[i] for i in range(1, len(line)) if line[i] != line[i - 1]])
+
     with open("./pseg/data/sup_vad_km/features.phonemes") as f:
         phonemes = f.read().splitlines()
     phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
@@ -146,7 +151,7 @@ print("Model Cluster To Phoneme scores: ", np.mean(scores))
 print("Model Cluster To Phoneme WER: ", np.mean(wer_score))
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
-print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes- units_to_phonemes)).mean())
+print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes - units_to_phonemes)).mean())
 
 ###############################################
 # Eval Learned Mapping
