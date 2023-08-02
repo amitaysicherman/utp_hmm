@@ -1,9 +1,9 @@
 import joblib
 import numpy as np
 import os
-input_file = "data/sup_vad_km/features.npy"
-len_file = "data/sup_vad_km/features.length"
-output_file = "data/sup_vad_km/features.clusters"
+input_file = "data/sup_vad/features.npy"
+len_file = "data/sup_vad/features.length"
+output_file = "data/sup_vad/features.clusters"
 km_file = "models/km100.bin"
 
 km = joblib.load(km_file)
@@ -12,6 +12,7 @@ features = np.load(input_file)
 with open(len_file, 'r') as f:
     lengths = f.read().split("\n")
 lengths = [int(l) for l in lengths]
+assert sum(lengths) == len(features)
 features = np.split(features, np.cumsum(lengths)[:-1])
 if os.path.exists(output_file):
     os.remove(output_file)

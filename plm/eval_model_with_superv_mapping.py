@@ -9,7 +9,7 @@ import argparse
 from jiwer import wer
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cp', type=str, default="./models/long_marix_16090000.cp")
+parser.add_argument('--cp', type=str, default="./models/long_marix_1True_27130000.cp")
 args = parser.parse_args()
 sep = PADDING_VALUE
 noise_sep = 100
@@ -78,10 +78,10 @@ for x, y in tqdm(zip(code100, phonemes), total=len(phonemes)):
     scores_wer.append(wer_np(y, pred))
     scores.append((pred == y).mean())
 
-print("Cluster Usage: ")
-values, counts = np.unique(sum(code100, []), return_counts=True)
-for v, c in zip(values, counts):
-    print(v, f'{c:,}')
+# print("Cluster Usage: ")
+# values, counts = np.unique(sum(code100, []), return_counts=True)
+# for v, c in zip(values, counts):
+#     print(v, f'{c:,}')
 print("Supervision Clustering Score: ", np.mean(scores), "WER: ", np.mean(scores_wer))
 
 ###############################################
@@ -129,7 +129,6 @@ wer_score = []
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     y = y.numpy().flatten()
-
     x = x.to(device)
     res = model(x.unsqueeze(0))[0]
     for i in range(len(x)):
