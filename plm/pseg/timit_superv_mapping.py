@@ -25,7 +25,7 @@ TIMIT_61_39 = {'aa': 'aa', 'ae': 'ae', 'ah': 'ah', 'ao': 'aa', 'aw': 'aw', 'ax':
 phonemes_to_index = {'aa': 0, 'ae': 1, 'ah': 2, 'ao': 3, 'aw': 4, 'ay': 5, 'b': 6, 'ch': 7, 'd': 8, 'dh': 9, 'eh': 10,
                      'er': 11, 'ey': 12, 'f': 13, 'g': 14, 'hh': 15, 'ih': 16, 'iy': 17, 'jh': 18, 'k': 19, 'l': 20,
                      'm': 21, 'n': 22, 'ng': 23, 'ow': 24, 'oy': 25, 'p': 26, 'r': 27, 's': 28, 'sh': 29, 't': 30,
-                     'th': 31, 'uh': 32, 'uw': 33, 'v': 34, 'w': 35, 'y': 36, 'z': 37, 'zh': 38}
+                     'th': 31, 'uh': 32, 'uw': 33, 'v': 34, 'w': 35, 'y': 36, 'z': 37, 'zh': 38, 'sil': 39}
 
 
 @dataclasses.dataclass
@@ -87,7 +87,7 @@ def fill_mapping(mapping, clusters, phonemes_ranges):
 if __name__ == "__main__":
     timit_base = "/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/"
     hubert_features_extractor = HubertFeaturesExtractor()
-    mapping = np.zeros((100, 39))
+    mapping = np.zeros((100, len(phonemes_to_index)))
     for audio_file in tqdm(glob.glob(os.path.join(timit_base, "*", "*", "*WAV"))):
         phonemes_ranges = read_phonemes_range(audio_file.replace(".WAV", ".PHN"))
         clusters = hubert_features_extractor.get_cluster(audio_file)
