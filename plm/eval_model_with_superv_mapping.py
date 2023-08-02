@@ -135,7 +135,7 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
         model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
     pred = res.argmax(dim=-1)
     y_hat = pred.detach().cpu().numpy()
-    y_hat[x == noise_sep] = sep
+    y_hat[x.cpu().numpy() == noise_sep] = sep
     y_hat = remove_sep_and_dup(y_hat)
     y = remove_sep_and_dup(y)
     print(y.shape, y_hat.shape)
@@ -186,6 +186,8 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
     pred = res.argmax(dim=-1)
     y_hat = pred.detach().cpu().numpy()
+    y_hat[x.cpu().numpy() == noise_sep] = sep
+
     y_hat = remove_sep_and_dup(y_hat)
     y = y.numpy()
     y = remove_sep_and_dup(y)
