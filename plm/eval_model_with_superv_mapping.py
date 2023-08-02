@@ -18,6 +18,9 @@ superv_seg = False
 
 
 def wer_np(y, y_hat):
+    y_hat = np.array([y_hat[0] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]])
+    # y_hat = y_hat[y_hat != sep]
+    # y = y[y != sep]
     y = " ".join([str(x) for x in y])
     y_hat = " ".join([str(x) for x in y_hat])
     return wer(y, y_hat)
@@ -82,6 +85,10 @@ if not superv_seg:
     with open("./pseg/data/sup_vad_km/features.clusters") as f:
         code100 = f.read().splitlines()
     code100 = [[int(y) for y in x.split()] for x in code100]
+    with open("./pseg/data/sup_vad_km/features.phonemes") as f:
+        phonemes = f.read().splitlines()
+    phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
+                phonemes]
 
 data = []
 code_data = []
@@ -107,6 +114,8 @@ scores = []
 wer_score = []
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
+    y = y.numpy().flatten()
+
     x = x.to(device)
     res = model(x.unsqueeze(0))[0]
     for i in range(len(x)):
@@ -115,10 +124,11 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
             continue
         model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
     pred = res.argmax(dim=-1)
-    y = y.numpy()
     y_hat = pred.detach().cpu().numpy()
+    print(y.shape, y_hat.shape)
     if len(y) == len(y_hat):
         scores.append((y == y_hat).mean())
+
     wer_score.append(wer_np(y, y_hat))
 
 print("Model Cluster To Phoneme scores: ", np.mean(scores))
