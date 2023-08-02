@@ -17,10 +17,13 @@ max_len = 1024
 superv_seg = False
 
 
+def remove_sep_and_dup(x):
+    x = np.array([x[0]] + [x[i] for i in range(1, len(x)) if x[i] != x[i - 1]])
+    x = x[x != sep]
+    return x
+
+
 def wer_np(y, y_hat):
-    y_hat = np.array([y_hat[0] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]])
-    y_hat = y_hat[y_hat != sep]
-    y = y[y != sep]
     y = " ".join([str(x) for x in y])
     y_hat = " ".join([str(x) for x in y_hat])
     return wer(y, y_hat)
@@ -128,6 +131,8 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
         model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
     pred = res.argmax(dim=-1)
     y_hat = pred.detach().cpu().numpy()
+    y_hat = remove_sep_and_dup(y_hat)
+    y = remove_sep_and_dup(y)
     print(y.shape, y_hat.shape)
     if len(y) == len(y_hat):
         scores.append((y == y_hat).mean())
@@ -138,7 +143,7 @@ print("Model Cluster To Phoneme scores: ", np.mean(scores))
 print("Model Cluster To Phoneme WER: ", np.mean(wer_score))
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
-print("Clusters Eq Superv (TOT %)", (model_superv_mapping == superv_mapping).mean())
+print("Clusters Eq Superv (TOT %)", (model_units_to_phonemes == units_to_phonemes).mean())
 
 ###############################################
 # Eval Learned Mapping
@@ -148,7 +153,9 @@ scores_wer = []
 model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
 for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     y = y.numpy()
+    y = remove_sep_and_dup(y)
     y_hat = [model_superv_mapping[i] if i != noise_sep else noise_sep for i in x]
+    y_hat = remove_sep_and_dup(y_hat)
     if len(y) == len(y_hat):
         scores.append((y == y_hat).mean())
     scores_wer.append(wer_np(y, y_hat))
@@ -174,7 +181,9 @@ for x, y in tqdm(zip(code_data, data), total=len(code_data)):
     model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
     pred = res.argmax(dim=-1)
     y_hat = pred.detach().cpu().numpy()
+    y_hat = remove_sep_and_dup(y_hat)
     y = y.numpy()
+    y = remove_sep_and_dup(y)
     if len(y) == len(y_hat):
         scores.append((y == y_hat).mean())
     scores_wer.append(wer_np(y, y_hat))
@@ -182,4 +191,4 @@ print("Mapping + Model Cluster To Phoneme scores: ", np.mean(scores))
 print("Mapping + Model Cluster To Phoneme WER: ", np.mean(wer_score))
 model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
 print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
-print("Clusters Eq Superv (TOT %)", (model_superv_mapping == superv_mapping).mean())
+print("Clusters Eq Superv (TOT %)", (model_units_to_phonemes == units_to_phonemes).mean())
