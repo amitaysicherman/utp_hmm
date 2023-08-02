@@ -40,42 +40,43 @@ def data_to_tensor(phonemes, code100):
 
 
 def eval_data_with_model(data, code_data):
-    scores = []
     wer_score = []
     model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
     for x, y in tqdm(zip(code_data, data), total=len(code_data)):
-        y = y.numpy().flatten()
         x = x.to(device)
+
+        y = y.numpy().flatten()
+        y = remove_sep_and_dup(y)
+
         res = model(x.unsqueeze(0))[0]
+        y_hat = res.argmax(dim=-1)
+        y_hat = y_hat.detach().cpu().numpy()
+        y_hat[x.cpu().numpy() == noise_sep] = sep
+        y_hat = remove_sep_and_dup(y_hat)
+
+        wer_score.append(wer_np(y, y_hat))
+
         for i in range(len(x)):
             c_ = x[i].item()
             if c_ == noise_sep:
                 continue
             model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
-        pred = res.argmax(dim=-1)
-        y_hat = pred.detach().cpu().numpy()
-        y_hat[x.cpu().numpy() == noise_sep] = sep
-        y_hat = remove_sep_and_dup(y_hat)
-        y = remove_sep_and_dup(y)
-        if len(y) == len(y_hat):
-            scores.append((y == y_hat).mean())
-        wer_score.append(wer_np(y, y_hat))
-    return np.mean(scores), np.mean(wer_score), model_units_to_phonemes
+
+    return np.mean(wer_score), model_units_to_phonemes
 
 
 def eval_data_with_mapping(phonemes, code100, mapping):
     scores_wer = []
     for x, y in tqdm(zip(code100, phonemes), total=len(phonemes)):
-        pred = np.array([mapping[i] if i != noise_sep else noise_sep for i in x])
-        pred = remove_sep_and_dup(pred)
+        y_hat = np.array([mapping[i] if i != noise_sep else sep for i in x])
+        y_hat = remove_sep_and_dup(y_hat)
         y = np.array(y)
-        scores_wer.append(wer_np(y, pred))
+        scores_wer.append(wer_np(y, y_hat))
     return np.mean(scores_wer)
 
 
 def remove_sep_and_dup(x):
     x = np.array([x[0]] + [x[i] for i in range(1, len(x)) if x[i] != x[i - 1]])
-    # x = x[x != sep]
     return x
 
 
@@ -84,23 +85,20 @@ def wer_np(y, y_hat):
     y_hat = " ".join([str(x) for x in y_hat])
     return wer(y, y_hat)
 
+
 def main():
     ###############################################
     # dataset score:
     ###############################################
-    train_dataset = PhonemesDataset(size=100, type_=PROB)
-
-    scores = []
     wer_scores = []
-    for x, y in tqdm(train_dataset):
+    for x, y in tqdm(PhonemesDataset(size=100, type_=PROB)):
         x = x.to(device)
         res = model(x.unsqueeze(0))
         pred = res.argmax(dim=-1)
         y = y.numpy()
         y_hat = pred.detach().cpu().numpy()[0]
-        scores.append((y == y_hat).mean())
         wer_scores.append(wer_np(y, y_hat))
-    print("scores dataset", np.mean(scores), "WER dataset", np.mean(wer_scores))
+    print("WER dataset", np.mean(wer_scores))
 
     ###############################################
     # Build Supervision mapping:
@@ -119,7 +117,7 @@ def main():
     superv_mapping = units_to_phonemes.argmax(axis=1)
 
     scores_wer = eval_data_with_mapping(phonemes, code100, superv_mapping)
-    print("Supervision Clustering Score WER: ", scores_wer)
+    print("Supervision Clustering WER: ", scores_wer)
 
     ###############################################
     # Learn Mapping from model:
@@ -138,21 +136,22 @@ def main():
 
     data, code_data = data_to_tensor(phonemes, code100)
     wer_sep = eval_data_with_mapping(phonemes, code100, superv_mapping)
-    print("Supervision Real Data Clustering Score WER: ", wer_sep)
+    print("Supervision Real Data Clustering WER: ", wer_sep)
 
-    scores, wer_model_score, model_units_to_phonemes = eval_data_with_model(data, code_data)
-    print("Model Clustering Score: ", scores,wer_model_score)
+    wer_model_score, model_units_to_phonemes = eval_data_with_model(data, code_data)
+    print("Model Clustering WER: ", wer_model_score)
     model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
     wer_model_mapping = eval_data_with_mapping(phonemes, code100, model_superv_mapping)
-    print("Supervision Model Clustering Score WER: ", wer_model_mapping)
+    print("ARGMAX Clustering Score WER: ", wer_model_mapping)
 
     print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
-    print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes - units_to_phonemes)).mean())
+    print("Clusters Eq Superv (TOT %)", (np.abs(
+        model_units_to_phonemes / (model_units_to_phonemes.sum()) - units_to_phonemes / (
+            units_to_phonemes.sum()))).mean())
 
     ###############################################
     # Learned Mapping + Model
     ###############################################
-    scores = []
     scores_wer = []
     model_units_to_phonemes = np.zeros((100, len(phonemes_to_index)))
     for x, y in tqdm(zip(code_data, data), total=len(code_data)):
@@ -160,28 +159,30 @@ def main():
         x = [model_superv_mapping[i] if i != noise_sep else noise_sep for i in x]
         x = torch.LongTensor(x)
         x = x.to(device)
-        res = model(x.unsqueeze(0))[0]
-        pred = res.argmax(dim=-1)
-        y_hat = pred.detach().cpu().numpy()
-        y_hat[x.cpu().numpy() == noise_sep] = sep
 
+        res = model(x.unsqueeze(0))[0]
+        y_hat = res.argmax(dim=-1)
+        y_hat = y_hat.detach().cpu().numpy()
+        y_hat[x.cpu().numpy() == noise_sep] = sep
         y_hat = remove_sep_and_dup(y_hat)
+
         y = y.numpy()
         y = remove_sep_and_dup(y)
-        if len(y) == len(y_hat):
-            scores.append((y == y_hat).mean())
+
         scores_wer.append(wer_np(y, y_hat))
 
-        for i in range(len(x)):
+        for i in range(len(x_save)):
             c_ = x_save[i].item()
             if c_ == noise_sep:
                 continue
             model_units_to_phonemes[c_, :] += res[i].detach().cpu().numpy()[:-1]
-    print("Mapping + Model Cluster To Phoneme scores: ", np.mean(scores))
+
     print("Mapping + Model Cluster To Phoneme WER: ", np.mean(scores_wer))
     model_superv_mapping = model_units_to_phonemes.argmax(axis=1)[:100]
     print("Clusters Eq Superv (Argmax)", (model_superv_mapping == superv_mapping).sum())
-    print("Clusters Eq Superv (TOT %)", (np.abs(model_units_to_phonemes - units_to_phonemes)).mean())
+    print("Clusters Eq Superv (TOT %)", (np.abs(
+        model_units_to_phonemes / (model_units_to_phonemes.sum()) - units_to_phonemes / (
+            units_to_phonemes.sum()))).mean())
 
 
 if __name__ == '__main__':
