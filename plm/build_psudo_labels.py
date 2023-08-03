@@ -74,7 +74,7 @@ def get_batch(features, clusters, size=32):
     return features_data, clusters_data
 
 
-def eval_with_phonemes(model, features, phonemes):
+def eval_with_phonemes(model, features, phonemes,print_examples=0):
     scores = []
     for i, feat in enumerate(features):
         feat = torch.from_numpy(feat).float().to(device).unsqueeze(0)
@@ -83,8 +83,12 @@ def eval_with_phonemes(model, features, phonemes):
         y_hat = [str(x) for x in y_hat if x != sep]
         y_hat = [y_hat[0]] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]
         y_hat = " ".join(y_hat)
-
         y = " ".join([str(x) for x in phonemes[i]])
+        if i < print_examples:
+            print("example ", i)
+            print(y_hat)
+            print(y)
+
         scores.append(wer(y, y_hat))
     return np.mean(scores) * 100
 
@@ -120,10 +124,9 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
 
-    for round in range(10000):
+    for round in range(1_000):
         features_batch, clusters_batch = get_batch(features, clusters, size=BATCH_SIZE)
         features_batch = features_batch.float().to(device)
-
         labels = []
         for x in tqdm(clusters_batch):
             x = x.to(device)
@@ -144,5 +147,6 @@ if __name__ == '__main__':
         optimizer.zero_grad()
         print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, features, phonemes))
 
-        # if round > 0 and round % 100 == 0:
-        #     torch.save(linear_model.state_dict(), f"models/linear_model_{round}.cp")
+        if round > 0 and round % 10 == 0:
+            eval_with_phonemes(linear_model, features, phonemes, print_examples=10)
+            torch.save(linear_model.state_dict(), f"models/linear_model.cp")
