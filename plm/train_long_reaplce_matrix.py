@@ -9,10 +9,12 @@ from mapping import phonemes_to_index
 from torch.nn.parallel import DataParallel
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.spatial import distance
 
 ONE = 0
 PROB = 1
-type_ = PROB
+SPHERE = 2
+type_ = SPHERE
 DUP = True
 # each 1|2 phones maping to 1|2 units.
 # 1,1. one to one mapping
@@ -35,6 +37,32 @@ def get_phone_to_unit_probes(n_units=100):
 
     np.random.shuffle(probs)
     return np.arange(n_units), probs
+
+
+def generate_sphere_points(n_points,dim=3):
+    # Generate random angles
+    np.random.
+    theta = 2 * np.pi * np.random.rand(n_points)  # Azimuthal angle [0, 2pi]
+    phi = np.arccos(1 - 2 * np.random.rand(n_points))  # Inclination angle [0, pi]
+
+    # Convert spherical coordinates to cartesian coordinates
+    x = np.sin(phi) * np.cos(theta)
+    y = np.sin(phi) * np.sin(theta)
+    z = np.cos(phi)
+
+    return np.column_stack([x, y, z])
+
+
+def get_phone_to_units_sphere_probs(n_units=100):
+    phonemes_points = generate_sphere_points(N_TOKENS)
+    clusters_points = generate_sphere_points(n_units)
+    dist_matrix = np.zeros((N_TOKENS, n_units))
+    for i in range(N_TOKENS):
+        for j in range(n_units):
+            dist_matrix[i, j] = distance.cosine(phonemes_points[i], clusters_points[j])
+    prob_matrix = dist_matrix / dist_matrix.sum(axis=1, keepdims=True)
+    np.random.shuffle(prob_matrix)
+    return prob_matrix
 
 
 def convert_to_units(phonemes):

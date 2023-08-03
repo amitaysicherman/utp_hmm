@@ -117,7 +117,10 @@ if __name__ == '__main__':
     for parameter in model.parameters():
         parameter.requires_grad_(False)
 
-    linear_model = LinearModel(input_dim=INPUT_DIM, output_dim=OUTPUT_DIM).to(device)
+    linear_model = LinearModel(input_dim=INPUT_DIM, output_dim=OUTPUT_DIM)
+    linear_model.load_state_dict(torch.load("models/linear_model_d.cp", map_location=torch.device('cpu')))
+    linear_model = model.to(device)
+
     linear_model.train()
     optimizer = torch.optim.Adam(linear_model.parameters(), lr=LR)
 
@@ -137,18 +140,14 @@ if __name__ == '__main__':
             labels.append(y)
         labels = torch.stack(labels).to(device)
 
-
-
-
-
         logits = linear_model(features_batch)
 
         mask = clusters_batch != noise_sep
-        logits =logits[mask]
+        logits = logits[mask]
         labels = labels[mask]
 
         loss = F.cross_entropy(
-            logits , #.transpose(1, 2),
+            logits,  # .transpose(1, 2),
             labels.softmax(dim=-1),
             # ignore_index=sep
         )
