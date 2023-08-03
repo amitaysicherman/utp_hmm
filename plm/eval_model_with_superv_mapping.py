@@ -12,6 +12,12 @@ sep = PADDING_VALUE
 noise_sep = 100
 max_len = 1024
 superv_seg = False
+sil=39
+real_super_mapping = np.array(
+    [0, 10, 39, 39, 13, 39, 11, 28, 28, 0, 0, 39, 17, 39, 5, 35, 28, 21, 20, 22, 20, 39, 39, 39, 16, 0,
+     27, 22, 39, 37, 37, 27, 39, 5, 19, 39, 20, 28, 39, 16, 39, 39, 39, 16, 0, 22, 17, 0, 39, 0, 28,
+     21, 0, 27, 16, 39, 39, 39, 39, 5, 19, 39, 0, 16, 39, 17, 29, 39, 39, 2, 33, 35, 39, 0, 2, 39, 15,
+     35, 34, 39, 11, 22, 39, 9, 39, 39, 30, 39, 1, 23, 39, 20, 1, 39, 39, 12, 29, 39, 24, 36, 9])
 
 
 def data_to_tensor(phonemes, code100):
@@ -90,15 +96,15 @@ def main():
     ###############################################
     # dataset score:
     ###############################################
-    wer_scores = []
-    for x, y in tqdm(PhonemesDataset(size=100, type_=PROB)):
-        x = x.to(device)
-        res = model(x.unsqueeze(0))
-        pred = res.argmax(dim=-1)
-        y = y.numpy()
-        y_hat = pred.detach().cpu().numpy()[0]
-        wer_scores.append(wer_np(y, y_hat))
-    print("WER dataset", np.mean(wer_scores))
+    # wer_scores = []
+    # for x, y in tqdm(PhonemesDataset(size=100, type_=PROB)):
+    #     x = x.to(device)
+    #     res = model(x.unsqueeze(0))
+    #     pred = res.argmax(dim=-1)
+    #     y = y.numpy()
+    #     y_hat = pred.detach().cpu().numpy()[0]
+    #     wer_scores.append(wer_np(y, y_hat))
+    # print("WER dataset", np.mean(wer_scores))
 
     ###############################################
     # Build Supervision mapping:
@@ -116,6 +122,12 @@ def main():
         units_to_phonemes[u, p] += 1
     superv_mapping = units_to_phonemes.argmax(axis=1)
 
+    print("REAL VS SUPERV CLUSTERSING ",
+        (superv_mapping[real_super_mapping!=sil]==real_super_mapping[real_super_mapping!=sil]).mean())
+
+
+
+    ###############################################
     scores_wer = eval_data_with_mapping(phonemes, code100, superv_mapping)
     print("Supervision Clustering WER: ", scores_wer)
 
@@ -148,6 +160,8 @@ def main():
     print("Clusters Eq Superv (TOT %)", (np.abs(
         model_units_to_phonemes / (model_units_to_phonemes.sum()) - units_to_phonemes / (
             units_to_phonemes.sum()))).sum())
+    print("REAL VS SUPERV MODELS ",
+          (model_superv_mapping[real_super_mapping != sil] == real_super_mapping[real_super_mapping != sil]).mean())
 
     ###############################################
     # Learned Mapping + Model
