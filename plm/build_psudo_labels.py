@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
         loss = F.cross_entropy(
             logits , #.transpose(1, 2),
-            labels.softmax(dim=-11),
+            labels.softmax(dim=-1),
             # ignore_index=sep
         )
         loss.backward()
