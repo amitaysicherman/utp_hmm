@@ -9,7 +9,8 @@ from mapping import phonemes_to_index
 from torch.nn.parallel import DataParallel
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.spatial import distance
+from scipy.special import softmax
+from scipy.spatial.distance import cdist
 
 ONE = 0
 PROB = 1
@@ -39,31 +40,10 @@ def get_phone_to_unit_probes(n_units=100):
     return np.arange(n_units), probs
 
 
-def generate_sphere_points(n_points,dim=3):
-    # Generate random angles
-    np.random.
-    theta = 2 * np.pi * np.random.rand(n_points)  # Azimuthal angle [0, 2pi]
-    phi = np.arccos(1 - 2 * np.random.rand(n_points))  # Inclination angle [0, pi]
-
-    # Convert spherical coordinates to cartesian coordinates
-    x = np.sin(phi) * np.cos(theta)
-    y = np.sin(phi) * np.sin(theta)
-    z = np.cos(phi)
-
-    return np.column_stack([x, y, z])
-
-
-def get_phone_to_units_sphere_probs(n_units=100):
-    phonemes_points = generate_sphere_points(N_TOKENS)
-    clusters_points = generate_sphere_points(n_units)
-    dist_matrix = np.zeros((N_TOKENS, n_units))
-    for i in range(N_TOKENS):
-        for j in range(n_units):
-            dist_matrix[i, j] = distance.cosine(phonemes_points[i], clusters_points[j])
-    prob_matrix = dist_matrix / dist_matrix.sum(axis=1, keepdims=True)
-    np.random.shuffle(prob_matrix)
-    return prob_matrix
-
+def random_gaussian(n,dim=256):
+    point = np.random.normal(size=(n,dim))
+    point /= np.linalg.norm(point,axis=1,keepdims=True)
+    return point
 
 def convert_to_units(phonemes):
     double_prob = 0.01
@@ -120,12 +100,25 @@ class PhonemesDataset(Dataset):
         for i in range(N_TOKENS):
             inv_mapping[i] = get_phone_to_unit_probes(self.target_units)
         return inv_mapping
+    def build_mapping_sphere(self):
+        phonemes = random_gaussian(N_TOKENS)
+        clusters = random_gaussian(self.target_units)
+        cosine_distances = 100 * (1 - cdist(phonemes, clusters, metric='cosine'))
+        probabilities = softmax(cosine_distances, axis=0)
+        probabilities = probabilities / np.sum(probabilities, axis=1, keepdims=True)
+        np.random.shuffle(probabilities)
+        return probabilities
+
+
+
 
     def build_mapping(self):
         if self.type == ONE:
             return self.build_mapping_one()
         elif self.type == PROB:
             return self.build_mapping_prob()
+        elif self.type == SPHERE:
+            return self.build_mapping_sphere()
         else:
             raise ValueError("Unknown type")
 
@@ -134,6 +127,7 @@ class PhonemesDataset(Dataset):
         length = random.choices([0, 1, 2, 3], weights=[0.1, 0.5, 0.3, 0.2], k=len(clean))
         final_clean = []
         final_noise = []
+        range_units=np.arange(self.target_units)
         for c in clean:
             if c == self.sep:
                 final_clean.append(self.sep)
@@ -145,6 +139,8 @@ class PhonemesDataset(Dataset):
                         final_noise.append(random.choice(inv_mapping[c]))
                     elif self.type == PROB:
                         final_noise.append(np.random.choice(inv_mapping[c][0], p=inv_mapping[c][1]))
+                    elif self.type == SPHERE:
+                        final_noise.append(np.random.choice(range_units, p=inv_mapping[c]))
                     else:
                         raise ValueError("Unknown type")
         final_clean = final_clean[:self.max_len]
