@@ -19,7 +19,7 @@ SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41
 INPUT_DIM = 768
 OUTPUT_DIM = N_TOKENS + 1
 
-BATCH_SIZE = 512
+BATCH_SIZE = 2
 LR = 0.001
 
 
@@ -74,7 +74,7 @@ def get_batch(features, clusters, size=32):
     return features_data, clusters_data
 
 
-def eval_with_phonemes(model, features, phonemes,print_examples=0):
+def eval_with_phonemes(model, features, phonemes, print_examples=0):
     scores = []
     for i, feat in enumerate(features):
         feat = torch.from_numpy(feat).float().to(device).unsqueeze(0)
@@ -131,16 +131,26 @@ if __name__ == '__main__':
         for x in tqdm(clusters_batch):
             x = x.to(device)
             x = x.unsqueeze(0)
-            y = model(x)[0].argmax(dim=-1)
-            y[x.flatten() == noise_sep] = sep
+            y = model(x)[0]  # .argmax(dim=-1)
+            # y = y[x.flatten() != noise_sep]
+            # y[x.flatten() == noise_sep] = sep
             labels.append(y)
         labels = torch.stack(labels).to(device)
 
+
+
+
+
         logits = linear_model(features_batch)
+
+        mask = clusters_batch != noise_sep
+        logits =logits[mask]
+        labels = labels[mask]
+
         loss = F.cross_entropy(
             logits.transpose(1, 2),
-            labels,
-            ignore_index=sep
+            labels.softmax(dim=-11),
+            # ignore_index=sep
         )
         loss.backward()
         optimizer.step()
