@@ -159,4 +159,4 @@ if __name__ == '__main__':
 
         if round > 0 and round % 10 == 0:
             eval_with_phonemes(linear_model, features, phonemes, print_examples=10)
-            torch.save(linear_model.state_dict(), f"models/linear_model.cp")
+            torch.save(linear_model.state_dict(), f"models/linear_model_d.cp")
