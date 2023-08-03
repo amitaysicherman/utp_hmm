@@ -8,6 +8,7 @@ from jiwer import wer
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
+
 sep = PADDING_VALUE
 noise_sep = 100
 max_len = 1024
@@ -80,6 +81,7 @@ def eval_with_phonemes(model, features, phonemes):
         y_hat = model(feat)[0]
         y_hat = y_hat.argmax(dim=-1).detach().cpu().numpy()
         y_hat = " ".join([str(x) for x in y_hat if x != sep])
+        y_hat = [y_hat[0]] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]
         y = " ".join([str(x) for x in phonemes[i]])
         scores.append(wer(y, y_hat))
     return np.mean(scores) * 100
