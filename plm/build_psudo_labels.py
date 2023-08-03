@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
     linear_model = LinearModel(input_dim=INPUT_DIM, output_dim=OUTPUT_DIM)
     linear_model.load_state_dict(torch.load("models/linear_model_d.cp", map_location=torch.device('cpu')))
-    linear_model = model.to(device)
+    linear_model = linear_model.to(device)
 
     linear_model.train()
     optimizer = torch.optim.Adam(linear_model.parameters(), lr=LR)
