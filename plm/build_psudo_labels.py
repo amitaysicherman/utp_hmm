@@ -148,7 +148,7 @@ if __name__ == '__main__':
         labels = labels[mask]
 
         loss = F.cross_entropy(
-            logits.transpose(1, 2),
+            logits , #.transpose(1, 2),
             labels.softmax(dim=-11),
             # ignore_index=sep
         )
