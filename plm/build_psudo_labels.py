@@ -7,7 +7,7 @@ import argparse
 from jiwer import wer
 import torch.nn as nn
 import torch.nn.functional as F
-
+from tqdm import tqdm
 sep = PADDING_VALUE
 noise_sep = 100
 max_len = 1024
@@ -121,7 +121,7 @@ if __name__ == '__main__':
         features_batch = features_batch.float().to(device)
 
         labels = []
-        for x in clusters_batch:
+        for x in tqdm(clusters_batch):
             x = x.to(device)
             x = x.unsqueeze(0)
             y = model(x)[0].argmax(dim=-1)
