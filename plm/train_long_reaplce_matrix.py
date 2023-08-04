@@ -151,6 +151,9 @@ class PhonemesDataset(Dataset):
                         final_noise.append(np.random.choice(range_units, p=inv_mapping[c]))
                     else:
                         raise ValueError("Unknown type")
+        if len(final_clean) < self.max_len:
+            final_clean += [self.sep] * (self.max_len - len(final_clean))
+            final_noise += [self.noise_sep] * (self.max_len - len(final_noise))
         final_clean = final_clean[:self.max_len]
         final_noise = final_noise[:self.max_len]
         return final_clean, final_noise
