@@ -40,10 +40,11 @@ def get_phone_to_unit_probes(n_units=100):
     return np.arange(n_units), probs
 
 
-def random_gaussian(n,dim=256):
-    point = np.random.normal(size=(n,dim))
-    point /= np.linalg.norm(point,axis=1,keepdims=True)
+def random_gaussian(n, dim=256):
+    point = np.random.normal(size=(n, dim))
+    point /= np.linalg.norm(point, axis=1, keepdims=True)
     return point
+
 
 def convert_to_units(phonemes):
     double_prob = 0.01
@@ -60,7 +61,7 @@ def convert_to_units(phonemes):
 
 class PhonemesDataset(Dataset):
     def __init__(self, phonemes_file="pseg/data/p_superv/features.phonemes", target_units=100, max_len=1024,
-                 sep=PADDING_VALUE, size=1_000_000, type_=ONE, dup=DUP):
+                 sep=PADDING_VALUE, size=1_000_000, type_=type_, dup=DUP):
         self.target_units = target_units
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
@@ -69,6 +70,9 @@ class PhonemesDataset(Dataset):
         self.sep = sep
         self.max_len = max_len
         self.noise_sep = target_units
+        self.type = type_
+        self.dup = dup
+
         self.data = []
         for _ in range(size):
             sample = []
@@ -76,8 +80,6 @@ class PhonemesDataset(Dataset):
                 sample += phonemes_data[np.random.randint(0, len(phonemes_data))]
                 sample += [sep]
             sample = sample[:max_len]
-            self.type = type_
-            self.dup = dup
             self.data.append(sample)
 
     def __len__(self):
@@ -100,6 +102,7 @@ class PhonemesDataset(Dataset):
         for i in range(N_TOKENS):
             inv_mapping[i] = get_phone_to_unit_probes(self.target_units)
         return inv_mapping
+
     def build_mapping_sphere(self):
         phonemes = random_gaussian(N_TOKENS)
         clusters = random_gaussian(self.target_units)
@@ -108,9 +111,6 @@ class PhonemesDataset(Dataset):
         probabilities = probabilities / np.sum(probabilities, axis=1, keepdims=True)
         np.random.shuffle(probabilities)
         return probabilities
-
-
-
 
     def build_mapping(self):
         if self.type == ONE:
@@ -124,10 +124,18 @@ class PhonemesDataset(Dataset):
 
     def add_noise(self, clean):
         inv_mapping = self.build_mapping()
-        length = random.choices([0, 1, 2, 3], weights=[0.1, 0.5, 0.3, 0.2], k=len(clean))
+
+        values = np.arange(5)
+        random_numbers = np.random.random(4)
+        sorted_numbers = np.sort(np.concatenate(([0, 1], random_numbers)))
+        weights = np.diff(sorted_numbers)
+        np.random.shuffle(weights)
+        length = random.choices(values, weights=weights, k=len(clean))
+        # length = random.choices([0, 1, 2, 3], weights=[0.1, 0.5, 0.3, 0.2], k=len(clean))
+
         final_clean = []
         final_noise = []
-        range_units=np.arange(self.target_units)
+        range_units = np.arange(self.target_units)
         for c in clean:
             if c == self.sep:
                 final_clean.append(self.sep)
@@ -153,7 +161,6 @@ class PhonemesDataset(Dataset):
 
 
 if __name__ == '__main__':
-
     args = args_parser()
     model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
     print(model)
