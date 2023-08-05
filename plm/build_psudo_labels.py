@@ -51,28 +51,41 @@ def build_dataset(base_path="./pseg/data/sup_vad_km"):
     return features, clean_clusters, phonemes
 
 
-def get_batch(features, clusters, size=32):
+def get_batch(features, clusters, phonemes, size=32):
     clusters_data = []
     features_data = []
+    phonemes_data = []
     for _ in range(size):
         sample_clusters = []
         sample_features = []
+        sample_phonemes = []
         while len(sample_clusters) < max_len:
             index = np.random.randint(len(features))
             sample_clusters.extend(list(clusters[index]))
             sample_clusters.append(noise_sep)
+
             sample_features.append(features[index])
             sample_features.append(np.zeros((1, features[index].shape[1])))
+
+            sample_phonemes.extend(phonemes[index])
+            sample_phonemes.append(sep)
         sample_clusters = sample_clusters[:max_len]
+        if len(sample_phonemes) < max_len:
+            sample_phonemes.extend([sep] * (max_len - len(sample_phonemes)))
+        else:
+            sample_phonemes = sample_phonemes[:max_len]
         sample_features = np.vstack(sample_features)[:max_len]
+
         clusters_data.append(sample_clusters)
+        phonemes_data.append(sample_phonemes)
         features_data.append(sample_features)
 
     # convert to tensor
     clusters_data = torch.LongTensor(clusters_data)
+    phonemes_data = torch.LongTensor(phonemes_data)
     features_data = torch.from_numpy(np.array(features_data))
 
-    return features_data, clusters_data
+    return features_data, clusters_data, phonemes_data
 
 
 def eval_with_phonemes(model, features, phonemes, print_examples=0):
@@ -91,9 +104,9 @@ def eval_with_phonemes(model, features, phonemes, print_examples=0):
             print(y)
 
         scores.append(wer(y, y_hat))
-    print(np.histogram(scores, bins=100))
-    print(np.mean(scores) * 100)
-    print(np.std(scores) * 100)
+    # print(np.histogram(scores, bins=100))
+    # print(np.mean(scores) * 100)
+    # print(np.std(scores) * 100)
     return np.mean(scores) * 100
 
 
@@ -131,18 +144,37 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
 
-
     for round in range(1_000):
-        features_batch, clusters_batch = get_batch(features, clusters, size=BATCH_SIZE)
+        features_batch, clusters_batch, phonemes_batch = get_batch(features, clusters, phonemes, size=BATCH_SIZE)
         features_batch = features_batch.float().to(device)
         labels = []
-        for x in tqdm(clusters_batch):
+        model_wer = []
+
+        for i, x in tqdm(enumerate(clusters_batch)):
+            mapping=np.zeros((100,N_TOKENS))
             x = x.to(device)
             x = x.unsqueeze(0)
             y = model(x)[0]  # .argmax(dim=-1)
-            # y = y[x.flatten() != noise_sep]
-            # y[x.flatten() == noise_sep] = sep
+            pred = y.detach().cpu().argmax(dim=-1)
+
+            pred[x.flatten() == noise_sep] = sep
+            pred = pred.numpy()
+            for x_,y_ in zip(x.flatten(),pred.flatten()):
+                if x_!=noise_sep:
+                    mapping[x_,y_]+=1
+
+            pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
+            pred = " ".join([str(x) for x in pred]).split(str(sep))
+
+            ph = phonemes_batch[i].detach().cpu().numpy()
+            ph = " ".join([str(x) for x in ph]).split(str(sep))
+            for p, phat in zip(ph, pred):
+                model_wer.append(wer(p, phat))
+                print(model_wer[-1],len(p.split()))
+                print(p)
+                print(phat)
             labels.append(y)
+        print(np.mean(model_wer) * 100)
         labels = torch.stack(labels).to(device)
 
         logits = linear_model(features_batch)

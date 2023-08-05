@@ -40,7 +40,7 @@ def get_phone_to_unit_probes(n_units=100):
     return np.arange(n_units), probs
 
 
-def random_gaussian(n, dim=256):
+def random_gaussian(n, dim=2):
     point = np.random.normal(size=(n, dim))
     point /= np.linalg.norm(point, axis=1, keepdims=True)
     return point
