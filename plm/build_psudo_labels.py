@@ -1,4 +1,4 @@
-# sbatch --killable --gres=gpu:1,vmem:8g --mem=16G --time=0-3 --wrap "python build_psudo_labels.py --cp=models/long_marix_1True_28130000.cp"
+# sbatch --killable --gres=gpu:1,vmem:8g --mem=16G --time=0-3 --wrap "python build_psudo_labels.py --cp=models/long_marix_2True_29210000.cp"
 import numpy as np
 import torch
 from utils import get_model, PADDING_VALUE, N_TOKENS
@@ -37,8 +37,9 @@ def build_dataset(base_path="./pseg/data/sup_vad_km"):
 
     clean_clusters = []
     for index, line in enumerate(clusters):
-        indexes_masking = [True] + [(line[i] != line[i - 1]) and line[i] not in SIL_CLUSTERS for i in
-                                    range(1, len(line))]
+        indexes_masking = [line[0] not in SIL_CLUSTERS] + [(line[i] != line[i - 1]) and line[i] not in SIL_CLUSTERS for
+                                                           i in
+                                                           range(1, len(line))]
         clean_clusters.append(line[indexes_masking])
         features[index] = features[index][indexes_masking]
 
@@ -105,7 +106,7 @@ class LinearModel(torch.nn.Module):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cp', type=str, default="./models/long_marix_1True_27130000.cp")
+    parser.add_argument('--cp', type=str, default="./models/long_marix_2True_29210000.cp")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -126,6 +127,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
+
 
     for round in range(1_000):
         features_batch, clusters_batch = get_batch(features, clusters, size=BATCH_SIZE)
