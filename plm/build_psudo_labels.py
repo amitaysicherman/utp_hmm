@@ -91,6 +91,9 @@ def eval_with_phonemes(model, features, phonemes, print_examples=0):
             print(y)
 
         scores.append(wer(y, y_hat))
+    print(np.histogram(scores, bins=100))
+    print(np.mean(scores) * 100)
+    print(np.std(scores) * 100)
     return np.mean(scores) * 100
 
 
