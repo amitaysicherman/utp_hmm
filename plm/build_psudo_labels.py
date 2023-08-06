@@ -104,9 +104,9 @@ def eval_with_phonemes(model, features, phonemes, print_examples=0):
             print(y)
 
         scores.append(wer(y, y_hat))
-    # print(np.histogram(scores, bins=100))
-    # print(np.mean(scores) * 100)
-    # print(np.std(scores) * 100)
+    print(np.histogram(scores, bins=20))
+    print(np.mean(scores) * 100)
+    print(np.std(scores) * 100)
     return np.mean(scores) * 100
 
 
@@ -151,30 +151,30 @@ if __name__ == '__main__':
         model_wer = []
 
         for i, x in tqdm(enumerate(clusters_batch)):
-            mapping=np.zeros((100,N_TOKENS))
+            mapping = np.zeros((100, N_TOKENS))
             x = x.to(device)
             x = x.unsqueeze(0)
             y = model(x)[0]  # .argmax(dim=-1)
-            pred = y.detach().cpu().argmax(dim=-1)
-
-            pred[x.flatten() == noise_sep] = sep
-            pred = pred.numpy()
-            for x_,y_ in zip(x.flatten(),pred.flatten()):
-                if x_!=noise_sep:
-                    mapping[x_,y_]+=1
-
-            pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
-            pred = " ".join([str(x) for x in pred]).split(str(sep))
-
-            ph = phonemes_batch[i].detach().cpu().numpy()
-            ph = " ".join([str(x) for x in ph]).split(str(sep))
-            for p, phat in zip(ph, pred):
-                model_wer.append(wer(p, phat))
-                print(model_wer[-1],len(p.split()))
-                print(p)
-                print(phat)
+            # pred = y.detach().cpu().argmax(dim=-1)
+            #
+            # pred[x.flatten() == noise_sep] = sep
+            # pred = pred.numpy()
+            # for x_,y_ in zip(x.flatten(),pred.flatten()):
+            #     if x_!=noise_sep:
+            #         mapping[x_,y_]+=1
+            #
+            # pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
+            # pred = " ".join([str(x) for x in pred]).split(str(sep))
+            #
+            # ph = phonemes_batch[i].detach().cpu().numpy()
+            # ph = " ".join([str(x) for x in ph]).split(str(sep))
+            # for p, phat in zip(ph, pred):
+            #     model_wer.append(wer(p, phat))
+            #     print(model_wer[-1],len(p.split()))
+            #     print(p)
+            #     print(phat)
             labels.append(y)
-        print(np.mean(model_wer) * 100)
+        # print(np.mean(model_wer) * 100)
         labels = torch.stack(labels).to(device)
 
         logits = linear_model(features_batch)
