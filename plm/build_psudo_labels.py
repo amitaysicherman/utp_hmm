@@ -20,7 +20,6 @@ INPUT_DIM = 768
 OUTPUT_DIM = N_TOKENS + 1
 
 BATCH_SIZE = 512
-LR = 0.001
 
 
 def build_dataset(base_path="./pseg/data/sup_vad_km"):
@@ -123,6 +122,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--cp', type=str, default="./models/long_marix_2True_29210000.cp")
+    parser.add_argument('--lr', type=float, default=0.001)
+
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
