@@ -140,7 +140,7 @@ if __name__ == '__main__':
     linear_model = linear_model.to(device)
 
     linear_model.train()
-    optimizer = torch.optim.Adam(linear_model.parameters(), lr=LR)
+    optimizer = torch.optim.Adam(linear_model.parameters(), lr=args.lr)
 
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
