@@ -103,6 +103,7 @@ def eval_with_phonemes(model, features, phonemes, print_examples=0):
             print(y)
 
         scores.append(wer(y, y_hat))
+    print("clusters wer")
     print(np.histogram(scores, bins=20))
     print(np.mean(scores) * 100)
     print(np.std(scores) * 100)
@@ -178,8 +179,10 @@ if __name__ == '__main__':
 
             labels.append(y)
         np.save("models/mapping.npy", mapping)
-
+        print("model wer")
+        print(np.histogram(model_wer, bins=20))
         print(np.mean(model_wer) * 100)
+        print(np.std(model_wer) * 100)
         labels = torch.stack(labels).to(device)
 
         logits = linear_model(features_batch)
