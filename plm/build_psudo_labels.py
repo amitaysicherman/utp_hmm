@@ -166,7 +166,7 @@ if __name__ == '__main__':
             if args.top > 0:
                 tops = torch.topk(y, k=args.top, dim=-1)[0][:, -1]
                 for j in range(len(y)):
-                    y[j][y[j] < tops[j]] = 0
+                    y[j][y[j] < tops[j]] = -float("inf")
 
             for x_, y_ in zip(x.flatten(), pred.flatten()):
                 if x_ != noise_sep:
