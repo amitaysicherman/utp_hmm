@@ -151,8 +151,9 @@ if __name__ == '__main__':
         labels = []
         model_wer = []
 
+        mapping = np.zeros((100, N_TOKENS))
+
         for i, x in tqdm(enumerate(clusters_batch)):
-            mapping = np.zeros((100, N_TOKENS))
             x = x.to(device)
             x = x.unsqueeze(0)
             y = model(x)[0]  # .argmax(dim=-1)
@@ -161,9 +162,9 @@ if __name__ == '__main__':
 
             pred[x.flatten() == noise_sep] = sep
             pred = pred.numpy()
-            for x_,y_ in zip(x.flatten(),pred.flatten()):
-                if x_!=noise_sep:
-                    mapping[x_,y_]+=1
+            for x_, y_ in zip(x.flatten(), pred.flatten()):
+                if x_ != noise_sep:
+                    mapping[x_, y_] += 1
 
             pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
             pred = " ".join([str(x) for x in pred]).split(str(sep))[:-1]
@@ -171,11 +172,13 @@ if __name__ == '__main__':
             ph = phonemes_batch[i].detach().cpu().numpy()
             ph = " ".join([str(x) for x in ph]).split(str(sep))[:-1]
             for p, phat in zip(ph, pred):
-                if len(p)==0 or len(phat)==0:
+                if len(p) == 0 or len(phat) == 0:
                     continue
                 model_wer.append(wer(p, phat))
 
             labels.append(y)
+        np.save("models/mapping.npy", mapping)
+
         print(np.mean(model_wer) * 100)
         labels = torch.stack(labels).to(device)
 
