@@ -124,7 +124,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cp', type=str, default="./models/long_marix_2True_29210000.cp")
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--mode', type=str, default='all', choices=['all', 'top1'])
+    parser.add_argument('--top', type=int, default=0, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
     args = parser.parse_args()
 
@@ -163,11 +163,11 @@ if __name__ == '__main__':
             pred = y.detach().cpu().argmax(dim=-1)
             pred[x.flatten() == noise_sep] = sep
             pred = pred.numpy()
-            if args.mode == 'top1':
+            if args.top == 1:
                 y[y < y.max()] = 0
-                # top_n_values, _ = torch.topk(y, 1)
-                # mask = y < top_n_values[-1]
-                # y[mask] = 0
+            elif args.top > 1:
+                top_n_values, _ = torch.topk(y, args.top)
+                y[y < top_n_values[-1]] = 0
 
             for x_, y_ in zip(x.flatten(), pred.flatten()):
                 if x_ != noise_sep:
