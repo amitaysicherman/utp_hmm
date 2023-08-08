@@ -163,11 +163,10 @@ if __name__ == '__main__':
             pred = y.detach().cpu().argmax(dim=-1)
             pred[x.flatten() == noise_sep] = sep
             pred = pred.numpy()
-            if args.top == 1:
-                y[y < y.max()] = 0
-            elif args.top > 1:
-                top_n_values, _ = torch.topk(y, args.top)
-                y[y < top_n_values[-1]] = 0
+            if args.top > 0:
+                tops = torch.topk(y, k=args.top, dim=-1)[0][:, -1]
+                for i in range(len(y)):
+                    y[i][y[i] < tops[i]] = 0
 
             for x_, y_ in zip(x.flatten(), pred.flatten()):
                 if x_ != noise_sep:
