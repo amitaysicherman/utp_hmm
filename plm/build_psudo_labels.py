@@ -159,6 +159,8 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
 
+    eval_with_phonemes(linear_model, superv_model, features, phonemes)
+
     for round in range(1_000):
         features_batch, clusters_batch, phonemes_batch = get_batch(features, clusters, phonemes, size=BATCH_SIZE)
         features_batch = features_batch.float().to(device)
