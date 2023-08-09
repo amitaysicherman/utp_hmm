@@ -152,6 +152,9 @@ if __name__ == '__main__':
     from train_superv_ctc import FeaturesPhonemesLinear
 
     superv_model = FeaturesPhonemesLinear(768, max(phonemes_to_index.values()) + 1).to(device)
+    superv_model.load_state_dict(torch.load("models/linear_superv.cp", map_location=torch.device('cpu')))
+    superv_model = superv_model.to(device)
+    superv_model.eval()
 
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
