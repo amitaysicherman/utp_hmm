@@ -221,5 +221,5 @@ if __name__ == '__main__':
         print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, superv_model, features, phonemes))
 
         if round > 0 and round % 10 == 0:
-            eval_with_phonemes(linear_model, features, phonemes, print_examples=10)
+            eval_with_phonemes(linear_model, superv_model, features, phonemes, print_examples=10)
             torch.save(linear_model.state_dict(), f"models/linear_model_d.cp")
