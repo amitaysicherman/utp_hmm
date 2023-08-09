@@ -1,5 +1,6 @@
 # sbatch --killable --gres=gpu:1,vmem:8g --mem=16G --time=0-3 --wrap "python build_psudo_labels.py --cp=models/long_marix_2True_29210000.cp"
 import numpy as np
+import pandas as pd
 import torch
 from utils import get_model, PADDING_VALUE, N_TOKENS
 from mapping import phonemes_to_index
@@ -87,12 +88,17 @@ def get_batch(features, clusters, phonemes, size=32):
     return features_data, clusters_data, phonemes_data
 
 
-def eval_with_phonemes(model, features, phonemes, print_examples=0):
+def eval_with_phonemes(model, model_superv, features, phonemes, print_examples=0):
     scores = []
+    cm = np.zeros((len(phonemes_to_index) + 1, len(phonemes_to_index) + 1))
     for i, feat in enumerate(features):
         feat = torch.from_numpy(feat).float().to(device).unsqueeze(0)
-        y_hat = model(feat)[0]
-        y_hat = y_hat.argmax(dim=-1).detach().cpu().numpy()
+        y_hat = model(feat)[0].argmax(dim=-1).detach().cpu().numpy()
+        y_superv = model_superv(feat)[0].argmax(dim=-1).detach().cpu().numpy()
+
+        for j in range(len(y_hat)):
+            cm[y_hat[j], y_superv[j]] += 1
+
         y_hat = [str(x) for x in y_hat if x != sep]
         y_hat = [y_hat[0]] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]
         y_hat = " ".join(y_hat)
@@ -107,6 +113,7 @@ def eval_with_phonemes(model, features, phonemes, print_examples=0):
     print(np.histogram(scores, bins=20))
     print(np.mean(scores) * 100)
     print(np.std(scores) * 100)
+    pd.DataFrame(cm).to_csv("models/cm.csv")
     return np.mean(scores) * 100
 
 
@@ -140,9 +147,11 @@ if __name__ == '__main__':
     linear_model = LinearModel(input_dim=INPUT_DIM, output_dim=OUTPUT_DIM)
     linear_model.load_state_dict(torch.load("models/linear_model_d.cp", map_location=torch.device('cpu')))
     linear_model = linear_model.to(device)
-
     linear_model.train()
     optimizer = torch.optim.Adam(linear_model.parameters(), lr=args.lr)
+    from train_superv_ctc import FeaturesPhonemesLinear
+
+    superv_model = FeaturesPhonemesLinear(768, max(phonemes_to_index.values()) + 1).to(device)
 
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
@@ -204,7 +213,7 @@ if __name__ == '__main__':
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, features, phonemes))
+        print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, superv_model, features, phonemes))
 
         if round > 0 and round % 10 == 0:
             eval_with_phonemes(linear_model, features, phonemes, print_examples=10)
