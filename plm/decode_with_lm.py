@@ -27,7 +27,7 @@ OUTPUT_DIM = N_TOKENS + 1
 BATCH_SIZE = 512
 alpha = 0.5
 beam_size = 5
-
+same_prob = 0.25
 
 # Initialize beams with empty sequence and 0 score
 
@@ -74,25 +74,27 @@ if __name__ == '__main__':
         model_output = model(x)[0]
         phonemes_probs = model_output.softmax(dim=-1)
         phonemes_argmax = phonemes_probs.argmax(dim=-1)
-        seq_until = [phonemes_argmax[0].item()]
 
-        beams = [(seq_until, 0.0)]
-        for prob_dist in phonemes_probs:
-            new_beams = []
-            for beam, score in beams:
-                lm_scores = []
-                for phoneme in range(len(phonemes_to_index)):
-                    p_score = lm(torch.LongTensor(beam + [phoneme]).unsqueeze(0).to(device))
-                    lm_scores.append(p_score)
-                lm_scores = torch.softmax(torch.tensor(lm_scores), dim=0)
-                print(lm_scores)
-                for phoneme, prob in enumerate(prob_dist):
-                    # Update the sequence
-                    new_seq = beam + [phoneme]
-                    # Combine phoneme model score and language model score
-                    new_score = score + (1 - alpha) * torch.log(prob) + alpha * lm_scores[phoneme]
-                    # Add to new beams
-                    heappush(new_beams, (new_score, new_seq))
-            # Keep only the top beams
-            beams = [heappop(new_beams) for _ in range(beam_size)]
+
+        seq_until = list(torch.topk(phonemes_probs[0],beam_size)[1].detach().numpy())
+
+        beams = [(0.0,seq_until)]
         y = torch.LongTensor(phonemes[i]).unsqueeze(0).to(device)
+
+        print(y)
+        #TODO deel with same phoneme
+        for prob_dist in tqdm(phonemes_probs):
+            new_beams = []
+            for score,beam in beams:
+                lm_scores = lm(torch.LongTensor(beam).unsqueeze(0).to(device))[0][-1].softmax(dim=-1)
+                lm_scores[beam[-1]] = same_prob
+                for phoneme, prob in enumerate(prob_dist[:-1]):
+                    if phoneme == beam[-1]:
+                        new_seq= beam
+                    else:
+                        new_seq = beam + [phoneme]
+                    new_score = score -((1 - alpha) * prob+ alpha * lm_scores[phoneme])
+                    heappush(new_beams, (new_score, new_seq))
+            beams = [heappop(new_beams) for _ in range(beam_size)]
+        for beam in beams:
+            print(beam)
