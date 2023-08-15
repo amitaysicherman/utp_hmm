@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G --time=3-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-4 --load_cp=models/long_marix_1True_28160000.cp"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G -c8 --time=7-0 --wrap "python train_long_reaplce_matrix.py --batch_size=32 --lr=1e-4 --load_cp=models/long_marix_1True_28160000.cp"
 import random
 from torch.utils.data import Dataset, DataLoader
 from utils import get_model, PADDING_VALUE, N_TOKENS, args_parser, Scores, save_model_to_name, load_model
@@ -163,7 +163,7 @@ def get_loss_logit(x, y, model, ignore_index):
         y,
         ignore_index=ignore_index
     )
-    return loss, logits
+    return y, loss, logits
 
 
 if __name__ == '__main__':
@@ -196,7 +196,7 @@ if __name__ == '__main__':
         test_scores = Scores("test", config_name)
         model.train()
         for i, (x, y) in tqdm(enumerate(train_data), total=len(train_data)):
-            loss, logits = get_loss_logit(x, y, model, train_dataset.sep)
+            y, loss, logits = get_loss_logit(x, y, model, train_dataset.sep)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -207,7 +207,7 @@ if __name__ == '__main__':
                     PhonemesDataset(phonemes_file="data/TIMIT_TEST_PH_IDX.txt", size=10, type_=type_),
                     batch_size=args.batch_size, shuffle=False, drop_last=True)
                 for i, (x_test, y_test) in tqdm(enumerate(test_data), total=len(test_data)):
-                    loss, logits = get_loss_logit(x_test, y_test, model, train_dataset.sep)
+                    y_test, loss, logits = get_loss_logit(x_test, y_test, model, train_dataset.sep)
                     test_scores.update(y_test, logits, loss.item())
                 model.train()
 
