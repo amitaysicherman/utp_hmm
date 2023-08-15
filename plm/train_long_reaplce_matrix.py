@@ -204,7 +204,7 @@ if __name__ == '__main__':
             if i % 250 == 0:
                 model.eval()
                 test_data = DataLoader(
-                    PhonemesDataset(phonemes_file="data/TIMIT_TEST_PH_IDX.txt", size=10, type_=type_),
+                    PhonemesDataset(phonemes_file="data/TIMIT_TEST_PH_IDX.txt", size=args.batch_size, type_=type_),
                     batch_size=args.batch_size, shuffle=False, drop_last=True)
                 for i, (x_test, y_test) in tqdm(enumerate(test_data), total=len(test_data)):
                     y_test, loss, logits = get_loss_logit(x_test, y_test, model, train_dataset.sep)
