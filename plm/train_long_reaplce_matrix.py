@@ -17,17 +17,6 @@ PROB = 1
 SPHERE = 2
 type_ = SPHERE
 DUP = True
-# each 1|2 phones maping to 1|2 units.
-# 1,1. one to one mapping
-# 1,2. one to two mapping - single phone maps to two units.
-# 2,1. two to one mapping - two phones map to single unit.
-
-# each unit can be mapped to more than one phones (probebility) -  use  scipy.stats.expon with scale between 0-4
-# choose in random for each unit. the acctual phonemes in suffle the order .
-
-# how to combine this two?
-# choose p1% to conbine and use this as pair (that will map to single phone) [for all this appers of this pair]
-# for each phoneme mapping add %n double-units and use them in the probebily.
 from scipy.stats import expon
 
 
@@ -60,13 +49,15 @@ def convert_to_units(phonemes):
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file="pseg/data/p_superv/features.phonemes", target_units=100, max_len=1024,
+    def __init__(self, phonemes_file="data/TIMIT_TRAIN_PH_IDX.txt", target_units=100, max_len=1024,
                  sep=PADDING_VALUE, size=1_000_000, type_=type_, dup=DUP):
         self.target_units = target_units
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
-        phonemes_data = [[phonemes_to_index[x.upper()] if x.upper() != "DX" else phonemes_to_index["T"] for x in
-                          line.strip().split()] for line in phonemes_data]
+        phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
+
+        # phonemes_data = [[phonemes_to_index[x.upper()] if x.upper() != "DX" else phonemes_to_index["T"] for x in
+        #                   line.strip().split()] for line in phonemes_data]
         self.sep = sep
         self.max_len = max_len
         self.noise_sep = target_units
@@ -163,6 +154,18 @@ class PhonemesDataset(Dataset):
         return torch.LongTensor(noise), torch.LongTensor(clean)
 
 
+def get_loss_logit(x, y, model, ignore_index):
+    x = x.to(device)
+    y = y.to(device)
+    logits = model(x)
+    loss = F.cross_entropy(
+        logits.transpose(1, 2),
+        y,
+        ignore_index=ignore_index
+    )
+    return loss, logits
+
+
 if __name__ == '__main__':
     args = args_parser()
     model = get_model("transformer", "medium", 1024, 0.0, vocab=101, output_dim=N_TOKENS + 1)
@@ -184,30 +187,35 @@ if __name__ == '__main__':
         model = DataParallel(model)
 
     criterion = nn.CrossEntropyLoss().to(device)
-    config_name = f"long_marix_{type_}{DUP}"
+    config_name = "learn_mapping"
 
     for epoch in range(args.epochs):
         train_dataset = PhonemesDataset(type_=type_)
         train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
         train_scores = Scores("train", config_name)
+        test_scores = Scores("test", config_name)
         model.train()
         for i, (x, y) in tqdm(enumerate(train_data), total=len(train_data)):
-            x = x.to(device)
-            y = y.to(device)
-            logits = model(x)
-            loss = F.cross_entropy(
-                logits.transpose(1, 2),
-                y,
-                ignore_index=train_dataset.sep
-            )
+            loss, logits = get_loss_logit(x, y, model, train_dataset.sep)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
             train_scores.update(y, logits, loss.item())
             if i % 250 == 0:
+                model.eval()
+                test_data = DataLoader(
+                    PhonemesDataset(phonemes_file="data/TIMIT_TEST_PH_IDX.txt", size=10, type_=type_),
+                    batch_size=args.batch_size, shuffle=False, drop_last=True)
+                for i, (x_test, y_test) in tqdm(enumerate(test_data), total=len(test_data)):
+                    loss, logits = get_loss_logit(x_test, y_test, model, train_dataset.sep)
+                    test_scores.update(y_test, logits, loss.item())
+                model.train()
+
                 print("Epoch", epoch)
                 print(train_scores)
+                print(test_scores)
                 train_scores.save_and_reset()
+                test_scores.save_and_reset()
 
             if i % 10000 == 0:
                 n = len(train_dataset) * epoch + i + load_step
