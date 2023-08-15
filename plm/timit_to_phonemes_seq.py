@@ -7,6 +7,7 @@ def file_to_phonemes(file):
     with open(file, 'r') as f:
         phonemes = [x.split()[2] for x in f.read().splitlines()]
     phonemes = [TIMIT_61_39[phoneme] for phoneme in phonemes]
+    phonemes = [p for p in phonemes if p != "sil"]
     phonemes = [phonemes[0]] + [p for i, p in enumerate(phonemes[1:]) if p != phonemes[i]]
     phonemes_index = [str(phonemes_to_index[p.upper()]) for p in phonemes]
     phonemes_index = " ".join(phonemes_index)
