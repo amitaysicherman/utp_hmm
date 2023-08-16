@@ -20,7 +20,7 @@ SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41
 INPUT_DIM = 768
 OUTPUT_DIM = N_TOKENS + 1
 
-BATCH_SIZE = 512
+BATCH_SIZE = 1#512
 
 
 def build_dataset(base_path="./pseg/data/sup_vad_km"):
@@ -43,10 +43,9 @@ def build_dataset(base_path="./pseg/data/sup_vad_km"):
         clean_clusters.append(line[indexes_masking])
         features[index] = features[index][indexes_masking]
 
-    with open(f"{base_path}/features.phonemes") as f:
+    with open(f"data/TIMIT_TRAIN_PH_IDX.txt") as f:
         phonemes = f.read().splitlines()
-    phonemes = [[phonemes_to_index[y.upper()] if y != "dx" else phonemes_to_index['T'] for y in x.split()] for x in
-                phonemes]
+    phonemes = [[int(y) for y in x.split()] for x in phonemes]
     phonemes = [np.array(x) for x in phonemes]
     return features, clean_clusters, phonemes
 
@@ -143,11 +142,12 @@ if __name__ == '__main__':
 
     for parameter in model.parameters():
         parameter.requires_grad_(False)
-
+    print(model)
     linear_model = LinearModel(input_dim=INPUT_DIM, output_dim=OUTPUT_DIM)
     linear_model.load_state_dict(torch.load("models/linear_model_d.cp", map_location=torch.device('cpu')))
     linear_model = linear_model.to(device)
     linear_model.train()
+    print(linear_model)
     optimizer = torch.optim.Adam(linear_model.parameters(), lr=args.lr)
     from train_superv_ctc import FeaturesPhonemesLinear
 
@@ -158,10 +158,11 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
-
-    eval_with_phonemes(linear_model, superv_model, features, phonemes)
+    print("dataset loaded")
+    # eval_with_phonemes(linear_model, superv_model, features, phonemes)
 
     for round in range(1_000):
+        print("round", round, flush=True)
         features_batch, clusters_batch, phonemes_batch = get_batch(features, clusters, phonemes, size=BATCH_SIZE)
         features_batch = features_batch.float().to(device)
         labels = []
