@@ -3,13 +3,13 @@ import numpy as np
 import pandas as pd
 import torch
 from utils import get_model, PADDING_VALUE, N_TOKENS
-from mapping import phonemes_to_index
+from mapping import phonemes_to_index, i_to_j
 import argparse
 from jiwer import wer
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-
+from denoiser import get_denoiser_model
 sep = PADDING_VALUE
 noise_sep = 100
 max_len = 1024
@@ -20,7 +20,7 @@ SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41
 INPUT_DIM = 768
 OUTPUT_DIM = N_TOKENS + 1
 
-BATCH_SIZE = 1#512
+BATCH_SIZE = 1  # 512
 
 
 def build_dataset(base_path="./pseg/data/sup_vad_km"):
@@ -43,9 +43,16 @@ def build_dataset(base_path="./pseg/data/sup_vad_km"):
         clean_clusters.append(line[indexes_masking])
         features[index] = features[index][indexes_masking]
 
-    with open(f"data/TIMIT_TRAIN_PH_IDX.txt") as f:
+    # with open("pseg/data/p_superv/features.phonemes") as f:
+    #     phonemes = f.read().splitlines()
+    # phonemes = [[phonemes_to_index[p.upper()] for p in x.split()] for x in phonemes]
+    # phonemes = [[p[0]] + [p[i] for i in range(1, len(p)) if p[i] != p[i - 1]] for p in phonemes]
+
+    with open("data/TIMIT_TRAIN_PH_IDX.txt") as f:
         phonemes = f.read().splitlines()
     phonemes = [[int(y) for y in x.split()] for x in phonemes]
+    phonemes = [phonemes[i_to_j[index]] for index in range(len(phonemes))]
+
     phonemes = [np.array(x) for x in phonemes]
     return features, clean_clusters, phonemes
 
@@ -156,10 +163,19 @@ if __name__ == '__main__':
     superv_model = superv_model.to(device)
     superv_model.eval()
 
+    denoiser = get_denoiser_model().to(device)
+    denoiser.load_state_dict(torch.load("models/denoiser_best_train_loss.cp", map_location=torch.device('cpu')))
+    denoiser = denoiser.to(device)
+    denoiser.eval()
+
+
+
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
     print("dataset loaded")
     # eval_with_phonemes(linear_model, superv_model, features, phonemes)
+
+    3/0
 
     for round in range(1_000):
         print("round", round, flush=True)

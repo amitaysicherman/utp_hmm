@@ -8,11 +8,12 @@ from x_transformers import XTransformer
 import numpy as np
 
 MAX_TOKEN = 38
-START_TOKEN = 39
-END_TOKEN = 40
-PAD_TOKEN = 41
+PAD_TOKEN = 39
+
+START_TOKEN = 40
+END_TOKEN = 41
 MAX_LENGTH = 100
-EPOCHS = 1000
+EPOCHS = 200
 BATCH_SIZE = 64
 LR = 0.0001
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -60,53 +61,63 @@ class NoiseDataset(Dataset):
         return torch.tensor(noisy_sample), torch.tensor(sample)
 
 
-train_loader = DataLoader(NoiseDataset('data/TIMIT_TRAIN_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
-test_loader = DataLoader(NoiseDataset('data/TIMIT_TEST_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
+def get_denoiser_model():
+    return XTransformer(
+        pad_value=PAD_TOKEN,
+        ignore_index=PAD_TOKEN,
+        dim=512,
+        enc_num_tokens=PAD_TOKEN + 1,
+        enc_depth=6,
+        enc_heads=8,
+        enc_max_seq_len=MAX_LENGTH,
+        dec_num_tokens=PAD_TOKEN + 1,
+        dec_depth=6,
+        dec_heads=8,
+        dec_max_seq_len=MAX_LENGTH,
+        tie_token_emb=True
+    )
 
-model = XTransformer(
-    dim=512,
-    enc_num_tokens=PAD_TOKEN + 1,
-    enc_depth=6,
-    enc_heads=8,
-    enc_max_seq_len=MAX_LENGTH,
-    dec_num_tokens=PAD_TOKEN + 1,
-    dec_depth=6,
-    dec_heads=8,
-    dec_max_seq_len=MAX_LENGTH,
-    tie_token_emb=True
-).to(device)
-model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-params = sum([np.prod(p.size()) for p in model_parameters])
-print(f'{params:,} trainable parameters')
 
-optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
+if __name__ == '__main__':
 
-model.train()
-best_train_loss = 1000
-best_test_loss = 1000
-for epoch in range(EPOCHS):
-    train_loss = []
-    test_loss = []
-    for noisy_data, clean_data in train_loader:
-        noisy_data = noisy_data.to(device)
-        clean_data = clean_data.to(device)
-        optimizer.zero_grad()
-        loss = model(noisy_data, clean_data)
-        loss.backward()
-        optimizer.step()
-        train_loss.append(loss.item())
-    for noisy_data, clean_data in test_loader:
-        noisy_data = noisy_data.to(device)
-        clean_data = clean_data.to(device)
-        loss = model(noisy_data, clean_data)
-        test_loss.append(loss.item())
-    print(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}')
-    if best_test_loss > np.mean(test_loss):
-        best_test_loss = np.mean(test_loss)
-        torch.save(model.state_dict(), f'models/denoiser_best_test_loss.cp')
-        torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_test_loss.cp')
-    if best_train_loss > np.mean(train_loss):
-        best_train_loss = np.mean(train_loss)
-        torch.save(model.state_dict(), f'models/denoiser_best_train_loss.cp')
-        torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_train_loss.cp')
+    train_loader = DataLoader(NoiseDataset('data/TIMIT_TRAIN_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
+    test_loader = DataLoader(NoiseDataset('data/TIMIT_TEST_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
+
+    model = get_denoiser_model().to(device)
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print(f'{params:,} trainable parameters')
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
+
+    model.train()
+    best_train_loss = 1000
+    best_test_loss = 1000
+    for epoch in range(EPOCHS):
+        train_loss = []
+        test_loss = []
+        for noisy_data, clean_data in train_loader:
+            noisy_data = noisy_data.to(device)
+            clean_data = clean_data.to(device)
+            optimizer.zero_grad()
+            loss = model(noisy_data, clean_data)
+            loss.backward()
+            optimizer.step()
+            train_loss.append(loss.item())
+        for noisy_data, clean_data in test_loader:
+            noisy_data = noisy_data.to(device)
+            clean_data = clean_data.to(device)
+            loss = model(noisy_data, clean_data)
+            test_loss.append(loss.item())
+        print(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}', flush=True)
+        with open("results/denoiser.txt", 'a') as f:
+            f.write(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}\n')
+        if best_test_loss > np.mean(test_loss):
+            best_test_loss = np.mean(test_loss)
+            torch.save(model.state_dict(), f'models/denoiser_best_test_loss.cp')
+            torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_test_loss.cp')
+        if best_train_loss > np.mean(train_loss):
+            best_train_loss = np.mean(train_loss)
+            torch.save(model.state_dict(), f'models/denoiser_best_train_loss.cp')
+            torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_train_loss.cp')
