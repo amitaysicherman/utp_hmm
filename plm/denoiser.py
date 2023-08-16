@@ -31,12 +31,12 @@ class NoiseDataset(Dataset):
         # Replace characters
         for _ in range(random.randint(int(length * MIN_P), int(length * MAX_P))):
             idx = random.randint(0, length - 1)
-            sample[idx] = random.randint(1, MAX_TOKEN)
+            sample[idx] = random.randint(0, MAX_TOKEN)
 
         # Add random characters
         for _ in range(random.randint(int(length * MIN_P), int(length * MAX_P))):
             idx = random.randint(0, length - 1)
-            sample.insert(idx, random.randint(1, MAX_TOKEN))
+            sample.insert(idx, random.randint(0, MAX_TOKEN))
 
         # Remove characters
         for _ in range(random.randint(int(length * MIN_P), int(length * MAX_P))):
