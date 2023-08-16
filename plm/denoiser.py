@@ -9,7 +9,8 @@ import numpy as np
 
 MAX_TOKEN = 38
 PAD_TOKEN = 39
-
+MIN_P = 0.0
+MAX_P = 0.3
 START_TOKEN = 40
 END_TOKEN = 41
 N_TOKENS = 42
@@ -28,17 +29,17 @@ class NoiseDataset(Dataset):
     def add_noise(self, sample):
         length = len(sample)
         # Replace characters
-        for _ in range(random.randint(int(length * 0.05), int(length * 0.15))):
+        for _ in range(random.randint(int(length * MIN_P), int(length * MAX_P))):
             idx = random.randint(0, length - 1)
             sample[idx] = random.randint(1, MAX_TOKEN)
 
         # Add random characters
-        for _ in range(random.randint(int(length * 0.05), int(length * 0.15))):
+        for _ in range(random.randint(int(length * MIN_P), int(length * MAX_P))):
             idx = random.randint(0, length - 1)
             sample.insert(idx, random.randint(1, MAX_TOKEN))
 
         # Remove characters
-        for _ in range(random.randint(int(length * 0.05), int(length * 0.15))):
+        for _ in range(random.randint(int(length * MIN_P), int(length * MAX_P))):
             if len(sample) > 0:
                 idx = random.randint(0, len(sample) - 1)
                 sample.pop(idx)
@@ -66,16 +67,16 @@ def get_denoiser_model():
     return XTransformer(
         pad_value=PAD_TOKEN,
         ignore_index=PAD_TOKEN,
-        dim=512,
+        dim=256,
         enc_num_tokens=N_TOKENS,
-        enc_depth=6,
-        enc_heads=8,
+        enc_depth=3,
+        enc_heads=4,
         enc_max_seq_len=MAX_LENGTH,
         dec_num_tokens=N_TOKENS,
-        dec_depth=6,
-        dec_heads=8,
+        dec_depth=3,
+        dec_heads=4,
         dec_max_seq_len=MAX_LENGTH,
-        tie_token_emb=True
+        tie_token_emb=False
     )
 
 

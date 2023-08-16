@@ -9,7 +9,7 @@ from jiwer import wer
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from denoiser import get_denoiser_model
+from denoiser import get_denoiser_model,PAD_TOKEN,END_TOKEN,START_TOKEN
 sep = PADDING_VALUE
 noise_sep = 100
 max_len = 1024
@@ -43,15 +43,15 @@ def build_dataset(base_path="./pseg/data/sup_vad_km"):
         clean_clusters.append(line[indexes_masking])
         features[index] = features[index][indexes_masking]
 
-    # with open("pseg/data/p_superv/features.phonemes") as f:
-    #     phonemes = f.read().splitlines()
-    # phonemes = [[phonemes_to_index[p.upper()] for p in x.split()] for x in phonemes]
-    # phonemes = [[p[0]] + [p[i] for i in range(1, len(p)) if p[i] != p[i - 1]] for p in phonemes]
-
-    with open("data/TIMIT_TRAIN_PH_IDX.txt") as f:
+    with open("pseg/data/p_superv/features.phonemes") as f:
         phonemes = f.read().splitlines()
-    phonemes = [[int(y) for y in x.split()] for x in phonemes]
-    phonemes = [phonemes[i_to_j[index]] for index in range(len(phonemes))]
+    phonemes = [[phonemes_to_index[p.upper()] for p in x.split()] for x in phonemes]
+    phonemes = [[p[0]] + [p[i] for i in range(1, len(p)) if p[i] != p[i - 1]] for p in phonemes]
+
+    # with open("data/TIMIT_TRAIN_PH_IDX.txt") as f:
+    #     phonemes = f.read().splitlines()
+    # phonemes = [[int(y) for y in x.split()] for x in phonemes]
+    # phonemes = [phonemes[i_to_j[index]] for index in range(len(phonemes))]
 
     phonemes = [np.array(x) for x in phonemes]
     return features, clean_clusters, phonemes
@@ -175,7 +175,6 @@ if __name__ == '__main__':
     print("dataset loaded")
     # eval_with_phonemes(linear_model, superv_model, features, phonemes)
 
-    3/0
 
     for round in range(1_000):
         print("round", round, flush=True)
@@ -192,7 +191,24 @@ if __name__ == '__main__':
             y = model(x)[0]  # .argmax(dim=-1)
 
             pred = y.detach().cpu().argmax(dim=-1)
+
             pred[x.flatten() == noise_sep] = sep
+            seq_indx=pred.numpy().tolist().index(sep)
+            denoiser_input = pred[:seq_indx]
+            denoiser_input = torch.unique_consecutive(denoiser_input)
+            denoiser_input = torch.cat([torch.LongTensor([START_TOKEN]), denoiser_input, torch.LongTensor([END_TOKEN])])
+            denoiser_start = torch.LongTensor([START_TOKEN]).unsqueeze(0)
+            denoiser_input = denoiser_input.unsqueeze(0)
+            denoiser_output1=denoiser.generate(denoiser_input,denoiser_start,min(100,int(seq_indx*1.5)),eos_token=END_TOKEN)
+            denoiser_output1=torch.unique_consecutive(denoiser_output1)
+            o = " ".join([str(x) for x in denoiser_output1.numpy().tolist()[0]])
+            m = " ".join([str(x) for x in denoiser_input.numpy().tolist()[0][1:-1]])
+            p = " ".join([str(x) for x in phonemes_batch.numpy().tolist()[0]])
+            p = p.split(str(sep))[0]
+            print(wer(p, o), wer(p, m), wer(o, m),wer(m,o))
+
+            3 / 0
+
             pred = pred.numpy()
             if args.top > 0:
                 tops = torch.topk(y, k=args.top, dim=-1)[0][:, -1]
