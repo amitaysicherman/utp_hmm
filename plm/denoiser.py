@@ -12,6 +12,7 @@ PAD_TOKEN = 39
 
 START_TOKEN = 40
 END_TOKEN = 41
+N_TOKENS = 42
 MAX_LENGTH = 100
 EPOCHS = 200
 BATCH_SIZE = 32
@@ -66,11 +67,11 @@ def get_denoiser_model():
         pad_value=PAD_TOKEN,
         ignore_index=PAD_TOKEN,
         dim=512,
-        enc_num_tokens=PAD_TOKEN + 1,
+        enc_num_tokens=N_TOKENS,
         enc_depth=6,
         enc_heads=8,
         enc_max_seq_len=MAX_LENGTH,
-        dec_num_tokens=PAD_TOKEN + 1,
+        dec_num_tokens=N_TOKENS,
         dec_depth=6,
         dec_heads=8,
         dec_max_seq_len=MAX_LENGTH,
