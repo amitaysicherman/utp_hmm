@@ -168,14 +168,14 @@ def get_loss_logit(x, y, model, ignore_index):
 
 
 def step_config(cur_type, cur_dup, score):
-    if cur_type == ONE:
-        if score > 0.6:
+    if score > 0.6:
+        if cur_type == ONE:
             print("Change to sphere", flush=True)
             return SPHERE, cur_dup
-    else:
-        if score > 0.6:
+        if cur_type == SPHERE and not cur_dup:
             print("Change to dup", flush=True)
             return SPHERE, True
+    return cur_type, cur_dup
 
 
 if __name__ == '__main__':
