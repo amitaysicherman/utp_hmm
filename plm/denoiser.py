@@ -14,7 +14,7 @@ START_TOKEN = 40
 END_TOKEN = 41
 MAX_LENGTH = 100
 EPOCHS = 200
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 LR = 0.0001
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
