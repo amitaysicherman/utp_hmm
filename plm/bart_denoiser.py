@@ -84,8 +84,8 @@ def eval_wer_ds(dataset, model):
             noisy_data = noisy_data.to(device)
             clean_data = clean_data.to(device)
             outputs = model.generate(noisy_data.unsqueeze(0))[0]
-            clean_data = " ".join([str(x) for x in clean_data.numpy().tolist()])
-            outputs = " ".join([str(x) for x in outputs.numpy().tolist()])
+            clean_data = " ".join([str(x) for x in clean_data.cpu().numpy().tolist()])
+            outputs = " ".join([str(x) for x in outputs.cpu().numpy().tolist()])
             wer_score.append(wer(outputs, clean_data))
 
     return np.mean(wer_score)
