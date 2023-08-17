@@ -6,6 +6,7 @@ import random
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from transformers import BartConfig, BartForConditionalGeneration
+from jiwer import wer
 
 MAX_TOKEN = 38
 PAD_TOKEN = 39
@@ -74,11 +75,26 @@ class NoiseDataset(Dataset):
         return torch.tensor(noisy_sample), torch.tensor(sample)
 
 
+def eval_wer_ds(dataset, model):
+    model.eval()
+
+    with torch.no_grad():
+        wer = []
+        for noisy_data, clean_data in dataset:
+            noisy_data = noisy_data.to(device)
+            clean_data = clean_data.to(device)
+            outputs = model.generate(noisy_data, seq_len=MAX_LENGTH, eos_token=END_TOKEN)
+            clean_data = " ".join([str(x) for x in clean_data.numpy().tolist()])
+            outputs = " ".join([str(x) for x in outputs.numpy().tolist()])
+            wer.append(wer(outputs, clean_data))
+    return np.mean(wer)
+
+
 if __name__ == '__main__':
-
-    train_loader = DataLoader(NoiseDataset('data/TIMIT_TRAIN_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
-
-    test_loader = DataLoader(NoiseDataset('data/TIMIT_TEST_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
+    train_dataset = NoiseDataset('data/TIMIT_TRAIN_PH_IDX.txt')
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    test_dataset = NoiseDataset('data/TIMIT_TEST_PH_IDX.txt')
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     config = BartConfig(vocab_size=N_TOKENS, max_position_embeddings=MAX_LENGTH, encoder_layers=3, encoder_ffn_dim=256,
                         encoder_attention_heads=4, decoder_layers=3, decoder_ffn_dim=256, decoder_attention_heads=4,
@@ -88,7 +104,6 @@ if __name__ == '__main__':
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f'{params:,} trainable parameters')
-
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
 
@@ -117,10 +132,15 @@ if __name__ == '__main__':
                 outputs = model(input_ids=noisy_data, labels=clean_data)
                 loss = outputs.loss
                 test_loss.append(loss.item())
+        train_wer = eval_wer_ds(train_dataset, model)
+        test_wer = eval_wer_ds(test_dataset, model)
+        print(
+            f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)} train wer: {train_wer} test wer: {test_wer}',
+            flush=True)
 
-        print(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}', flush=True)
         with open("results/bart_denoiser.txt", 'a') as f:
             f.write(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}\n')
+            f.write(f'Epoch {epoch} train wer: {train_wer} test wer: {test_wer}\n')
         if best_test_loss > np.mean(test_loss):
             best_test_loss = np.mean(test_loss)
             torch.save(model.state_dict(), f'models/bart_denoiser_best_test_loss.cp')
