@@ -79,15 +79,16 @@ def eval_wer_ds(dataset, model):
     model.eval()
 
     with torch.no_grad():
-        wer = []
+        wer_score = []
         for noisy_data, clean_data in dataset:
             noisy_data = noisy_data.to(device)
             clean_data = clean_data.to(device)
             outputs = model.generate(noisy_data, seq_len=MAX_LENGTH, eos_token=END_TOKEN)
             clean_data = " ".join([str(x) for x in clean_data.numpy().tolist()])
             outputs = " ".join([str(x) for x in outputs.numpy().tolist()])
-            wer.append(wer(outputs, clean_data))
-    return np.mean(wer)
+            wer_score.append(wer(outputs, clean_data))
+
+    return np.mean(wer_score)
 
 
 if __name__ == '__main__':
@@ -132,6 +133,7 @@ if __name__ == '__main__':
                 outputs = model(input_ids=noisy_data, labels=clean_data)
                 loss = outputs.loss
                 test_loss.append(loss.item())
+
         train_wer = eval_wer_ds(train_dataset, model)
         test_wer = eval_wer_ds(test_dataset, model)
         print(
