@@ -165,7 +165,8 @@ if __name__ == '__main__':
     superv_model.eval()
 
     denoiser = get_denoiser_model().to(device)
-    denoiser.load_state_dict(torch.load("models/denoiser_best_train_loss.cp", map_location=torch.device('cpu')))
+    # denoiser.load_state_dict(torch.load("models/denoiser_best_train_loss.cp", map_location=torch.device('cpu')))
+    denoiser.load_state_dict(torch.load("models/tmp_denoiser_best_train_loss.cp", map_location=torch.device('cpu')))
     denoiser = denoiser.to(device)
     denoiser.eval()
 
@@ -189,7 +190,7 @@ if __name__ == '__main__':
             y = model(x)[0]  # .argmax(dim=-1)
 
             pred = y.detach().cpu().argmax(dim=-1)
-
+            print(pred.shape)
             pred[x.flatten() == noise_sep] = sep
             seq_indx = pred.numpy().tolist().index(sep)
             denoiser_input = pred[:seq_indx]
@@ -200,9 +201,9 @@ if __name__ == '__main__':
             denoiser_output1 = denoiser.generate(denoiser_input, denoiser_start, min(100, int(seq_indx * 1.5)),
                                                  eos_token=END_TOKEN,filter_thres=0.96)
             denoiser_output1 = torch.unique_consecutive(denoiser_output1)
-            o = " ".join([str(x) for x in denoiser_output1.numpy().tolist()])
             m = " ".join([str(x) for x in denoiser_input.numpy().tolist()[0][1:-1]])
-            p = " ".join([str(x) for x in phonemes_batch.numpy().tolist()[0]])
+            o = " ".join([str(x) for x in denoiser_output1.numpy().tolist()])
+            p = " ".join([str(x) for x in phonemes_batch[i].numpy().tolist()])
             p = p.split(str(sep))[0]
             print()
             print(p)
@@ -210,7 +211,6 @@ if __name__ == '__main__':
             print(o)
             print(wer(p, m), wer(p, o), wer(o, m), wer(m, o))
             3/0
-
 
         #     pred = pred.numpy()
         #     if args.top > 0:
