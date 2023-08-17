@@ -84,7 +84,7 @@ if __name__ == '__main__':
                         encoder_attention_heads=4, decoder_layers=3, decoder_ffn_dim=256, decoder_attention_heads=4,
                         d_model=256, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
                         decoder_start_token_id=START_TOKEN, forced_eos_token_id=END_TOKEN)  # Set vocab size
-    model = BartForConditionalGeneration(config)
+    model = BartForConditionalGeneration(config).to(device)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f'{params:,} trainable parameters')
