@@ -80,13 +80,18 @@ def eval_wer_ds(dataset, model):
 
     with torch.no_grad():
         wer_score = []
-        for noisy_data, clean_data in dataset:
+        for i, (noisy_data, clean_data) in enumerate(dataset):
             noisy_data = noisy_data.to(device)
             clean_data = clean_data.to(device)
             outputs = model.generate(noisy_data.unsqueeze(0))[0]
             clean_data = " ".join([str(x) for x in clean_data.cpu().numpy().tolist()])
             outputs = " ".join([str(x) for x in outputs.cpu().numpy().tolist()])
+            print(i)
+            print(f'clean: {clean_data}')
+            print(f'noisy: {outputs}')
             wer_score.append(wer(outputs, clean_data))
+            if i > 20:
+                break
 
     return np.mean(wer_score)
 
