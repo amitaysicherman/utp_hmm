@@ -20,7 +20,7 @@ SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41
                          96])
 INPUT_DIM = 768
 OUTPUT_DIM = N_TOKENS + 2
-BATCH_SIZE = 1
+BATCH_SIZE = 512
 
 
 def build_dataset(base_path="./pseg/data/sup_vad_km"):
@@ -157,7 +157,8 @@ if __name__ == '__main__':
     features, clusters, phonemes = build_dataset()
     print("dataset loaded")
     loss_function = nn.CTCLoss(blank=sep, zero_infinity=True)
-
+    linear_features_input = []
+    linear_labels = []
     for round in range(1_000):
 
         print("round", round, flush=True)
@@ -170,20 +171,25 @@ if __name__ == '__main__':
         long_clusters = torch.LongTensor(long_clusters).to(device).unsqueeze(0)
         model_output = model(long_clusters)[0]
 
-        denoiser_outputs = model_output_denoiser(model_output, sample_clusters, denoiser)
+        linear_labels.extend(model_output_denoiser(model_output, sample_clusters, denoiser))
+        linear_features_input.extend(sample_features)
 
-        inputs_padded = torch.nn.utils.rnn.pad_sequence(
-            [torch.tensor(seq, dtype=torch.float32) for seq in sample_features], batch_first=True).to(device)
-        input_lengths = torch.LongTensor([len(x) for x in sample_features]).to(device)
-        logits = linear_model(inputs_padded)
+        if len(linear_features_input) and len(linear_features_input) % BATCH_SIZE == 0:
+            inputs_padded = torch.nn.utils.rnn.pad_sequence(
+                [torch.tensor(seq, dtype=torch.float32) for seq in linear_features_input], batch_first=True).to(device)
+            input_lengths = torch.LongTensor([len(x) for x in linear_features_input]).to(device)
+            logits = linear_model(inputs_padded)
 
-        target_lengths = torch.tensor([len(t) for t in denoiser_outputs], dtype=torch.long).to(device)
-        target_padded = torch.nn.utils.rnn.pad_sequence(denoiser_outputs, batch_first=True, padding_value=sep).to(
-            device)
+            target_lengths = torch.tensor([len(t) for t in linear_labels], dtype=torch.long).to(device)
+            target_padded = torch.nn.utils.rnn.pad_sequence(linear_labels, batch_first=True, padding_value=sep).to(
+                device)
 
-        loss = loss_function(logits.log_softmax(dim=-1).transpose(0, 1), target_padded, input_lengths, target_lengths)
-        print("loss", loss.item())
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        eval_with_phonemes(linear_model, features, phonemes)
+            loss = loss_function(logits.log_softmax(dim=-1).transpose(0, 1), target_padded, input_lengths,
+                                 target_lengths)
+            print("loss", loss.item())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            eval_with_phonemes(linear_model, features, phonemes)
+            linear_features_input = []
+            linear_labels = []
