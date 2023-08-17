@@ -10,7 +10,7 @@ from mapping import phonemes_to_index
 MAX_TOKEN = 38
 PAD_TOKEN = 39
 MIN_P = 0.0
-MAX_P = 0.3
+MAX_P = 0.20
 START_TOKEN = 40
 END_TOKEN = 41
 N_TOKENS = 42
