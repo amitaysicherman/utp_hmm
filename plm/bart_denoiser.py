@@ -84,8 +84,10 @@ def eval_wer_ds(dataset, model):
             noisy_data = noisy_data.to(device)
             clean_data = clean_data.to(device)
             outputs = model.generate(noisy_data.unsqueeze(0), max_length=MAX_LENGTH)[0]
-            clean_data = " ".join([str(x) for x in clean_data.cpu().numpy().tolist()])
-            outputs = " ".join([str(x) for x in outputs.cpu().numpy().tolist()])
+            clean_data = [x for x in clean_data.cpu().numpy().tolist() if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]]
+            clean_data = " ".join([str(x) for x in clean_data])
+            outputs = [x for x in outputs.cpu().numpy().tolist() if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]]
+            outputs = " ".join([str(x) for x in outputs])
             print(i)
             print(f'clean: {clean_data}')
             print(f'noisy: {outputs}')
