@@ -119,7 +119,7 @@ if __name__ == '__main__':
                 test_loss.append(loss.item())
 
         print(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}', flush=True)
-        with open("results/denoiser.txt", 'a') as f:
+        with open("results/bart_denoiser.txt", 'a') as f:
             f.write(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}\n')
         if best_test_loss > np.mean(test_loss):
             best_test_loss = np.mean(test_loss)
