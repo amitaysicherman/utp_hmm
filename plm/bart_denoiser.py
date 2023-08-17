@@ -83,7 +83,7 @@ def eval_wer_ds(dataset, model):
         for i, (noisy_data, clean_data) in enumerate(dataset):
             noisy_data = noisy_data.to(device)
             clean_data = clean_data.to(device)
-            outputs = model.generate(noisy_data.unsqueeze(0))[0]
+            outputs = model.generate(noisy_data.unsqueeze(0), max_length=MAX_LENGTH)[0]
             clean_data = " ".join([str(x) for x in clean_data.cpu().numpy().tolist()])
             outputs = " ".join([str(x) for x in outputs.cpu().numpy().tolist()])
             print(i)
@@ -112,7 +112,6 @@ if __name__ == '__main__':
     print(f'{params:,} trainable parameters')
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
-    model.generation_config.max_new_tokens = MAX_LENGTH
     model.train()
     best_train_loss = 1000
     best_test_loss = 1000
