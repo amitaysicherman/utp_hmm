@@ -9,7 +9,8 @@ from jiwer import wer
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from denoiser import get_denoiser_model,PAD_TOKEN,END_TOKEN,START_TOKEN
+from denoiser import get_denoiser_model, PAD_TOKEN, END_TOKEN, START_TOKEN
+
 sep = PADDING_VALUE
 noise_sep = 100
 max_len = 1024
@@ -168,13 +169,10 @@ if __name__ == '__main__':
     denoiser = denoiser.to(device)
     denoiser.eval()
 
-
-
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
     print("dataset loaded")
     # eval_with_phonemes(linear_model, superv_model, features, phonemes)
-
 
     for round in range(1_000):
         print("round", round, flush=True)
@@ -193,66 +191,71 @@ if __name__ == '__main__':
             pred = y.detach().cpu().argmax(dim=-1)
 
             pred[x.flatten() == noise_sep] = sep
-            seq_indx=pred.numpy().tolist().index(sep)
+            seq_indx = pred.numpy().tolist().index(sep)
             denoiser_input = pred[:seq_indx]
             denoiser_input = torch.unique_consecutive(denoiser_input)
             denoiser_input = torch.cat([torch.LongTensor([START_TOKEN]), denoiser_input, torch.LongTensor([END_TOKEN])])
             denoiser_start = torch.LongTensor([START_TOKEN]).unsqueeze(0)
             denoiser_input = denoiser_input.unsqueeze(0)
-            denoiser_output1=denoiser.generate(denoiser_input,denoiser_start,min(100,int(seq_indx*1.5)),eos_token=END_TOKEN)
-            denoiser_output1=torch.unique_consecutive(denoiser_output1)
-            o = " ".join([str(x) for x in denoiser_output1.numpy().tolist()[0]])
+            denoiser_output1 = denoiser.generate(denoiser_input, denoiser_start, min(100, int(seq_indx * 1.5)),
+                                                 eos_token=END_TOKEN,filter_thres=0.96)
+            denoiser_output1 = torch.unique_consecutive(denoiser_output1)
+            o = " ".join([str(x) for x in denoiser_output1.numpy().tolist()])
             m = " ".join([str(x) for x in denoiser_input.numpy().tolist()[0][1:-1]])
             p = " ".join([str(x) for x in phonemes_batch.numpy().tolist()[0]])
             p = p.split(str(sep))[0]
-            print(wer(p, o), wer(p, m), wer(o, m),wer(m,o))
+            print()
+            print(p)
+            print(m)
+            print(o)
+            print(wer(p, m), wer(p, o), wer(o, m), wer(m, o))
+            3/0
 
-            3 / 0
 
-            pred = pred.numpy()
-            if args.top > 0:
-                tops = torch.topk(y, k=args.top, dim=-1)[0][:, -1]
-                for j in range(len(y)):
-                    y[j][y[j] < tops[j]] = -float("inf")
-
-            for x_, y_ in zip(x.flatten(), pred.flatten()):
-                if x_ != noise_sep:
-                    mapping[x_, y_] += 1
-
-            pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
-            pred = " ".join([str(x) for x in pred]).split(str(sep))[:-1]
-
-            ph = phonemes_batch[i].detach().cpu().numpy()
-            ph = " ".join([str(x) for x in ph]).split(str(sep))[:-1]
-            for p, phat in zip(ph, pred):
-                if len(p) == 0 or len(phat) == 0:
-                    continue
-                model_wer.append(wer(p, phat))
-
-            labels.append(y)
-        np.save("models/mapping.npy", mapping)
-        print("model wer")
-        print(np.histogram(model_wer, bins=20))
-        print(np.mean(model_wer) * 100)
-        print(np.std(model_wer) * 100)
-        labels = torch.stack(labels).to(device)
-
-        logits = linear_model(features_batch)
-
-        mask = clusters_batch != noise_sep
-        logits = logits[mask]
-        labels = labels[mask]
-
-        loss = F.cross_entropy(
-            logits,  # .transpose(1, 2),
-            labels.softmax(dim=-1),
-            # ignore_index=sep
-        )
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, superv_model, features, phonemes))
-
-        if round > 0 and round % 10 == 0:
-            eval_with_phonemes(linear_model, superv_model, features, phonemes, print_examples=10)
-            torch.save(linear_model.state_dict(), f"models/linear_model_d.cp")
+        #     pred = pred.numpy()
+        #     if args.top > 0:
+        #         tops = torch.topk(y, k=args.top, dim=-1)[0][:, -1]
+        #         for j in range(len(y)):
+        #             y[j][y[j] < tops[j]] = -float("inf")
+        #
+        #     for x_, y_ in zip(x.flatten(), pred.flatten()):
+        #         if x_ != noise_sep:
+        #             mapping[x_, y_] += 1
+        #
+        #     pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
+        #     pred = " ".join([str(x) for x in pred]).split(str(sep))[:-1]
+        #
+        #     ph = phonemes_batch[i].detach().cpu().numpy()
+        #     ph = " ".join([str(x) for x in ph]).split(str(sep))[:-1]
+        #     for p, phat in zip(ph, pred):
+        #         if len(p) == 0 or len(phat) == 0:
+        #             continue
+        #         model_wer.append(wer(p, phat))
+        #
+        #     labels.append(y)
+        # np.save("models/mapping.npy", mapping)
+        # print("model wer")
+        # print(np.histogram(model_wer, bins=20))
+        # print(np.mean(model_wer) * 100)
+        # print(np.std(model_wer) * 100)
+        # labels = torch.stack(labels).to(device)
+        #
+        # logits = linear_model(features_batch)
+        #
+        # mask = clusters_batch != noise_sep
+        # logits = logits[mask]
+        # labels = labels[mask]
+        #
+        # loss = F.cross_entropy(
+        #     logits,  # .transpose(1, 2),
+        #     labels.softmax(dim=-1),
+        #     # ignore_index=sep
+        # )
+        # loss.backward()
+        # optimizer.step()
+        # optimizer.zero_grad()
+        # print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, superv_model, features, phonemes))
+        #
+        # if round > 0 and round % 10 == 0:
+        #     eval_with_phonemes(linear_model, superv_model, features, phonemes, print_examples=10)
+        #     torch.save(linear_model.state_dict(), f"models/linear_model_d.cp")

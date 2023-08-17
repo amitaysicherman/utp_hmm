@@ -6,7 +6,7 @@ import random
 from torch.utils.data import Dataset, DataLoader
 from x_transformers import XTransformer
 import numpy as np
-
+from mapping import phonemes_to_index
 MAX_TOKEN = 38
 PAD_TOKEN = 39
 MIN_P = 0.0
@@ -23,8 +23,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NoiseDataset(Dataset):
     def __init__(self, file_path):
-        with open(file_path, 'r') as file:
-            self.data = [list(map(int, line.strip().split())) for line in file.readlines()]
+        # with open(file_path, 'r') as file:
+        #     self.data = [list(map(int, line.strip().split())) for line in file.readlines()]
+        with open("pseg/data/p_superv/features.phonemes") as f:
+            phonemes = f.read().splitlines()
+        phonemes = [[phonemes_to_index[p.upper()] for p in x.split()] for x in phonemes]
+        self.data = [[p[0]] + [p[i] for i in range(1, len(p)) if p[i] != p[i - 1]] for p in phonemes]
 
     def add_noise(self, sample):
         length = len(sample)
@@ -35,7 +39,7 @@ class NoiseDataset(Dataset):
 
         # Add random characters
         for _ in range(random.randint(int(length * MIN_P), int(length * MAX_P))):
-            idx = random.randint(0, length - 1)
+            idx = random.randint(0, len(sample) - 1)
             sample.insert(idx, random.randint(0, MAX_TOKEN))
 
         # Remove characters
@@ -83,7 +87,8 @@ def get_denoiser_model():
 if __name__ == '__main__':
 
     train_loader = DataLoader(NoiseDataset('data/TIMIT_TRAIN_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(NoiseDataset('data/TIMIT_TEST_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
+
+    # test_loader = DataLoader(NoiseDataset('data/TIMIT_TEST_PH_IDX.txt'), batch_size=BATCH_SIZE, shuffle=True)
 
     model = get_denoiser_model().to(device)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -107,19 +112,20 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             train_loss.append(loss.item())
-        for noisy_data, clean_data in test_loader:
-            noisy_data = noisy_data.to(device)
-            clean_data = clean_data.to(device)
-            loss = model(noisy_data, clean_data)
-            test_loss.append(loss.item())
+        # for noisy_data, clean_data in test_loader:
+        #     noisy_data = noisy_data.to(device)
+        #     clean_data = clean_data.to(device)
+        #     loss = model(noisy_data, clean_data)
+        #     test_loss.append(loss.item())
         print(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}', flush=True)
         with open("results/denoiser.txt", 'a') as f:
             f.write(f'Epoch {epoch} train loss: {np.mean(train_loss)} test loss: {np.mean(test_loss)}\n')
-        if best_test_loss > np.mean(test_loss):
-            best_test_loss = np.mean(test_loss)
-            torch.save(model.state_dict(), f'models/denoiser_best_test_loss.cp')
-            torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_test_loss.cp')
+        # if best_test_loss > np.mean(test_loss):
+        #     best_test_loss = np.mean(test_loss)
+        #     torch.save(model.state_dict(), f'models/denoiser_best_test_loss.cp')
+        #     torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_test_loss.cp')
         if best_train_loss > np.mean(train_loss):
             best_train_loss = np.mean(train_loss)
-            torch.save(model.state_dict(), f'models/denoiser_best_train_loss.cp')
-            torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_train_loss.cp')
+            # torch.save(model.state_dict(), f'models/denoiser_best_train_loss.cp')
+            # torch.save(optimizer.state_dict(), f'models/denoiser_opt_best_train_loss.cp')
+            torch.save(model.state_dict(), f'models/tmp_denoiser_best_train_loss.cp')
