@@ -135,11 +135,7 @@ def model_output_denoiser(y, list_values, denoiser):
         denoiser_output = denoiser.generate(denoiser_input, max_new_tokens=max_new_tokens,
                                             min_new_tokens=min_new_tokens, top_k=4, num_beams=100)
         denoiser_output = torch.unique_consecutive(denoiser_output)[1:-1]
-        # denoiser_output_list.append(denoiser_output)
-        print(denoiser_output)
-        denoiser_output_list = [denoiser_output for _ in range(len(pred_list))]
-
-        break
+        denoiser_output_list.append(denoiser_output)
 
     return denoiser_output_list
 
@@ -176,12 +172,13 @@ if __name__ == '__main__':
         denoiser_outputs = model_output_denoiser(model_output, sample_clusters, denoiser)
 
         inputs_padded = torch.nn.utils.rnn.pad_sequence(
-            [torch.tensor(seq, dtype=torch.float32) for seq in sample_features], batch_first=True)
-        input_lengths = torch.LongTensor([len(x) for x in sample_features])
+            [torch.tensor(seq, dtype=torch.float32) for seq in sample_features], batch_first=True).to(device)
+        input_lengths = torch.LongTensor([len(x) for x in sample_features]).to(device)
         logits = linear_model(inputs_padded)
 
-        target_lengths = torch.tensor([len(t) for t in denoiser_outputs], dtype=torch.long)
-        target_padded = torch.nn.utils.rnn.pad_sequence(denoiser_outputs, batch_first=True, padding_value=sep)
+        target_lengths = torch.tensor([len(t) for t in denoiser_outputs], dtype=torch.long).to(device)
+        target_padded = torch.nn.utils.rnn.pad_sequence(denoiser_outputs, batch_first=True, padding_value=sep).to(
+            device)
 
         loss = loss_function(logits.log_softmax(dim=-1).transpose(0, 1), target_padded, input_lengths, target_lengths)
         print(loss.item())
