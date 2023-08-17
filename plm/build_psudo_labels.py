@@ -9,7 +9,8 @@ from jiwer import wer
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from denoiser import get_denoiser_model, PAD_TOKEN, END_TOKEN, START_TOKEN
+# from denoiser import get_denoiser_model, PAD_TOKEN, END_TOKEN, START_TOKEN
+from bart_denoiser import get_model as get_denoiser_model, PAD_TOKEN, END_TOKEN, START_TOKEN
 
 sep = PADDING_VALUE
 noise_sep = 100
@@ -95,17 +96,11 @@ def get_batch(features, clusters, phonemes, size=32):
     return features_data, clusters_data, phonemes_data
 
 
-def eval_with_phonemes(model, model_superv, features, phonemes, print_examples=0):
+def eval_with_phonemes(model, features, phonemes, print_examples=0):
     scores = []
-    cm = np.zeros((len(phonemes_to_index) + 1, len(phonemes_to_index) + 1))
     for i, feat in enumerate(features):
         feat = torch.from_numpy(feat).float().to(device).unsqueeze(0)
         y_hat = model(feat)[0].argmax(dim=-1).detach().cpu().numpy()
-        y_superv = model_superv(feat)[0].argmax(dim=-1).detach().cpu().numpy()
-
-        for j in range(len(y_hat)):
-            cm[y_hat[j], y_superv[j]] += 1
-
         y_hat = [str(x) for x in y_hat if x != sep]
         y_hat = [y_hat[0]] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]
         y_hat = " ".join(y_hat)
@@ -116,12 +111,7 @@ def eval_with_phonemes(model, model_superv, features, phonemes, print_examples=0
             print(y)
 
         scores.append(wer(y, y_hat))
-    print("clusters wer")
-    print(np.histogram(scores, bins=20))
-    print(np.mean(scores) * 100)
-    print(np.std(scores) * 100)
-    pd.DataFrame(cm).to_csv("models/cm.csv")
-    return np.mean(scores) * 100
+    print("wer", np.mean(scores) * 100, np.std(scores))
 
 
 class LinearModel(torch.nn.Module):
@@ -131,6 +121,16 @@ class LinearModel(torch.nn.Module):
 
     def forward(self, x):
         return self.linear(x)
+
+
+def split_to_samples(x, y):
+    zero_indices = (x == 0).nonzero(as_tuple=True)[0]
+    split_tensors = []
+    start_idx = 0
+    for zero_idx in zero_indices:
+        split_tensors.append(y[start_idx:zero_idx])
+        start_idx = zero_idx + 1
+    split_tensors.append(y[start_idx:])
 
 
 if __name__ == '__main__':
@@ -157,23 +157,16 @@ if __name__ == '__main__':
     linear_model.train()
     print(linear_model)
     optimizer = torch.optim.Adam(linear_model.parameters(), lr=args.lr)
-    from train_superv_ctc import FeaturesPhonemesLinear
-
-    superv_model = FeaturesPhonemesLinear(768, max(phonemes_to_index.values()) + 1).to(device)
-    superv_model.load_state_dict(torch.load("models/linear_superv.cp", map_location=torch.device('cpu')))
-    superv_model = superv_model.to(device)
-    superv_model.eval()
 
     denoiser = get_denoiser_model().to(device)
     # denoiser.load_state_dict(torch.load("models/denoiser_best_train_loss.cp", map_location=torch.device('cpu')))
-    denoiser.load_state_dict(torch.load("models/tmp_denoiser_best_train_loss.cp", map_location=torch.device('cpu')))
+    denoiser.load_state_dict(torch.load("models/bart_denoiser_best_train_loss.cp", map_location=torch.device('cpu')))
     denoiser = denoiser.to(device)
     denoiser.eval()
 
     criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
     print("dataset loaded")
-    # eval_with_phonemes(linear_model, superv_model, features, phonemes)
 
     for round in range(1_000):
         print("round", round, flush=True)
@@ -198,9 +191,12 @@ if __name__ == '__main__':
             denoiser_input = torch.cat([torch.LongTensor([START_TOKEN]), denoiser_input, torch.LongTensor([END_TOKEN])])
             denoiser_start = torch.LongTensor([START_TOKEN]).unsqueeze(0)
             denoiser_input = denoiser_input.unsqueeze(0)
-            denoiser_output1 = denoiser.generate(denoiser_input, denoiser_start, min(100, int(seq_indx * 1.5)),
-                                                 eos_token=END_TOKEN,filter_thres=0.96)
-            denoiser_output1 = torch.unique_consecutive(denoiser_output1)
+            max_new_tokens = int(min(100, 2 * len(denoiser_input[0])))
+            min_new_tokens = int(0.5 * len(denoiser_input[0]))
+
+            denoiser_output1 = denoiser.generate(denoiser_input, max_new_tokens=max_new_tokens,
+                                                 min_new_tokens=min_new_tokens, top_k=4, num_beams=100)
+            denoiser_output1 = torch.unique_consecutive(denoiser_output1)[1:-1]
             m = " ".join([str(x) for x in denoiser_input.numpy().tolist()[0][1:-1]])
             o = " ".join([str(x) for x in denoiser_output1.numpy().tolist()])
             p = " ".join([str(x) for x in phonemes_batch[i].numpy().tolist()])
@@ -210,52 +206,51 @@ if __name__ == '__main__':
             print(m)
             print(o)
             print(wer(p, m), wer(p, o), wer(o, m), wer(m, o))
-            3/0
 
-        #     pred = pred.numpy()
-        #     if args.top > 0:
-        #         tops = torch.topk(y, k=args.top, dim=-1)[0][:, -1]
-        #         for j in range(len(y)):
-        #             y[j][y[j] < tops[j]] = -float("inf")
-        #
-        #     for x_, y_ in zip(x.flatten(), pred.flatten()):
-        #         if x_ != noise_sep:
-        #             mapping[x_, y_] += 1
-        #
-        #     pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
-        #     pred = " ".join([str(x) for x in pred]).split(str(sep))[:-1]
-        #
-        #     ph = phonemes_batch[i].detach().cpu().numpy()
-        #     ph = " ".join([str(x) for x in ph]).split(str(sep))[:-1]
-        #     for p, phat in zip(ph, pred):
-        #         if len(p) == 0 or len(phat) == 0:
-        #             continue
-        #         model_wer.append(wer(p, phat))
-        #
-        #     labels.append(y)
-        # np.save("models/mapping.npy", mapping)
-        # print("model wer")
-        # print(np.histogram(model_wer, bins=20))
-        # print(np.mean(model_wer) * 100)
-        # print(np.std(model_wer) * 100)
-        # labels = torch.stack(labels).to(device)
-        #
-        # logits = linear_model(features_batch)
-        #
-        # mask = clusters_batch != noise_sep
-        # logits = logits[mask]
-        # labels = labels[mask]
-        #
-        # loss = F.cross_entropy(
-        #     logits,  # .transpose(1, 2),
-        #     labels.softmax(dim=-1),
-        #     # ignore_index=sep
-        # )
-        # loss.backward()
-        # optimizer.step()
-        # optimizer.zero_grad()
-        # print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, superv_model, features, phonemes))
-        #
-        # if round > 0 and round % 10 == 0:
-        #     eval_with_phonemes(linear_model, superv_model, features, phonemes, print_examples=10)
-        #     torch.save(linear_model.state_dict(), f"models/linear_model_d.cp")
+            pred = pred.numpy()
+            if args.top > 0:
+                tops = torch.topk(y, k=args.top, dim=-1)[0][:, -1]
+                for j in range(len(y)):
+                    y[j][y[j] < tops[j]] = -float("inf")
+
+            for x_, y_ in zip(x.flatten(), pred.flatten()):
+                if x_ != noise_sep:
+                    mapping[x_, y_] += 1
+
+            pred = [pred[0]] + [pred[i] for i in range(1, len(pred)) if pred[i] != pred[i - 1]]
+            pred = " ".join([str(x) for x in pred]).split(str(sep))[:-1]
+
+            ph = phonemes_batch[i].detach().cpu().numpy()
+            ph = " ".join([str(x) for x in ph]).split(str(sep))[:-1]
+            for p, phat in zip(ph, pred):
+                if len(p) == 0 or len(phat) == 0:
+                    continue
+                model_wer.append(wer(p, phat))
+
+            labels.append(y)
+        np.save("models/mapping.npy", mapping)
+        print("model wer")
+        print(np.histogram(model_wer, bins=20))
+        print(np.mean(model_wer) * 100)
+        print(np.std(model_wer) * 100)
+        labels = torch.stack(labels).to(device)
+
+        logits = linear_model(features_batch)
+
+        mask = clusters_batch != noise_sep
+        logits = logits[mask]
+        labels = labels[mask]
+
+        loss = F.cross_entropy(
+            logits,  # .transpose(1, 2),
+            labels.softmax(dim=-1),
+            # ignore_index=sep
+        )
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        print("loss", loss.item(), "PER", eval_with_phonemes(linear_model, features, phonemes))
+
+        if round > 0 and round % 10 == 0:
+            eval_with_phonemes(linear_model, features, phonemes, print_examples=10)
+            torch.save(linear_model.state_dict(), f"models/linear_model_d.cp")

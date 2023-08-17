@@ -98,20 +98,24 @@ def eval_wer_ds(dataset, model):
     return np.mean(wer_score)
 
 
+def get_model()->BartForConditionalGeneration:
+    config = BartConfig(vocab_size=N_TOKENS, max_position_embeddings=MAX_LENGTH, encoder_layers=3, encoder_ffn_dim=256,
+                        encoder_attention_heads=4, decoder_layers=3, decoder_ffn_dim=256, decoder_attention_heads=4,
+                        d_model=256, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
+                        decoder_start_token_id=START_TOKEN, forced_eos_token_id=END_TOKEN)  # Set vocab size
+    model = BartForConditionalGeneration(config)
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print(f'{params:,} trainable parameters')
+    return model
+
 if __name__ == '__main__':
     train_dataset = NoiseDataset('data/TIMIT_TRAIN_PH_IDX.txt')
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_dataset = NoiseDataset('data/TIMIT_TEST_PH_IDX.txt')
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    model = get_model().to(device)
 
-    config = BartConfig(vocab_size=N_TOKENS, max_position_embeddings=MAX_LENGTH, encoder_layers=3, encoder_ffn_dim=256,
-                        encoder_attention_heads=4, decoder_layers=3, decoder_ffn_dim=256, decoder_attention_heads=4,
-                        d_model=256, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
-                        decoder_start_token_id=START_TOKEN, forced_eos_token_id=END_TOKEN)  # Set vocab size
-    model = BartForConditionalGeneration(config).to(device)
-    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    params = sum([np.prod(p.size()) for p in model_parameters])
-    print(f'{params:,} trainable parameters')
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
     model.train()
