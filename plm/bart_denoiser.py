@@ -107,7 +107,7 @@ if __name__ == '__main__':
     print(f'{params:,} trainable parameters')
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_TOKEN)
-
+    model.generation_config.max_new_tokens = MAX_LENGTH
     model.train()
     best_train_loss = 1000
     best_test_loss = 1000
