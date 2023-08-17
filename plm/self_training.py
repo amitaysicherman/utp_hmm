@@ -1,4 +1,4 @@
-# sbatch --killable --gres=gpu:1,vmem:8g --mem=16G --time=0-3 --wrap "python build_psudo_labels.py --cp=models/long_marix_2True_29210000.cp"
+# sbatch --killable --gres=gpu:1,vmem:8g --mem=16G --time=0-3 --wrap "python self_training.py"
 import numpy as np
 import pandas as pd
 import torch
@@ -128,7 +128,8 @@ def model_output_denoiser(y, list_values, denoiser):
     denoiser_output_list = []
     for pred in pred_list:
         denoiser_input = torch.unique_consecutive(pred)
-        denoiser_input = torch.cat([torch.LongTensor([START_TOKEN]), denoiser_input, torch.LongTensor([END_TOKEN])])
+        denoiser_input = torch.cat(
+            [torch.LongTensor([START_TOKEN]).to(device), denoiser_input, torch.LongTensor([END_TOKEN]).to(device)])
         max_new_tokens = int(min(100, 2 * len(denoiser_input)))
         min_new_tokens = int(0.5 * len(denoiser_input))
         denoiser_input = denoiser_input.unsqueeze(0)
@@ -181,7 +182,7 @@ if __name__ == '__main__':
             device)
 
         loss = loss_function(logits.log_softmax(dim=-1).transpose(0, 1), target_padded, input_lengths, target_lengths)
-        print(loss.item())
+        print("loss", loss.item())
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
