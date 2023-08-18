@@ -126,13 +126,14 @@ def model_output_denoiser(y, list_values, denoiser):
         cur_len += l
         cur_len += 1  # seq
     denoiser_output_list = []
+
     for pred in pred_list:
         denoiser_input = torch.unique_consecutive(pred)
 
         denoiser_input = torch.cat(
             [torch.LongTensor([START_TOKEN]).to(device), denoiser_input, torch.LongTensor([END_TOKEN]).to(device)])
-        min_new_tokens = int(0.5 * len(denoiser_input))
-        max_new_tokens= int(1.5 * len(denoiser_input))
+        min_new_tokens = max(10, int(0.5 * len(denoiser_input)))
+        max_new_tokens = min(100, int(1.5 * len(denoiser_input)))
         denoiser_input = denoiser_input.unsqueeze(0)
         denoiser_output = denoiser.generate(denoiser_input, max_new_tokens=max_new_tokens,
                                             min_new_tokens=min_new_tokens, top_k=4, num_beams=100)
@@ -156,6 +157,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(linear_model.parameters(), lr=args.lr)
     # criterion = nn.CrossEntropyLoss(ignore_index=sep).to(device)
     features, clusters, phonemes = build_dataset()
+
     print("dataset loaded")
     loss_function = nn.CTCLoss(blank=sep, zero_infinity=True)
     linear_features_input = []
@@ -166,11 +168,10 @@ if __name__ == '__main__':
         long_clusters = []
         for c in sample_clusters:
             long_clusters += c
-            long_clusters.append(sep)
+            long_clusters.append(noise_sep)
         long_clusters = np.array(long_clusters)[:max_len]
         long_clusters = torch.LongTensor(long_clusters).to(device).unsqueeze(0)
         model_output = model(long_clusters)[0]
-
         linear_labels.extend(model_output_denoiser(model_output, sample_clusters, denoiser))
         linear_features_input.extend(sample_features)
 
