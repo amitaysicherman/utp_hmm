@@ -127,11 +127,13 @@ def model_output_denoiser(y, list_values, denoiser):
         cur_len += 1  # seq
     denoiser_output_list = []
     for pred in pred_list:
+        max_new_tokens = min(100, int(1.25 * len(pred)))
         denoiser_input = torch.unique_consecutive(pred)
+
         denoiser_input = torch.cat(
             [torch.LongTensor([START_TOKEN]).to(device), denoiser_input, torch.LongTensor([END_TOKEN]).to(device)])
-        max_new_tokens = int(min(100, 2 * len(denoiser_input)))
         min_new_tokens = int(0.5 * len(denoiser_input))
+
         denoiser_input = denoiser_input.unsqueeze(0)
         denoiser_output = denoiser.generate(denoiser_input, max_new_tokens=max_new_tokens,
                                             min_new_tokens=min_new_tokens, top_k=4, num_beams=100)
