@@ -127,7 +127,7 @@ def model_output_denoiser(y, list_values, denoiser):
         cur_len += 1  # seq
     denoiser_output_list = []
     for pred in pred_list:
-        max_new_tokens = min(100, int(1.25 * len(pred)))
+        max_new_tokens =  len(pred) #TODO: check
         denoiser_input = torch.unique_consecutive(pred)
 
         denoiser_input = torch.cat(
