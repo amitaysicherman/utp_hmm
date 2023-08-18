@@ -157,7 +157,7 @@ if __name__ == '__main__':
     loss_function = nn.CTCLoss(blank=sep, zero_infinity=True)
     linear_features_input = []
     linear_labels = []
-    for round in range(1_000):
+    for round in range(100_000):
 
         print("round", round, flush=True)
         sample_features, sample_clusters, sample_phonemes = get_sample(features, clusters, phonemes)
