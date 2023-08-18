@@ -7,6 +7,7 @@ import argparse
 from jiwer import wer
 import torch.nn as nn
 from bart_denoiser import get_model as get_denoiser_model, PAD_TOKEN, END_TOKEN, START_TOKEN
+from tqdm import tqdm
 
 sep = PADDING_VALUE
 noise_sep = 100
@@ -83,6 +84,7 @@ def eval_with_phonemes(model, features, phonemes):
         y = " ".join([str(x) for x in phonemes[i]])
         scores.append(wer(y, y_hat))
     print("wer", np.mean(scores) * 100, np.std(scores))
+    return np.mean(scores) * 100
 
 
 class LinearModel(torch.nn.Module):
@@ -162,7 +164,7 @@ if __name__ == '__main__':
     loss_function = nn.CTCLoss(blank=sep, zero_infinity=True)
     linear_features_input = []
     linear_labels = []
-    for round in range(100_000):
+    for round in tqdm(range(100_000)):
 
         sample_features, sample_clusters, sample_phonemes = get_sample(features, clusters, phonemes)
         long_clusters = []
@@ -190,8 +192,11 @@ if __name__ == '__main__':
             loss = loss_function(logits.log_softmax(dim=-1).transpose(0, 1), target_padded, input_lengths,
                                  target_lengths)
             print(round, "loss", loss.item())
+
             loss.backward()
             optimizer.step()
-            eval_with_phonemes(linear_model, features, phonemes)
+            wer_score = eval_with_phonemes(linear_model, features, phonemes)
+            with open("results/linear_model.txt", "a") as f:
+                f.write(f"{round} {loss.item()} {wer_score}\n")
             linear_features_input = []
             linear_labels = []
