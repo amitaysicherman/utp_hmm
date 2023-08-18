@@ -127,7 +127,7 @@ def model_output_denoiser(y, list_values, denoiser):
         cur_len += 1  # seq
     denoiser_output_list = []
     for pred in pred_list:
-        max_new_tokens =  len(pred) #TODO: check
+        max_new_tokens = len(pred)  # TODO: check
         denoiser_input = torch.unique_consecutive(pred)
 
         denoiser_input = torch.cat(
@@ -175,7 +175,7 @@ if __name__ == '__main__':
         linear_labels.extend(model_output_denoiser(model_output, sample_clusters, denoiser))
         linear_features_input.extend(sample_features)
 
-        if len(linear_features_input) and len(linear_features_input) % BATCH_SIZE == 0:
+        if len(linear_features_input) > BATCH_SIZE:
             inputs_padded = torch.nn.utils.rnn.pad_sequence(
                 [torch.tensor(seq, dtype=torch.float32) for seq in linear_features_input], batch_first=True).to(device)
             input_lengths = torch.LongTensor([len(x) for x in linear_features_input]).to(device)
