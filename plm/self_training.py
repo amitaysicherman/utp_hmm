@@ -60,6 +60,8 @@ def get_sample(features, clusters, phonemes):
     count = 0
     while count < max_len:
         index = np.random.randint(len(features))
+        if len(clusters[index]) + count > max_len:
+            break
         sample_clusters.append(list(clusters[index]))
         sample_features.append(features[index])
         sample_phonemes.append(phonemes[index])
