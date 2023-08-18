@@ -1,15 +1,11 @@
 # sbatch --killable --gres=gpu:1,vmem:8g --mem=16G --time=0-3 --wrap "python self_training.py"
 import numpy as np
-import pandas as pd
 import torch
 from utils import get_model, PADDING_VALUE, N_TOKENS
 from mapping import phonemes_to_index, i_to_j
 import argparse
 from jiwer import wer
 import torch.nn as nn
-import torch.nn.functional as F
-from tqdm import tqdm
-# from denoiser import get_denoiser_model, PAD_TOKEN, END_TOKEN, START_TOKEN
 from bart_denoiser import get_model as get_denoiser_model, PAD_TOKEN, END_TOKEN, START_TOKEN
 
 sep = PADDING_VALUE
@@ -186,10 +182,11 @@ if __name__ == '__main__':
             target_padded = torch.nn.utils.rnn.pad_sequence(linear_labels, batch_first=True, padding_value=sep).to(
                 device)
 
+            optimizer.zero_grad()
+
             loss = loss_function(logits.log_softmax(dim=-1).transpose(0, 1), target_padded, input_lengths,
                                  target_lengths)
             print("loss", loss.item())
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             eval_with_phonemes(linear_model, features, phonemes)
