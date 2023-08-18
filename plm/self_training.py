@@ -159,7 +159,6 @@ if __name__ == '__main__':
     linear_labels = []
     for round in range(100_000):
 
-        print("round", round, flush=True)
         sample_features, sample_clusters, sample_phonemes = get_sample(features, clusters, phonemes)
         long_clusters = []
         for c in sample_clusters:
@@ -186,7 +185,7 @@ if __name__ == '__main__':
 
             loss = loss_function(logits.log_softmax(dim=-1).transpose(0, 1), target_padded, input_lengths,
                                  target_lengths)
-            print("loss", loss.item())
+            print(round, "loss", loss.item())
             loss.backward()
             optimizer.step()
             eval_with_phonemes(linear_model, features, phonemes)
