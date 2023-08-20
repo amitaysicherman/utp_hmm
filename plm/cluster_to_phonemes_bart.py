@@ -147,7 +147,7 @@ class PhonemesDataset(Dataset):
 
 class PhonemesDatasetSubset(PhonemesDataset):
     def __len__(self):
-        return 250
+        return 100
 
     def __getitem__(self, _):
         idx = np.random.randint(0, self.size - 1)
