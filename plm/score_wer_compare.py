@@ -112,7 +112,7 @@ def model_output_denoiser(y, list_values, denoiser):
                                                  output_scores=True, return_dict_in_generate=True)
 
         denoiser_output = denoiser_output_dict["sequences"][0]
-        scores.append(denoiser_output.sequences_scores[0].item())
+        scores.append(denoiser_output_dict.sequences_scores[0].item())
         denoiser_output = torch.unique_consecutive(denoiser_output)[1:-1]
         denoiser_output_list.append(denoiser_output.detach().cpu().numpy())
 
