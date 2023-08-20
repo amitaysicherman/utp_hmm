@@ -110,7 +110,7 @@ class PhonemesDataset(Dataset):
         final_noise = []
         range_units = np.arange(N_CLUSTERS)
         for c in clean:
-            if len(final_noise) > self.max_len - START_END_COUNT:
+            if len(final_noise) > self.max_len - 1:
                 break
 
             if c in [START_TOKEN, END_TOKEN, PAD_TOKEN, SEP]:
