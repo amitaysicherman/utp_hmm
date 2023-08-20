@@ -23,7 +23,6 @@ ONE = 0
 SPHERE = 2
 MAX_LENGTH = 512
 
-
 PHONEMES_LAST_TOKEN = max(phonemes_to_index.values())
 CLUSTERS_FIRST_TOKEN = PHONEMES_LAST_TOKEN + 1
 N_CLUSTERS = 100
@@ -128,15 +127,14 @@ class PhonemesDataset(Dataset):
                     final_noise.append(new_token)
 
         if len(final_clean) < MAX_LENGTH:
-            final_clean += [PAD_TOKEN] * (MAX_LENGTH-len(final_clean))
+            final_clean += [PAD_TOKEN] * (MAX_LENGTH - len(final_clean))
         if len(final_noise) < MAX_LENGTH:
-            final_noise += [PAD_TOKEN] * (MAX_LENGTH-len(final_noise))
+            final_noise += [PAD_TOKEN] * (MAX_LENGTH - len(final_noise))
 
         if len(final_noise) > MAX_LENGTH:
-            final_noise = final_noise[:MAX_LENGTH-1]+[END_TOKEN]
+            final_noise = final_noise[:MAX_LENGTH - 1] + [END_TOKEN]
         if len(final_clean) > MAX_LENGTH:
-            final_clean = final_clean[:MAX_LENGTH-1]+[END_TOKEN]
-
+            final_clean = final_clean[:MAX_LENGTH - 1] + [END_TOKEN]
 
         return final_clean, final_noise
 
@@ -217,10 +215,7 @@ if __name__ == '__main__':
             x = x.to(device)
             y = y.to(device)
             outputs = model(input_ids=x, labels=y)
-            loss = outputs.loss
-            print(outputs)
-            print(loss.shape)
-            print(loss)
+            loss = outputs.loss.mean()
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
