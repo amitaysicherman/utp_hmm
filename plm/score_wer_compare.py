@@ -151,4 +151,5 @@ if __name__ == '__main__':
             y_hat = " ".join(y_hat)
             y = " ".join([str(x) for x in p])
             wer_score = wer(y, y_hat)
-            print(round, wer_score, s)
+            with open("results/wer_scores.txt", "a") as f:
+                f.write(f"{round},{wer_score},{s}\n")
