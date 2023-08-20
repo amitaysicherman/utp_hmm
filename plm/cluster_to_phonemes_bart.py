@@ -239,7 +239,7 @@ if __name__ == '__main__':
                         x = x.to(device)
                         y = y[0]
                         denoiser_output = gen_model.generate(x, max_new_tokens=MAX_LENGTH,
-                                                         min_new_tokens=MAX_LENGTH * 0.5, top_k=4,
+                                                         min_new_tokens=int(MAX_LENGTH * 0.5), top_k=4,
                                                          num_beams=100).cpu().numpy()[0]
                         pred = " ".join([str(x) for x in pred if x != PAD_TOKEN])
                         y = " ".join([str(x) for x in y.cpu().numpy() if x != PAD_TOKEN])
