@@ -145,7 +145,7 @@ if __name__ == '__main__':
         long_clusters = torch.LongTensor(long_clusters).to(device).unsqueeze(0)
         model_output = model(long_clusters)[0]
         denoiser_phonemes, scores = model_output_denoiser(model_output, sample_clusters, denoiser)
-        for dp, p, s in enumerate(denoiser_phonemes, sample_phonemes, scores):
+        for dp, p, s in zip(denoiser_phonemes, sample_phonemes, scores):
             y_hat = [str(x) for x in dp if x != sep]
             y_hat = [y_hat[0]] + [y_hat[i] for i in range(1, len(y_hat)) if y_hat[i] != y_hat[i - 1]]
             y_hat = " ".join(y_hat)
