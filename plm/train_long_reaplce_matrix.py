@@ -207,7 +207,7 @@ if __name__ == '__main__':
 
     for epoch in range(args.epochs):
         curr_type, curr_dup = step_config(curr_type, curr_dup, curr_acc)
-        train_dataset = PhonemesDataset(phonemes_file="data/TIMIT_TRAIN_PH_IDX.txt", type_=curr_type, dup=curr_dup)
+        train_dataset = PhonemesDataset(phonemes_file="data/TIMIT_NS_TRAIN_PH_IDX.txt", type_=curr_type, dup=curr_dup)
         train_data = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
         train_scores = Scores("train", config_name)
         model.train()
