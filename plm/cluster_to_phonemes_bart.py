@@ -218,6 +218,9 @@ if __name__ == '__main__':
             y = y.to(device)
             outputs = model(input_ids=x, labels=y)
             loss = outputs.loss
+            print(outputs)
+            print(loss.shape)
+            print(loss)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
