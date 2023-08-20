@@ -91,7 +91,8 @@ def eval_wer_ds(dataset, model):
             print(i)
             print(f'clean: {clean_data}')
             print(f'noisy: {outputs}')
-            wer_score.append(wer(outputs, clean_data))
+            if len(outputs) and len(clean_data):
+                wer_score.append(wer(outputs, clean_data))
             if i > 20:
                 break
 
