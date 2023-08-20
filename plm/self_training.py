@@ -128,7 +128,7 @@ def model_output_denoiser(y, list_values, denoiser):
         cur_len += l
         cur_len += 1  # seq
     denoiser_output_list = []
-
+    scores = []
     for pred in pred_list:
         denoiser_input = torch.unique_consecutive(pred)
 
@@ -137,12 +137,17 @@ def model_output_denoiser(y, list_values, denoiser):
         min_new_tokens = max(10, int(0.5 * len(denoiser_input)))
         max_new_tokens = min(100, int(1.5 * len(denoiser_input)))
         denoiser_input = denoiser_input.unsqueeze(0)
-        denoiser_output = denoiser.generate(denoiser_input, max_new_tokens=max_new_tokens,
-                                            min_new_tokens=min_new_tokens, top_k=4, num_beams=100)
+
+        denoiser_output_dict = denoiser.generate(denoiser_input, max_new_tokens=max_new_tokens,
+                                                 min_new_tokens=min_new_tokens, top_k=4, num_beams=100,
+                                                 output_scores=True, return_dict_in_generate=True)
+
+        denoiser_output = denoiser_output_dict["sequences"][0]
+        scores.append(denoiser_output_dict.sequences_scores[0].item())
         denoiser_output = torch.unique_consecutive(denoiser_output)[1:-1]
         denoiser_output_list.append(denoiser_output)
 
-    return denoiser_output_list
+    return denoiser_output_list, scores
 
 
 if __name__ == '__main__':
@@ -150,6 +155,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cp', type=str, default="./models/long_marix_2True_30260000.cp")
     parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--score_threshold', type=float, default=0.001)
     parser.add_argument('--top', type=int, default=0, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
     args = parser.parse_args()
@@ -174,8 +180,12 @@ if __name__ == '__main__':
         long_clusters = np.array(long_clusters)[:max_len]
         long_clusters = torch.LongTensor(long_clusters).to(device).unsqueeze(0)
         model_output = model(long_clusters)[0]
-        linear_labels.extend(model_output_denoiser(model_output, sample_clusters, denoiser))
-        linear_features_input.extend(sample_features)
+        denoiser_phonemes, scores = model_output_denoiser(model_output, sample_clusters, denoiser)
+        for i in range(len(scores)):
+            if scores[i] < args.score_threshold:
+                continue
+            linear_labels.append(denoiser_phonemes[i])
+            linear_features_input.append(sample_features[i])
 
         if len(linear_features_input) > BATCH_SIZE:
             inputs_padded = torch.nn.utils.rnn.pad_sequence(
