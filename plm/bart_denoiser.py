@@ -20,17 +20,6 @@ EPOCHS = 200
 BATCH_SIZE = 32
 LR = 0.0001
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MAX_TOKEN = 38
-PAD_TOKEN = 39
-MIN_P = 0.0
-MAX_P = 0.3
-START_TOKEN = 40
-END_TOKEN = 41
-N_TOKENS = 42
-MAX_LENGTH = 100
-EPOCHS = 200
-BATCH_SIZE = 32
-LR = 0.0001
 
 
 class NoiseDataset(Dataset):
