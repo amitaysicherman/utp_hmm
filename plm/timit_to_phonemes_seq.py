@@ -16,6 +16,8 @@ def file_to_phonemes(file):
 
 def get_phonemes(base_dir):
     files = glob.glob(base_dir + "*/*/*.PHN")
+    files = sorted(files)
+    files = [x for x in files if "SA" not in x.split("/")[-1]]
     all_phonemes_indexes = []
     for file in tqdm(files):
         all_phonemes_indexes.append(file_to_phonemes(file))
@@ -27,8 +29,9 @@ def write_phonemes_to_file(base_dir, output_file):
     with open(output_file.replace(".txt", "_IDX.txt"), 'w') as f:
         f.write("\n".join(all_phonemes_indexes))
 
+
 if __name__ == '__main__':
     timit_train = "/cs/labs/adiyoss/amitay.sich/TIMIT/data/TRAIN/"
-    write_phonemes_to_file(timit_train, "data/TIMIT_TRAIN_PH.txt")
+    write_phonemes_to_file(timit_train, "data/TIMIT_NS_TRAIN_PH.txt")
     timit_test = "/cs/labs/adiyoss/amitay.sich/TIMIT/data/TEST/"
-    write_phonemes_to_file(timit_test, "data/TIMIT_TEST_PH.txt")
+    write_phonemes_to_file(timit_test, "data/TIMIT_NS_TEST_PH.txt")
