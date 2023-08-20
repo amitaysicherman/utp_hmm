@@ -13,7 +13,7 @@ from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
 from jiwer import wer
 
-BATCH_SIZE =  32
+BATCH_SIZE = 32
 LR = 1e-3
 EPOCHS = 100
 load_cp = ""
@@ -21,7 +21,7 @@ config_name = "learn_mapping_lr_bart"
 
 ONE = 0
 SPHERE = 2
-MAX_LENGTH =  1024
+MAX_LENGTH = 512
 
 
 PHONEMES_LAST_TOKEN = max(phonemes_to_index.values())
