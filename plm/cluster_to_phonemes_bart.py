@@ -227,12 +227,18 @@ if __name__ == '__main__':
                 losses = []
             if i % 10000 == 0:
                 model.eval()
+                if isinstance(model, torch.nn.DataParallel):
+                    gen_model = model.module
+                else:
+                    gen_model = model
+
+
                 with torch.no_grad():
                     wer_scores = []
                     for x, y in tqdm(train_subset_data):
                         x = x.to(device)
                         y = y[0]
-                        denoiser_output = model.generate(x, max_new_tokens=MAX_LENGTH,
+                        denoiser_output = gen_model.generate(x, max_new_tokens=MAX_LENGTH,
                                                          min_new_tokens=MAX_LENGTH * 0.5, top_k=4,
                                                          num_beams=100).cpu().numpy()[0]
                         pred = " ".join([str(x) for x in pred if x != PAD_TOKEN])
