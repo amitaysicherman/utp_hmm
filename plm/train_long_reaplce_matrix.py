@@ -199,7 +199,7 @@ if __name__ == '__main__':
         model = DataParallel(model)
 
     criterion = nn.CrossEntropyLoss().to(device)
-    config_name = "learn_mapping"
+    config_name = "learn_mapping_ns"
 
     curr_type = ONE
     curr_dup = False
