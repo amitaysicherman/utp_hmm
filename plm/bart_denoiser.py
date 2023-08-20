@@ -110,9 +110,9 @@ def get_model()->BartForConditionalGeneration:
     return model
 
 if __name__ == '__main__':
-    train_dataset = NoiseDataset('data/TIMIT_TRAIN_PH_IDX.txt')
+    train_dataset = NoiseDataset('data/TIMIT_NS_TRAIN_PH_IDX.txt')
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    test_dataset = NoiseDataset('data/TIMIT_TEST_PH_IDX.txt')
+    test_dataset = NoiseDataset('data/TIMIT_NS_TRAIN_PH_IDX.txt')
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
     model = get_model().to(device)
 
@@ -155,9 +155,9 @@ if __name__ == '__main__':
             f.write(f'Epoch {epoch} train wer: {train_wer} test wer: {test_wer}\n')
         if best_test_loss > np.mean(test_loss):
             best_test_loss = np.mean(test_loss)
-            torch.save(model.state_dict(), f'models/bart_denoiser_best_test_loss.cp')
-            torch.save(optimizer.state_dict(), f'models/bart_denoiser_opt_best_test_loss.cp')
+            torch.save(model.state_dict(), f'models/bart_denoiser_ns_test.cp')
+            torch.save(optimizer.state_dict(), f'models/bart_denoiser_ns_test_opt.cp')
         if best_train_loss > np.mean(train_loss):
             best_train_loss = np.mean(train_loss)
-            torch.save(model.state_dict(), f'models/bart_denoiser_best_train_loss.cp')
-            torch.save(optimizer.state_dict(), f'models/bart_denoiser_opt_best_train_loss.cp')
+            torch.save(model.state_dict(), f'models/bart_denoiser_ns_train.cp')
+            torch.save(optimizer.state_dict(), f'models/bart_denoiser_ns_train_opt.cp')
