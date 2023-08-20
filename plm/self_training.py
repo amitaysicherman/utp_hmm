@@ -155,7 +155,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cp', type=str, default="./models/long_marix_2True_30260000.cp")
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--score_threshold', type=float, default=0.001)
+    parser.add_argument('--score_threshold', type=float, default= -0.2)
     parser.add_argument('--top', type=int, default=0, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
     args = parser.parse_args()
