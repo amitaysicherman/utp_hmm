@@ -33,6 +33,7 @@ SEP = PAD_TOKEN + 1
 START_TOKEN = SEP + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
+MAX_DS_SIZE = 4096
 
 
 def random_gaussian(n, dim=2):
@@ -42,10 +43,13 @@ def random_gaussian(n, dim=2):
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, size=1_000_000):
+    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, size=50_000, phonemes_lines_count=-1):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
+        if phonemes_lines_count != -1:
+            phonemes_data = phonemes_data[:phonemes_lines_count]
+
         self.max_len = max_len
         self.type = type_
         self.dup = dup
@@ -154,15 +158,17 @@ class PhonemesDatasetSubset(PhonemesDataset):
         return super().__getitem__(idx)
 
 
-def step_config(cur_type, cur_dup, score):
+def step_config(cur_type, cur_dup, curr_size, score):
     if score > 0.6:
-        if cur_type == ONE:
-            print("Change to sphere", flush=True)
-            return SPHERE, cur_dup
-        if cur_type == SPHERE and not cur_dup:
-            print("Change to dup", flush=True)
-            return SPHERE, True
-    return cur_type, cur_dup
+        if curr_size < MAX_DS_SIZE:
+            curr_size *= 2
+        elif cur_type == ONE:
+            cur_type = SPHERE
+        elif cur_type == SPHERE and not cur_dup:
+            cur_dup = True
+        with open(f"results/{config_name}.txt", 'a') as f:
+            f.write(f"update config {curr_size}, {cur_dup} {cur_dup}\n")
+    return cur_type, cur_dup, curr_size
 
 
 def get_model() -> BartForConditionalGeneration:
@@ -202,12 +208,16 @@ if __name__ == '__main__':
 
     curr_type = ONE
     curr_dup = False
+    curr_size = 2
     curr_acc = 0
     losses = []
     for epoch in range(EPOCHS):
-        curr_type, curr_dup = step_config(curr_type, curr_dup, curr_acc)
-        train_dataset = PhonemesDataset(phonemes_file="data/lr_train.txt", type_=curr_type, dup=curr_dup)
-        train_subset = PhonemesDatasetSubset(phonemes_file="data/lr_train.txt", type_=curr_type, dup=curr_dup)
+        curr_type, curr_dup, curr_size = step_config(curr_type, curr_dup, curr_size,curr_acc)
+        train_dataset = PhonemesDataset(phonemes_file="data/TIMIT_NS_TRAIN_PH_IDX.txt", type_=curr_type, dup=curr_dup,
+                                        phonemes_lines_count=curr_size)
+        train_subset = PhonemesDatasetSubset(phonemes_file="data/TIMIT_NS_TRAIN_PH_IDX.txt", type_=curr_type,
+                                             dup=curr_dup,
+                                             phonemes_lines_count=curr_size)
         train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
         train_subset_data = DataLoader(train_subset, batch_size=1, shuffle=False, drop_last=True)
         model.train()
@@ -223,7 +233,7 @@ if __name__ == '__main__':
 
             if i % 250 == 0:
                 with open(f"results/{config_name}.txt", 'a') as f:
-                    f.write(f"step {i} loss {np.mean(losses)}")
+                    f.write(f"step {i} loss {np.mean(losses)}\n")
                 losses = []
             if i % 10000 == 0:
                 model.eval()
@@ -232,20 +242,19 @@ if __name__ == '__main__':
                 else:
                     gen_model = model
 
-
                 with torch.no_grad():
                     wer_scores = []
                     for x, y in tqdm(train_subset_data):
                         x = x.to(device)
                         y = y[0]
                         denoiser_output = gen_model.generate(x, max_new_tokens=MAX_LENGTH,
-                                                         min_new_tokens=int(MAX_LENGTH * 0.5), top_k=4,
-                                                         num_beams=100).cpu().numpy()[0]
+                                                             min_new_tokens=int(MAX_LENGTH * 0.5), top_k=4,
+                                                             num_beams=100).cpu().numpy()[0]
                         pred = " ".join([str(x) for x in denoiser_output if x != PAD_TOKEN])
                         y = " ".join([str(x) for x in y.cpu().numpy() if x != PAD_TOKEN])
                         wer_scores.append(wer(y, pred))
                 with open(f"results/{config_name}.txt", 'a') as f:
-                    f.write(f"step {i} wer {np.mean(wer_scores)}")
+                    f.write(f"step {i} wer {np.mean(wer_scores)}\n")
 
                 model.train()
 
