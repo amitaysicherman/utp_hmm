@@ -17,7 +17,7 @@ BATCH_SIZE = 32
 LR = 1e-3
 EPOCHS = 100
 load_cp = ""
-config_name = "learn_mapping_lr_bart"
+config_name = "learn_mapping_bart"
 
 ONE = 0
 SPHERE = 2
