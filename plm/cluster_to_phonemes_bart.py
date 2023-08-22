@@ -248,31 +248,33 @@ def get_datasets():
     return train_dataset, train_data, test_dataset, test_data
 
 
-def save(model, optimizer, i, best_score, update_best=False):
-    torch.save({
+def save(model, optimizer, i, best_score, update_best, conf_type, conf_dup, conf_size):
+    data_save = {
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'step': i,
         'best_score': best_score,
-    }, f"models/{config_name}_last.cp")
+        'conf_type': conf_type,
+        'conf_dup': conf_dup,
+        'conf_size': conf_size
+    }
+    torch.save(data_save, f"models/{config_name}_last.cp")
     if update_best:
-        torch.save({
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'step': i,
-            'best_score': best_score,
-        }, f"models/{config_name}_best.cp")
+        torch.save(data_save, f"models/{config_name}_best.cp")
 
 
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0, 0
+        return 0, 0, ONE, False, 2
     checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
     best_score = checkpoint['best_score']
-    return load_step, best_score
+    conf_type = checkpoint['conf_type']
+    conf_dup = checkpoint['conf_dup']
+    conf_size = checkpoint['conf_size']
+    return load_step, best_score, conf_type, conf_dup, conf_size
 
 
 def gen(model: BartForConditionalGeneration, dataset, split_name, i):
@@ -314,11 +316,9 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     load_step = 0
 
-    i, best_test_acc = load_last(model, optimizer)
+    i, best_test_acc,curr_type, curr_dup, curr_size = load_last(model, optimizer)
     model = model.train()
-    curr_type = ONE
-    curr_dup = False
-    curr_size = 2
+
 
     scores = Scores()
     train_dataset, train_data, test_dataset, test_data = get_datasets()
@@ -366,7 +366,10 @@ if __name__ == '__main__':
                 if scores.test_acc > best_test_acc:
                     best_test_acc = scores.test_acc
                     update_best = True
-                save(model, optimizer, i, best_test_acc, update_best=update_best)
+
+
+
+                save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
 
             if i % gen_steps == 0:
                 model.eval()
