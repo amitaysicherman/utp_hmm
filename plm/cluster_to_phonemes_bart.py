@@ -281,7 +281,9 @@ def gen(model: BartForConditionalGeneration, dataset, split_name, i):
         f.write("-----------------------------")
     wer_gen_scores = []
     for j, (x_gen, y_ref) in enumerate(dataset):
+
         x_gen = x_gen.to(device)
+
         min_new_tokens = int(0.25 * MAX_LENGTH)
 
         y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens,
@@ -292,10 +294,12 @@ def gen(model: BartForConditionalGeneration, dataset, split_name, i):
         y_ref = y_ref[0].cpu().numpy().tolist()
         y_ref = " ".join([str(x) for x in y_ref if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
         with open(gen_file, "a") as f:
+            f.write(
+                f'x: {" ".join([str(x) for x in x_gen[0].cpu().numpy().tolist() if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])}\n')
             f.write(f"gen: {y_gen}\n")
-            f.write(f"test: {y_ref}\n\n")
+            f.write(f"ref: {y_ref}\n\n")
         wer_gen_scores.append(wer(y_ref, y_gen))
-        if j > 10:
+        if j > 5:
             break
     print(f"step {i},split {split_name}, wer: {np.mean(wer_gen_scores)}")
 
