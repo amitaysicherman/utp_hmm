@@ -366,8 +366,9 @@ if __name__ == '__main__':
                     best_test_acc = scores.test_acc
                     update_best = True
                 save(model, optimizer, i, best_test_acc, update_best=update_best)
-        if i % gen_steps == 0:
-            model.eval()
-            gen(model, train_data, "train", i)
-            gen(model, test_data, "test", i)
-            model.train()
+
+            if i % gen_steps == 0:
+                model.eval()
+                gen(model, train_data, "train", i)
+                gen(model, test_data, "test", i)
+                model.train()
