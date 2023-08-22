@@ -202,15 +202,19 @@ class PhonemesDataset(Dataset):
 
 
 def step_config(cur_type, cur_dup, curr_size, score):
+    is_update = False
     if score > 0.6:
         if curr_size < MAX_DS_SIZE:
             curr_size *= 2
+            is_update = True
         elif cur_type == ONE:
             cur_type = SPHERE
+            is_update = True
         elif cur_type == SPHERE and not cur_dup:
             cur_dup = True
+            is_update = True
         print(f"update config {curr_size}, {cur_type} {cur_dup}\n", flush=True)
-    return cur_type, cur_dup, curr_size
+    return cur_type, cur_dup, curr_size, is_update
 
 
 def get_model() -> BartForConditionalGeneration:
@@ -288,6 +292,11 @@ if __name__ == '__main__':
             if i % log_steps == 0:
                 scores.mean_train()
                 scores.to_file()
+                curr_type, curr_dup, curr_size, is_update = step_config(curr_type, curr_dup, curr_size, scores.acc)
+                if is_update:
+                    train_dataset.update_data(curr_size)
+                    train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+
             if i % save_update_step == 0:
                 model.eval()
                 with torch.no_grad():
@@ -301,9 +310,7 @@ if __name__ == '__main__':
 
                 model.train()
                 scores.mean_test()
-                curr_type, curr_dup, curr_size = step_config(curr_type, curr_dup, curr_size, scores.acc)
-                train_dataset.update_data(curr_size)
-                train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+                scores.to_file()
                 if scores.test_acc > best_test_acc:
                     best_test_acc = scores.test_acc
                     save(model, optimizer, best_test_acc)
