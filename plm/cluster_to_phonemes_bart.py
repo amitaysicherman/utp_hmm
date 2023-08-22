@@ -246,28 +246,31 @@ def get_datasets():
     return train_dataset, train_data, test_dataset, test_data
 
 
-def save(model, optimizer, i, best_score=None):
+def save(model, optimizer, i, best_score, update_best=False):
     torch.save({
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'step': i,
+        'best_score': best_score,
     }, f"models/{config_name}_last.cp")
-    if best_score:
+    if update_best:
         torch.save({
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'step': i,
+            'best_score': best_score,
         }, f"models/{config_name}_best.cp")
 
 
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0
+        return -1, -1
     checkpoint = torch.load(f"models/{config_name}_last.cp")
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
-    return load_step
+    best_score = checkpoint['best_score']
+    return load_step, best_score
 
 
 def gen(model: BartForConditionalGeneration, dataset, split_name, i):
@@ -302,7 +305,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     load_step = 0
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    i = load_last(model, optimizer)
+    i, best_test_acc = load_last(model, optimizer)
     model = model.to(device)
     model = model.train()
     curr_type = ONE
@@ -310,9 +313,6 @@ if __name__ == '__main__':
     curr_size = 2
 
     scores = Scores()
-
-    best_test_acc = 0
-
     train_dataset, train_data, test_dataset, test_data = get_datasets()
     for epoch in range(EPOCHS):
         pbar = tqdm(train_data, total=len(train_data))
@@ -358,8 +358,8 @@ if __name__ == '__main__':
                 model.train()
                 scores.mean_test()
                 scores.to_file()
+                update_best = False
                 if scores.test_acc > best_test_acc:
                     best_test_acc = scores.test_acc
-                    save(model, optimizer, best_test_acc)
-                else:
-                    save(model, optimizer, None)
+                    update_best = True
+                save(model, optimizer, i, best_test_acc, update_best=update_best)
