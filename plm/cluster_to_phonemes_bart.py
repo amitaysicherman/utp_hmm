@@ -9,11 +9,13 @@ from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
+from jiwer import wer
 
 BATCH_SIZE = 1  # 32
 LR = 1e-4
 log_steps = 500
-save_update_step = 10_000
+save_update_steps = 10_000
+gen_steps = 100_000
 
 phonemes_file = "data/lr_train.txt"
 phonemes_file_test = "data/lr_test.txt"
@@ -21,7 +23,7 @@ MAX_DS_SIZE = 2 ** 17
 
 load_cp = ""
 config_name = "learn_mapping_bart"
-
+gen_file = f"results/{config_name}_gen.txt"
 EPOCHS = 100
 test_size = 100
 train_dataset_size = 50_000
@@ -271,9 +273,13 @@ if __name__ == '__main__':
     best_test_acc = 0
 
     train_dataset, train_data, test_dataset, test_data = get_datasets()
+    i = 0
     for epoch in range(EPOCHS):
         pbar = tqdm(train_data, total=len(train_data))
-        for i, (x_train, y_train) in enumerate(pbar):
+        for x_train, y_train in pbar:
+
+            i += 1
+
             pbar.set_description(scores.to_str())
             x_train = x_train.to(device)
             y_train = y_train.to(device)
@@ -297,7 +303,7 @@ if __name__ == '__main__':
                     train_dataset.update_data(curr_size)
                     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-            if i % save_update_step == 0:
+            if i % save_update_steps == 0:
                 model.eval()
                 with torch.no_grad():
                     for x_test, y_test in test_data:
@@ -307,7 +313,6 @@ if __name__ == '__main__':
                         preds = outputs.logits.argmax(dim=-1)
                         scores.update_value("test_loss_list", outputs.loss.item())
                         scores.update_value("test_acc_list", ((preds == y_test).sum() / y_test.numel()).item())
-
                 model.train()
                 scores.mean_test()
                 scores.to_file()
@@ -316,3 +321,24 @@ if __name__ == '__main__':
                     save(model, optimizer, best_test_acc)
                 else:
                     save(model, optimizer, None)
+
+            if i % gen_steps == 0:
+                model.eval()
+                wer_gen_scores = []
+                with torch.no_grad():
+                    for x_test, y_test in test_data:
+                        x_test = x_test.to(device)
+                        min_new_tokens = int(0.25 * MAX_LENGTH)
+
+                        y_gen = model.generate(x_test, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens,
+                                               top_k=4, num_beams=100)[0]
+                        y_gen = y_gen.cpu().numpy().tolist()
+                        y_test = y_test[0].cpu().numpy().tolist()
+                        y_gen = " ".join([str(x) for x in y_gen if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
+                        y_test = " ".join([str(x) for x in y_test if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
+                        with open(gen_file, "a") as f:
+                            f.write(f"gen: {y_gen}\n")
+                            f.write(f"test: {y_test}\n\n")
+                        wer_gen_scores.append(wer(y_gen, y_test))
+                print(f"step {i}, wer: {np.mean(wer_gen_scores)}")
+                model.train()
