@@ -15,7 +15,6 @@ BATCH_SIZE = 1  # 32
 LR = 1e-4
 log_steps = 500
 save_update_steps = 10_000
-gen_steps = 100_000
 
 phonemes_file = "data/lr_train.txt"
 phonemes_file_test = "data/lr_test.txt"
@@ -332,6 +331,10 @@ if __name__ == '__main__':
             if i % save_update_steps == 0:
                 model.eval()
                 with torch.no_grad():
+
+                    gen(model, train_data, "train", i)
+                    gen(model, test_data, "test", i)
+
                     for x_test, y_test in test_data:
                         x_test = x_test.to(device)
                         y_test = y_test.to(device)
@@ -347,10 +350,3 @@ if __name__ == '__main__':
                     save(model, optimizer, best_test_acc)
                 else:
                     save(model, optimizer, None)
-
-            if i % gen_steps == 0:
-                model.eval()
-                with torch.no_grad():
-                    gen(model, train_data, "train", i)
-                    gen(model, test_data, "test", i)
-                model.train()
