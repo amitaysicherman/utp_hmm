@@ -1,39 +1,86 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G -c20 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G --c5 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
 import random
 from torch.utils.data import Dataset, DataLoader
-from utils import args_parser, save_model_to_name, load_model
 import numpy as np
 import torch
 from tqdm import tqdm
-from mapping import phonemes_to_index
-from torch.nn.parallel import DataParallel
-import torch.nn as nn
+
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
-from jiwer import wer
+from dataclasses import dataclass
 
-BATCH_SIZE = 32
-LR = 1e-3
-EPOCHS = 100
+BATCH_SIZE = 1  # 32
+LR = 1e-4
+log_steps = 500
+save_update_step = 10_000
+
+phonemes_file = "data/lr_train.txt"
+phonemes_file_test = "data/lr_test.txt"
+MAX_DS_SIZE = 2 ** 17
+
 load_cp = ""
 config_name = "learn_mapping_bart"
+
+EPOCHS = 100
+test_size = 100
+train_dataset_size = 50_000
 
 ONE = 0
 SPHERE = 2
 MAX_LENGTH = 512
-
-PHONEMES_LAST_TOKEN = max(phonemes_to_index.values())
+PHONEMES_LAST_TOKEN = 38
 CLUSTERS_FIRST_TOKEN = PHONEMES_LAST_TOKEN + 1
 N_CLUSTERS = 100
 CLUSTERS_LAST_TOKEN = CLUSTERS_FIRST_TOKEN + N_CLUSTERS
-
 PAD_TOKEN = CLUSTERS_LAST_TOKEN + 1
 SEP = PAD_TOKEN + 1
 START_TOKEN = SEP + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
-MAX_DS_SIZE = 4096
+
+
+@dataclass
+class Scores:
+    loss: float = 0
+    acc: float = 0
+    test_loss: float = 0
+    test_acc: float = 0
+    loss_list = None
+    acc_list = None
+    test_loss_list = None
+    test_acc_list = None
+    output_file = f"results/{config_name}.txt"
+
+    def mean_value(self, name, list_name):
+        if getattr(self, list_name) is not None:
+            setattr(self, name, sum(getattr(self, list_name)) / len(getattr(self, list_name)))
+            setattr(self, list_name, None)
+
+    def mean_train(self):
+        self.mean_value("loss", "loss_list")
+        self.mean_value("acc", "acc_list")
+
+    def mean_test(self):
+        self.mean_value("test_loss", "test_loss_list")
+        self.mean_value("test_acc", "test_acc_list")
+
+    def mean_all(self):
+        self.mean_train()
+        self.mean_test()
+
+    def update_value(self, name, score):
+        if not hasattr(self, name):
+            setattr(self, name, [score])
+        else:
+            getattr(self, name).append(score)
+
+    def to_str(self):
+        return f"{self.loss},{self.acc},{self.test_loss},{self.test_acc}"
+
+    def to_file(self):
+        with open(self.output_file, "a") as f:
+            f.write(self.to_str() + "\n")
 
 
 def random_gaussian(n, dim=2):
@@ -43,26 +90,31 @@ def random_gaussian(n, dim=2):
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, size=50_000, phonemes_lines_count=-1):
+    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, size=train_dataset_size, phonemes_lines_count=-1):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
-        phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
-        if phonemes_lines_count != -1:
-            phonemes_data = phonemes_data[:phonemes_lines_count]
-
+        self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
+        self.phonemes_lines_count = phonemes_lines_count
         self.max_len = max_len
         self.type = type_
         self.dup = dup
         self.size = size
+        self.build_data()
 
+    def build_data(self):
+        max_line_index = len(self.phonemes_data) if self.phonemes_lines_count == -1 else self.phonemes_lines_count
         self.data = []
-        for _ in range(size):
+        for _ in range(self.size):
             sample = [START_TOKEN]
-            while len(sample) < max_len:
-                sample += phonemes_data[np.random.randint(0, len(phonemes_data))]
+            while len(sample) < self.max_len:
+                sample += self.phonemes_data[np.random.randint(0, max_line_index)]
                 sample += [SEP]
-            sample = sample[:max_len - 1] + [END_TOKEN]
+            sample = sample[:self.max_len - 1] + [END_TOKEN]
             self.data.append(sample)
+
+    def update_data(self, phonemes_lines_count=-1):
+        self.phonemes_lines_count = phonemes_lines_count
+        self.build_data()
 
     def __len__(self):
         return len(self.data)
@@ -146,16 +198,7 @@ class PhonemesDataset(Dataset):
         clean, noise = self.add_noise(self.data[idx])
         clean = torch.LongTensor(clean)
         noise = torch.LongTensor(noise)
-        return clean, noise
-
-
-class PhonemesDatasetSubset(PhonemesDataset):
-    def __len__(self):
-        return 100
-
-    def __getitem__(self, _):
-        idx = np.random.randint(0, self.size - 1)
-        return super().__getitem__(idx)
+        return noise, clean
 
 
 def step_config(cur_type, cur_dup, curr_size, score):
@@ -166,8 +209,7 @@ def step_config(cur_type, cur_dup, curr_size, score):
             cur_type = SPHERE
         elif cur_type == SPHERE and not cur_dup:
             cur_dup = True
-        with open(f"results/{config_name}.txt", 'a') as f:
-            f.write(f"update config {curr_size}, {cur_dup} {cur_dup}\n")
+        print(f"update config {curr_size}, {cur_type} {cur_dup}\n", flush=True)
     return cur_type, cur_dup, curr_size
 
 
@@ -189,6 +231,25 @@ def get_model() -> BartForConditionalGeneration:
     return model
 
 
+def get_datasets():
+    train_dataset = PhonemesDataset(phonemes_file, type_=curr_type, dup=curr_dup,
+                                    phonemes_lines_count=curr_size)
+    train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    test_dataset = PhonemesDataset(phonemes_file_test, type_=curr_type, dup=curr_dup,
+                                   phonemes_lines_count=curr_size, size=test_size)
+    test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    return train_dataset, train_data, test_dataset, test_data
+
+
+def save(model, optimizer, best_score=None):
+    torch.save(model.state_dict(), f"models/{config_name}_last.cp")
+    torch.save(optimizer.state_dict(), f"models/{config_name}_last_opt.cp")
+    if best_score:
+        torch.save(model.state_dict(), f"models/{config_name}_best.cp")
+        torch.save(optimizer.state_dict(), f"models/{config_name}_best_opt.cp")
+
+
+# main:
 if __name__ == '__main__':
     model = get_model()
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
@@ -196,67 +257,55 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = model.to(device)
-
-    if load_cp:
-        model, optimizer = load_model(load_cp, model, optimizer)
-        load_step = int(load_cp.split("_")[-1].replace(".cp", ""))
-    print("load_step", load_step, flush=True)
-    if torch.cuda.device_count() > 1:
-        model = DataParallel(model)
-
-    criterion = nn.CrossEntropyLoss().to(device)
-
+    model = model.train()
     curr_type = ONE
     curr_dup = False
     curr_size = 2
-    curr_acc = 0
-    losses = []
+
+    scores = Scores()
+
+    best_test_acc = 0
+
+    train_dataset, train_data, test_dataset, test_data = get_datasets()
     for epoch in range(EPOCHS):
-        curr_type, curr_dup, curr_size = step_config(curr_type, curr_dup, curr_size,curr_acc)
-        train_dataset = PhonemesDataset(phonemes_file="data/TIMIT_NS_TRAIN_PH_IDX.txt", type_=curr_type, dup=curr_dup,
-                                        phonemes_lines_count=curr_size)
-        train_subset = PhonemesDatasetSubset(phonemes_file="data/TIMIT_NS_TRAIN_PH_IDX.txt", type_=curr_type,
-                                             dup=curr_dup,
-                                             phonemes_lines_count=curr_size)
-        train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
-        train_subset_data = DataLoader(train_subset, batch_size=1, shuffle=False, drop_last=True)
-        model.train()
-        for i, (x, y) in tqdm(enumerate(train_data), total=len(train_data)):
-            x = x.to(device)
-            y = y.to(device)
-            outputs = model(input_ids=x, labels=y)
-            loss = outputs.loss.mean()
-            loss.backward()
+        pbar = tqdm(train_data, total=len(train_data))
+        for i, (x_train, y_train) in enumerate(pbar):
+            pbar.set_description(scores.to_str())
+            x_train = x_train.to(device)
+            y_train = y_train.to(device)
+
+            outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
+
+            scores.update_value("loss_list", outputs.loss.item())
+
+            preds = outputs.logits.argmax(dim=-1)
+            scores.update_value("acc_list", ((preds == y_train).sum() / y_train.numel()).item())
+
+            outputs.loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            losses.append(loss.item())
 
-            if i % 250 == 0:
-                with open(f"results/{config_name}.txt", 'a') as f:
-                    f.write(f"step {i} loss {np.mean(losses)}\n")
-                losses = []
-            if i % 10000 == 0:
+            if i % log_steps == 0:
+                scores.mean_train()
+                scores.to_file()
+            if i % save_update_step == 0:
                 model.eval()
-                if isinstance(model, torch.nn.DataParallel):
-                    gen_model = model.module
-                else:
-                    gen_model = model
-
                 with torch.no_grad():
-                    wer_scores = []
-                    for x, y in tqdm(train_subset_data):
-                        x = x.to(device)
-                        y = y[0]
-                        denoiser_output = gen_model.generate(x, max_new_tokens=MAX_LENGTH,
-                                                             min_new_tokens=int(MAX_LENGTH * 0.5), top_k=4,
-                                                             num_beams=100).cpu().numpy()[0]
-                        pred = " ".join([str(x) for x in denoiser_output if x != PAD_TOKEN])
-                        y = " ".join([str(x) for x in y.cpu().numpy() if x != PAD_TOKEN])
-                        wer_scores.append(wer(y, pred))
-                with open(f"results/{config_name}.txt", 'a') as f:
-                    f.write(f"step {i} wer {np.mean(wer_scores)}\n")
+                    for x_test, y_test in test_data:
+                        x_test = x_test.to(device)
+                        y_test = y_test.to(device)
+                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
+                        preds = outputs.logits.argmax(dim=-1)
+                        scores.update_value("test_loss_list", outputs.loss.item())
+                        scores.update_value("test_acc_list", ((preds == y_test).sum() / y_test.numel()).item())
 
                 model.train()
-
-                n = len(train_dataset) * epoch + i + load_step
-                save_model_to_name(model, optimizer, f"models/{config_name}_{n}.cp")
+                scores.mean_test()
+                curr_type, curr_dup, curr_size = step_config(curr_type, curr_dup, curr_size, scores.acc)
+                train_dataset.update_data(curr_size)
+                train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+                if scores.test_acc > best_test_acc:
+                    best_test_acc = scores.test_acc
+                    save(model, optimizer, best_test_acc)
+                else:
+                    save(model, optimizer, None)
