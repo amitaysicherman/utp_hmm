@@ -15,6 +15,7 @@ BATCH_SIZE = 1  # 32
 LR = 1e-4
 log_steps = 500
 save_update_steps = 10_000
+gen_steps = 50_000
 
 phonemes_file = "data/lr_train.txt"
 phonemes_file_test = "data/lr_test.txt"
@@ -264,7 +265,7 @@ def save(model, optimizer, i, best_score, update_best=False):
 
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return -1, -1
+        return 0, 0
     checkpoint = torch.load(f"models/{config_name}_last.cp")
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
@@ -345,8 +346,6 @@ if __name__ == '__main__':
 
             if i % save_update_steps == 0:
                 model.eval()
-                gen(model, train_data, "train", i)
-                gen(model, test_data, "test", i)
                 with torch.no_grad():
                     for x_test, y_test in test_data:
                         x_test = x_test.to(device)
@@ -363,3 +362,8 @@ if __name__ == '__main__':
                     best_test_acc = scores.test_acc
                     update_best = True
                 save(model, optimizer, i, best_test_acc, update_best=update_best)
+        if i % gen_steps == 0:
+            model.eval()
+            gen(model, train_data, "train", i)
+            gen(model, test_data, "test", i)
+            model.train()
