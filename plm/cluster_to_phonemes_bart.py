@@ -345,11 +345,9 @@ if __name__ == '__main__':
 
             if i % save_update_steps == 0:
                 model.eval()
+                gen(model, train_data, "train", i)
+                gen(model, test_data, "test", i)
                 with torch.no_grad():
-
-                    gen(model, train_data, "train", i)
-                    gen(model, test_data, "test", i)
-
                     for x_test, y_test in test_data:
                         x_test = x_test.to(device)
                         y_test = y_test.to(device)
