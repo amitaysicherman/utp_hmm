@@ -255,6 +255,32 @@ def save(model, optimizer, best_score=None):
         torch.save(optimizer.state_dict(), f"models/{config_name}_best_opt.cp")
 
 
+def gen(model, dataset, split_name, i):
+    with open(gen_file, "a") as f:
+        f.write("-----------------------------")
+        f.write(f"split: {split_name}\n")
+        f.write("-----------------------------")
+    wer_gen_scores = []
+    for j, (x_gen, y_ref) in enumerate(dataset):
+        x_gen = x_gen.to(device)
+        min_new_tokens = int(0.25 * MAX_LENGTH)
+
+        y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens,
+                               top_k=4, num_beams=100)[0]
+        y_gen = y_gen.cpu().numpy().tolist()
+        y_gen = " ".join([str(x) for x in y_gen if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
+
+        y_ref = y_ref[0].cpu().numpy().tolist()
+        y_ref = " ".join([str(x) for x in y_ref if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
+        with open(gen_file, "a") as f:
+            f.write(f"gen: {y_gen}\n")
+            f.write(f"test: {y_ref}\n\n")
+        wer_gen_scores.append(wer(y_ref, y_gen))
+        if j > 10:
+            break
+    print(f"step {i},split {split_name}, wer: {np.mean(wer_gen_scores)}")
+
+
 # main:
 if __name__ == '__main__':
     model = get_model()
@@ -324,21 +350,7 @@ if __name__ == '__main__':
 
             if i % gen_steps == 0:
                 model.eval()
-                wer_gen_scores = []
                 with torch.no_grad():
-                    for x_test, y_test in test_data:
-                        x_test = x_test.to(device)
-                        min_new_tokens = int(0.25 * MAX_LENGTH)
-
-                        y_gen = model.generate(x_test, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens,
-                                               top_k=4, num_beams=100)[0]
-                        y_gen = y_gen.cpu().numpy().tolist()
-                        y_test = y_test[0].cpu().numpy().tolist()
-                        y_gen = " ".join([str(x) for x in y_gen if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
-                        y_test = " ".join([str(x) for x in y_test if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
-                        with open(gen_file, "a") as f:
-                            f.write(f"gen: {y_gen}\n")
-                            f.write(f"test: {y_test}\n\n")
-                        wer_gen_scores.append(wer(y_gen, y_test))
-                print(f"step {i}, wer: {np.mean(wer_gen_scores)}")
+                    gen(model, train_data, "train", i)
+                    gen(model, test_data, "test", i)
                 model.train()
