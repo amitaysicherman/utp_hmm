@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import torch
 from tqdm import tqdm
-
+import os
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
@@ -246,15 +246,31 @@ def get_datasets():
     return train_dataset, train_data, test_dataset, test_data
 
 
-def save(model, optimizer, best_score=None):
-    torch.save(model.state_dict(), f"models/{config_name}_last.cp")
-    torch.save(optimizer.state_dict(), f"models/{config_name}_last_opt.cp")
+def save(model, optimizer, i, best_score=None):
+    torch.save({
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'step': i,
+    }, f"models/{config_name}_last.cp")
     if best_score:
-        torch.save(model.state_dict(), f"models/{config_name}_best.cp")
-        torch.save(optimizer.state_dict(), f"models/{config_name}_best_opt.cp")
+        torch.save({
+            'model': model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'step': i,
+        }, f"models/{config_name}_best.cp")
 
 
-def gen(model, dataset, split_name, i):
+def load_last(model, optimizer):
+    if not os.path.exists(f"models/{config_name}_last.cp"):
+        return 0
+    checkpoint = torch.load(f"models/{config_name}_last.cp")
+    model.load_state_dict(checkpoint['model'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    load_step = checkpoint['step']
+    return load_step
+
+
+def gen(model: BartForConditionalGeneration, dataset, split_name, i):
     with open(gen_file, "a") as f:
         f.write("-----------------------------")
         f.write(f"split: {split_name}\n")
@@ -286,7 +302,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     load_step = 0
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    i = load_last(model, optimizer)
     model = model.to(device)
     model = model.train()
     curr_type = ONE
@@ -298,7 +314,6 @@ if __name__ == '__main__':
     best_test_acc = 0
 
     train_dataset, train_data, test_dataset, test_data = get_datasets()
-    i = 0
     for epoch in range(EPOCHS):
         pbar = tqdm(train_data, total=len(train_data))
         for x_train, y_train in pbar:
