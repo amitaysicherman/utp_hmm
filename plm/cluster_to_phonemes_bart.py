@@ -40,6 +40,7 @@ SEP = PAD_TOKEN + 1
 START_TOKEN = SEP + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 @dataclass
@@ -266,7 +267,7 @@ def save(model, optimizer, i, best_score, update_best=False):
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
         return 0, 0
-    checkpoint = torch.load(f"models/{config_name}_last.cp")
+    checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
@@ -306,12 +307,14 @@ def gen(model: BartForConditionalGeneration, dataset, split_name, i):
 
 # main:
 if __name__ == '__main__':
+
     model = get_model()
+    model = model.to(device)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     load_step = 0
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     i, best_test_acc = load_last(model, optimizer)
-    model = model.to(device)
     model = model.train()
     curr_type = ONE
     curr_dup = False
@@ -322,9 +325,7 @@ if __name__ == '__main__':
     for epoch in range(EPOCHS):
         pbar = tqdm(train_data, total=len(train_data))
         for x_train, y_train in pbar:
-
             i += 1
-
             pbar.set_description(scores.to_str())
             x_train = x_train.to(device)
             y_train = y_train.to(device)
