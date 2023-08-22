@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G --c5 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G -c5 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
 import random
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
