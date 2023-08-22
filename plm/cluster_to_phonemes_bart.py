@@ -316,9 +316,8 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     load_step = 0
 
-    i, best_test_acc,curr_type, curr_dup, curr_size = load_last(model, optimizer)
+    i, best_test_acc, curr_type, curr_dup, curr_size = load_last(model, optimizer)
     model = model.train()
-
 
     scores = Scores()
     train_dataset, train_data, test_dataset, test_data = get_datasets()
@@ -366,8 +365,6 @@ if __name__ == '__main__':
                 if scores.test_acc > best_test_acc:
                     best_test_acc = scores.test_acc
                     update_best = True
-
-
 
                 save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
 
