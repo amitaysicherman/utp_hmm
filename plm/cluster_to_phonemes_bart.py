@@ -70,7 +70,7 @@ class Scores:
         self.mean_test()
 
     def update_value(self, name, score):
-        if not hasattr(self, name):
+        if getattr(self, name) is None:
             setattr(self, name, [score])
         else:
             getattr(self, name).append(score)
