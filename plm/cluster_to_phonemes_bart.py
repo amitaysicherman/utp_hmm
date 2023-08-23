@@ -243,7 +243,7 @@ def get_datasets():
                                     phonemes_lines_count=curr_size)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     test_dataset = PhonemesDataset(phonemes_file_test, type_=curr_type, dup=curr_dup,
-                                   phonemes_lines_count=curr_size, size=test_size)
+                                   phonemes_lines_count=-1, size=test_size)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     return train_dataset, train_data, test_dataset, test_data
 
@@ -315,7 +315,6 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     load_step = 0
-
     i, best_test_acc, curr_type, curr_dup, curr_size = load_last(model, optimizer)
     model = model.train()
 
