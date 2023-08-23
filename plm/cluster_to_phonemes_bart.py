@@ -24,8 +24,8 @@ MAX_DS_SIZE = 2 ** 17
 load_cp = ""
 config_name = "learn_mapping_bart"
 gen_file = f"results/{config_name}_gen.txt"
-EPOCHS = 100
-test_size = 100
+EPOCHS = 1_000
+test_size = 1_000
 train_dataset_size = 50_000
 
 ONE = 0
