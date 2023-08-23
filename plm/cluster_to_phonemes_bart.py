@@ -290,7 +290,9 @@ def gen(model: BartForConditionalGeneration, dataset, split_name, i):
         min_new_tokens = int(0.25 * MAX_LENGTH)
 
         y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens,
-                               top_k=4, num_beams=100)[0]
+                               top_k=6, num_beams=100, output_scores=True, return_dict_in_generate=True,
+                               num_return_sequences=4)['sequences'][0]
+
         y_gen = y_gen.cpu().numpy().tolist()
         y_gen = " ".join([str(x) for x in y_gen if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
 
