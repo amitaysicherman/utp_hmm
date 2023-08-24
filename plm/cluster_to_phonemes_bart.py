@@ -16,7 +16,7 @@ LR = 1e-4
 log_steps = 500
 save_update_steps = 10_000
 gen_steps = 50_000
-ds = "lr"
+ds = "tm"
 if ds == "lr":
     phonemes_file = "data/lr_train.txt"
     phonemes_file_test = "data/lr_test.txt"
