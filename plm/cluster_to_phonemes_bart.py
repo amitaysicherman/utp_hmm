@@ -124,7 +124,7 @@ class PhonemesDataset(Dataset):
     def update_config(self, type_, dup, size):
         self.type = type_
         self.dup = dup
-        self.samples_count = size
+        self.size = size
         self.build_data()
 
     def __len__(self):
