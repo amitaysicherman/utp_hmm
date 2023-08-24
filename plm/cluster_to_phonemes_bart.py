@@ -106,6 +106,8 @@ class PhonemesDataset(Dataset):
         self.type = type_
         self.dup = dup
         self.samples_count = samples_count
+        self.data = []
+
         self.build_data()
 
     def build_data(self):
@@ -253,10 +255,10 @@ def get_model() -> BartForConditionalGeneration:
 
 def get_datasets():
     train_dataset = PhonemesDataset(phonemes_file, type_=curr_type, dup=curr_dup,
-                                    phonemes_lines_count=curr_size)
+                                    size=curr_size)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     test_dataset = PhonemesDataset(phonemes_file_test, type_=curr_type, dup=curr_dup,
-                                   phonemes_lines_count=-1, size=test_size)
+                                   size=-1, samples_count=test_size)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     return train_dataset, train_data, test_dataset, test_data
 
