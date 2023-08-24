@@ -10,13 +10,20 @@ from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
 from jiwer import wer
+import argparse
 
 BATCH_SIZE = 1  # 32
 LR = 1e-4
 log_steps = 500
 save_update_steps = 10_000
 gen_steps = 50_000
-ds = "lr"
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--ds', type=str, default="lr")
+
+args = parser.parse_args()
+
+ds = args.ds
 if ds == "lr":
     phonemes_file = "data/lr_train.txt"
     phonemes_file_test = "data/lr_test.txt"
