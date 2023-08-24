@@ -16,13 +16,17 @@ LR = 1e-4
 log_steps = 500
 save_update_steps = 10_000
 gen_steps = 50_000
-
-phonemes_file = "data/lr_train.txt"
-phonemes_file_test = "data/lr_test.txt"
-MAX_DS_SIZE = 2 ** 17
-
+ds = "lr"
+if ds == "lr":
+    phonemes_file = "data/lr_train.txt"
+    phonemes_file_test = "data/lr_test.txt"
+    MAX_DS_SIZE = 2 ** 17
+else:
+    phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
+    phonemes_file_test = "data/TIMIT_NS_TEST_PH_IDX.txt"
+    MAX_DS_SIZE = 4000
 load_cp = ""
-config_name = "learn_mapping_bart"
+config_name = f"learn_mapping_bart_{ds}"
 gen_file = f"results/{config_name}_gen.txt"
 EPOCHS = 1_000
 test_size = 1_000
@@ -93,21 +97,21 @@ def random_gaussian(n, dim=2):
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, size=train_dataset_size, phonemes_lines_count=-1):
+    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=-1):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
-        self.phonemes_lines_count = phonemes_lines_count
+        self.size = size
         self.max_len = max_len
         self.type = type_
         self.dup = dup
-        self.size = size
+        self.samples_count = samples_count
         self.build_data()
 
     def build_data(self):
-        max_line_index = len(self.phonemes_data) if self.phonemes_lines_count == -1 else self.phonemes_lines_count
+        max_line_index = len(self.phonemes_data) if self.size == -1 else self.size
         self.data = []
-        for _ in range(self.size):
+        for _ in range(self.samples_count):
             sample = [START_TOKEN]
             while len(sample) < self.max_len:
                 sample += self.phonemes_data[np.random.randint(0, max_line_index)]
@@ -115,8 +119,10 @@ class PhonemesDataset(Dataset):
             sample = sample[:self.max_len - 1] + [END_TOKEN]
             self.data.append(sample)
 
-    def update_data(self, phonemes_lines_count=-1):
-        self.phonemes_lines_count = phonemes_lines_count
+    def update_config(self, type_, dup, size):
+        self.type = type_
+        self.dup = dup
+        self.samples_count = size
         self.build_data()
 
     def __len__(self):
@@ -164,19 +170,29 @@ class PhonemesDataset(Dataset):
         else:
             length = [1] * len(clean)
 
-        final_clean = []
-        final_noise = []
+        final_clean = [clean[0]]  # start token
+        final_noise = [clean[0]]  # start token
         range_units = np.arange(N_CLUSTERS)
-        for c in clean:
-            if len(final_noise) > self.max_len - 1:
+        finish = False
+        for c in clean[1:]:
+            if finish:
                 break
+            if c == SEP:
+                final_clean.append(SEP)
+                final_noise.append(SEP)
+                if len(final_noise) == self.max_len - 1:
+                    final_clean.append(END_TOKEN)
+                    final_noise.append(END_TOKEN)
+                    break
 
-            if c in [START_TOKEN, END_TOKEN, PAD_TOKEN, SEP]:
-                final_clean.append(c)
-                final_noise.append(c)
+            elif c == END_TOKEN:
+                final_clean.append(END_TOKEN)
+                final_noise.append(END_TOKEN)
+                break
             else:
                 final_clean.append(c)
                 for _ in range(length.pop()):
+
                     if self.type == ONE:
                         new_token = random.choice(inv_mapping[c])
                     else:  # self.type == SPHERE:
@@ -184,16 +200,14 @@ class PhonemesDataset(Dataset):
 
                     new_token = CLUSTERS_FIRST_TOKEN + new_token
                     final_noise.append(new_token)
+                    if len(final_noise) == self.max_len - 1:
+                        final_clean.append(END_TOKEN)
+                        final_noise.append(END_TOKEN)
+                        finish = True
+                        break
 
-        if len(final_clean) < MAX_LENGTH:
-            final_clean += [PAD_TOKEN] * (MAX_LENGTH - len(final_clean))
-        if len(final_noise) < MAX_LENGTH:
-            final_noise += [PAD_TOKEN] * (MAX_LENGTH - len(final_noise))
-
-        if len(final_noise) > MAX_LENGTH:
-            final_noise = final_noise[:MAX_LENGTH - 1] + [END_TOKEN]
-        if len(final_clean) > MAX_LENGTH:
-            final_clean = final_clean[:MAX_LENGTH - 1] + [END_TOKEN]
+        final_clean += [PAD_TOKEN] * (MAX_LENGTH - len(final_clean))
+        final_noise += [PAD_TOKEN] * (MAX_LENGTH - len(final_noise))
 
         return final_clean, final_noise
 
@@ -216,7 +230,6 @@ def step_config(cur_type, cur_dup, curr_size, score):
         elif cur_type == SPHERE and not cur_dup:
             cur_dup = True
             is_update = True
-        print(f"update config {curr_size}, {cur_type} {cur_dup}\n", flush=True)
     return cur_type, cur_dup, curr_size, is_update
 
 
@@ -335,7 +348,9 @@ if __name__ == '__main__':
             scores.update_value("loss_list", outputs.loss.item())
 
             preds = outputs.logits.argmax(dim=-1)
-            scores.update_value("acc_list", ((preds == y_train).sum() / y_train.numel()).item())
+            mask = y_train != PAD_TOKEN
+            scores.update_value("acc_list", (
+                    (preds[mask] == y_train[mask]).sum() / y_train[mask].numel()).item())
 
             outputs.loss.backward()
             optimizer.step()
@@ -345,10 +360,12 @@ if __name__ == '__main__':
                 scores.mean_train()
                 scores.to_file()
                 curr_type, curr_dup, curr_size, is_update = step_config(curr_type, curr_dup, curr_size, scores.acc)
-                if is_update:
-                    train_dataset.update_data(curr_size)
-                    train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
+                if is_update:
+                    print(f"step {i}, update config to {curr_type}, {curr_dup}, {curr_size}")
+                    train_dataset.update_config(curr_type, curr_dup, curr_size)
+                    train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+                    break
             if i % save_update_steps == 0:
                 model.eval()
                 with torch.no_grad():
@@ -358,7 +375,9 @@ if __name__ == '__main__':
                         outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
                         preds = outputs.logits.argmax(dim=-1)
                         scores.update_value("test_loss_list", outputs.loss.item())
-                        scores.update_value("test_acc_list", ((preds == y_test).sum() / y_test.numel()).item())
+                        mask = y_test != PAD_TOKEN
+                        scores.update_value("test_acc_list",
+                                            ((preds[mask] == y_test[mask]).sum() / y_test[mask].numel()).item())
                 model.train()
                 scores.mean_test()
                 scores.to_file()
