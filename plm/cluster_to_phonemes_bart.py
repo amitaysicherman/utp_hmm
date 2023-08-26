@@ -344,8 +344,8 @@ if __name__ == '__main__':
     model = model.train()
 
     scores = Scores()
-    train_dataset, train_data, test_dataset, test_data = get_datasets()
     for epoch in range(EPOCHS):
+        train_dataset, train_data, test_dataset, test_data = get_datasets()
         pbar = tqdm(train_data, total=len(train_data))
         for x_train, y_train in pbar:
             i += 1
@@ -373,8 +373,6 @@ if __name__ == '__main__':
 
                 if is_update:
                     print(f"step {i}, update config to {curr_type}, {curr_dup}, {curr_size}")
-                    train_dataset.update_config(curr_type, curr_dup, curr_size)
-                    train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
                     break
             if i % save_update_steps == 0:
                 model.eval()
