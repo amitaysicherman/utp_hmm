@@ -119,6 +119,7 @@ class PhonemesDataset(Dataset):
 
     def build_data(self):
         max_line_index = len(self.phonemes_data) if self.size == -1 else self.size
+        max_line_index = min(max_line_index, len(self.phonemes_data))
         self.data = []
         for _ in range(self.samples_count):
             sample = [START_TOKEN]
