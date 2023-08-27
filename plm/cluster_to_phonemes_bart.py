@@ -19,7 +19,7 @@ gen_steps = 50_000
 warmup_steps = 50
 last_config = False
 parser = argparse.ArgumentParser()
-parser.add_argument('--ds', type=str, default="lr")
+parser.add_argument('--ds', type=str, default="tm")
 
 args = parser.parse_args()
 
@@ -389,7 +389,7 @@ if __name__ == '__main__':
                 model.train()
                 update_best = False
                 if scores.test_acc > best_test_acc:
-                    best_test_acc = scores.test_acc
+                    best_test_acc = scores.test_acc / scores.test_count
                     update_best = True
                 scores.to_file("test")
                 scores.resset_test()
