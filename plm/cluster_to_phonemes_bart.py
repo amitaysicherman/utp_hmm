@@ -14,11 +14,9 @@ import argparse
 
 BATCH_SIZE = 1  # 32
 LR = 1e-4
-log_steps = 500
-save_update_steps = 10_000
+save_update_steps = 1_000
 gen_steps = 50_000
-
-warmup_steps = 100
+warmup_steps = 50
 last_config = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
