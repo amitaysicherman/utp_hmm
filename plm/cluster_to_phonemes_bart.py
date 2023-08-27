@@ -18,6 +18,8 @@ log_steps = 500
 save_update_steps = 10_000
 gen_steps = 50_000
 
+warmup_steps = 100
+last_config = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
 
@@ -56,45 +58,64 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 @dataclass
 class Scores:
-    loss: float = 0
-    acc: float = 0
-    test_loss: float = 0
-    test_acc: float = 0
-    loss_list = None
-    acc_list = None
-    test_loss_list = None
-    test_acc_list = None
+    train_loss = 0.0
+    train_acc = 0.0
+    train_count = 0
+    test_loss = 0.0
+    test_acc = 0.0
+    test_count = 0
+
     output_file = f"results/{config_name}.txt"
 
-    def mean_value(self, name, list_name):
-        if getattr(self, list_name) is not None:
-            setattr(self, name, sum(getattr(self, list_name)) / len(getattr(self, list_name)))
-            setattr(self, list_name, None)
+    def resset_train(self):
+        self.train_loss = 0.0
+        self.train_acc = 0.0
+        self.train_count = 0.0
 
-    def mean_train(self):
-        self.mean_value("loss", "loss_list")
-        self.mean_value("acc", "acc_list")
+    def resset_test(self):
+        self.test_loss = 0.0
+        self.test_acc = 0.0
+        self.test_count = 0
 
-    def mean_test(self):
-        self.mean_value("test_loss", "test_loss_list")
-        self.mean_value("test_acc", "test_acc_list")
+    def reset(self):
+        self.resset_train()
+        self.resset_test()
 
-    def mean_all(self):
-        self.mean_train()
-        self.mean_test()
+    def update_value(self, loss, acc, train_test):
 
-    def update_value(self, name, score):
-        if getattr(self, name) is None:
-            setattr(self, name, [score])
+        if train_test == "train":
+            self.train_loss += loss
+            self.train_acc += acc
+            self.train_count += 1
         else:
-            getattr(self, name).append(score)
+            self.test_loss += loss
+            self.test_acc += acc
+            self.test_count += 1
 
-    def to_str(self):
-        return f"{self.loss},{self.acc},{self.test_loss},{self.test_acc}"
+    def update_values_from_output(self, outputs, y, train_test):
+        loss = outputs.loss.item()
+        preds = outputs.logits.argmax(dim=-1)
+        mask = y != PAD_TOKEN
+        acc = ((preds[mask] == y[mask]).sum() / y[mask].numel()).item()
+        self.update_value(loss, acc, train_test)
 
-    def to_file(self):
-        with open(self.output_file, "a") as f:
-            f.write(self.to_str() + "\n")
+    def train_to_str(self):
+        train_loss = self.train_loss / self.train_count if self.train_count > 0 else 0
+        train_acc = self.train_acc / self.train_count if self.train_count > 0 else 0
+        return f"TRAIN:{train_loss},{train_acc}"
+
+    def test_to_str(self):
+        test_loss = self.test_loss / self.test_count if self.test_count > 0 else 0
+        test_acc = self.test_acc / self.test_count if self.test_count > 0 else 0
+        return f"TEST:{test_loss},{test_acc}"
+
+    def to_file(self, train_test):
+        if train_test == "train":
+            with open(self.output_file, "a") as f:
+                f.write(self.train_to_str() + "\n")
+        else:
+            with open(self.output_file, "a") as f:
+                f.write(self.test_to_str() + "\n")
 
 
 def random_gaussian(n, dim=2):
@@ -339,41 +360,27 @@ if __name__ == '__main__':
     model = model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-    load_step = 0
     i, best_test_acc, curr_type, curr_dup, curr_size = load_last(model, optimizer)
+    print(
+        f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
     model = model.train()
 
     scores = Scores()
     for epoch in range(EPOCHS):
         train_dataset, train_data, test_dataset, test_data = get_datasets()
         pbar = tqdm(train_data, total=len(train_data))
+
         for x_train, y_train in pbar:
             i += 1
-            pbar.set_description(scores.to_str())
             x_train = x_train.to(device)
             y_train = y_train.to(device)
 
             outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
-
-            scores.update_value("loss_list", outputs.loss.item())
-
-            preds = outputs.logits.argmax(dim=-1)
-            mask = y_train != PAD_TOKEN
-            scores.update_value("acc_list", (
-                    (preds[mask] == y_train[mask]).sum() / y_train[mask].numel()).item())
-
+            scores.update_values_from_output(outputs, y_train, "train")
             outputs.loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
-            if i % log_steps == 0:
-                scores.mean_train()
-                scores.to_file()
-                curr_type, curr_dup, curr_size, is_update = step_config(curr_type, curr_dup, curr_size, scores.acc)
-
-                if is_update:
-                    print(f"step {i}, update config to {curr_type}, {curr_dup}, {curr_size}")
-                    break
             if i % save_update_steps == 0:
                 model.eval()
                 with torch.no_grad():
@@ -381,23 +388,32 @@ if __name__ == '__main__':
                         x_test = x_test.to(device)
                         y_test = y_test.to(device)
                         outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
-                        preds = outputs.logits.argmax(dim=-1)
-                        scores.update_value("test_loss_list", outputs.loss.item())
-                        mask = y_test != PAD_TOKEN
-                        scores.update_value("test_acc_list",
-                                            ((preds[mask] == y_test[mask]).sum() / y_test[mask].numel()).item())
+                        scores.update_values_from_output(outputs, y_train, "test")
                 model.train()
-                scores.mean_test()
-                scores.to_file()
                 update_best = False
                 if scores.test_acc > best_test_acc:
                     best_test_acc = scores.test_acc
                     update_best = True
-
+                scores.to_file("test")
+                scores.resset_test()
                 save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
 
-            if i % gen_steps == 0:
-                model.eval()
-                gen(model, train_data, "train", i)
-                gen(model, test_data, "test", i)
-                model.train()
+            # if i % gen_steps == 0:
+            #     model.eval()
+            #     gen(model, train_data, "train", i)
+            #     gen(model, test_data, "test", i)
+            #     model.train()
+
+            if i % warmup_steps == 0:
+                scores.to_file("train")
+
+                if not last_config:
+                    curr_type, curr_dup, curr_size, is_update = step_config(curr_type, curr_dup, curr_size,
+                                                                            scores.train_acc / scores.train_count)
+                    if curr_type == SPHERE and curr_dup and curr_size == MAX_DS_SIZE:
+                        last_config = True
+                    if is_update:
+                        print(f"step {i}, update config to {curr_type}, {curr_dup}, {curr_size}")
+                        config_update_counter = 0
+                        break
+                scores.resset_train()
