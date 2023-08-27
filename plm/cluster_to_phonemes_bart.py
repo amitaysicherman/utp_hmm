@@ -54,6 +54,7 @@ START_TOKEN = SEP + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+output_file = f"results/{config_name}.txt"
 
 
 @dataclass
@@ -64,8 +65,6 @@ class Scores:
     test_loss = 0.0
     test_acc = 0.0
     test_count = 0
-
-    output_file = f"results/{config_name}.txt"
 
     def resset_train(self):
         self.train_loss = 0.0
@@ -111,10 +110,10 @@ class Scores:
 
     def to_file(self, train_test):
         if train_test == "train":
-            with open(self.output_file, "a") as f:
+            with open(output_file, "a") as f:
                 f.write(self.train_to_str() + "\n")
         else:
-            with open(self.output_file, "a") as f:
+            with open(output_file, "a") as f:
                 f.write(self.test_to_str() + "\n")
 
 
@@ -413,7 +412,8 @@ if __name__ == '__main__':
                     if curr_type == SPHERE and curr_dup and curr_size == MAX_DS_SIZE:
                         last_config = True
                     if is_update:
-                        print(f"step {i}, update config to {curr_type}, {curr_dup}, {curr_size}")
+                        with open(output_file, "a") as f:
+                            f.write(f"step {i}, update config to {curr_type}, {curr_dup}, {curr_size}" + "\n")
                         config_update_counter = 0
                         break
                 scores.resset_train()
