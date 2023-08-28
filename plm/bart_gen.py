@@ -19,7 +19,7 @@ def load_last(model):
     return load_step, best_score, conf_type, conf_dup, conf_size
 
 
-def visualize_word_alignment(reference, hypothesis):
+def compute_wer_and_alignment(reference, hypothesis):
     ref_words = reference.split()
     hyp_words = hypothesis.split()
 
@@ -27,6 +27,8 @@ def visualize_word_alignment(reference, hypothesis):
 
     ref_display = []
     hyp_display = []
+
+    S, D, I = 0, 0, 0  # Counters for substitutions, deletions, and insertions
 
     for op, ref_start, ref_end, hyp_start, hyp_end in alignment:
         ref_chunk = ref_words[ref_start:ref_end]
@@ -37,22 +39,27 @@ def visualize_word_alignment(reference, hypothesis):
             hyp_display.extend(hyp_chunk)
         elif op == "replace":
             max_len = max(len(ref_chunk), len(hyp_chunk))
+            S += max_len
             ref_display.extend(['[' + word + ']' for word in ref_chunk] + ['[ ]'] * (max_len - len(ref_chunk)))
             hyp_display.extend(['[' + word + ']' for word in hyp_chunk] + ['[ ]'] * (max_len - len(hyp_chunk)))
         elif op == "delete":
+            D += (ref_end - ref_start)
             ref_display.extend(ref_chunk)
             hyp_display.extend(['[ ]'] * (ref_end - ref_start))
         elif op == "insert":
+            I += (hyp_end - hyp_start)
             ref_display.extend(['[ ]'] * (hyp_end - hyp_start))
             hyp_display.extend(hyp_chunk)
 
-    return ' '.join(ref_display), ' '.join(hyp_display)
+    wer_score = (S + D + I) / len(ref_words)
+    return wer_score, ' '.join(ref_display), ' '.join(hyp_display)
 
 
 # main:
 if __name__ == '__main__':
     output_file = "tmp.txt"
-    os.remove(output_file)
+    if os.path.exists(output_file):
+        os.remove(output_file)
 
     model = get_model()
     model = model.to(device)
@@ -88,6 +95,6 @@ if __name__ == '__main__':
             y_ref = y_ref[0]
 
         for y1, y2 in zip(y_ref, y_gen):
-            vis = visualize_alignment(y1, y2)
+            wer_score, *vis = compute_wer_and_alignment(y1, y2)
             with open(output_file, 'a') as f:
                 f.write("\n".join(vis) + "\n")
