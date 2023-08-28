@@ -96,10 +96,6 @@ if __name__ == '__main__':
 
         y_ref = tensor_to_strings(y_ref[0])
         if len(y_gen) != len(y_ref):
-            with open(output_file, 'a') as f:
-                f.write(f"y_gen: {len(y_gen)}\n")
-                f.write(f"y_ref: {len(y_ref)}\n")
-
             y_gen = [y_gen[0]]
             y_pred = [y_pred[0]]
             y_ref = [y_ref[0]]
