@@ -160,7 +160,6 @@ class PhonemesDataset(Dataset):
             while len(sample) < self.max_len:
 
                 new_sample = self.phonemes_data[np.random.randint(0, max_line_index)]
-                # choose random subset of phonemes with length max_sample_size.
                 if len(new_sample) > max_sample_size:
                     random_start = np.random.randint(0, len(new_sample) - max_sample_size)
                     new_sample = new_sample[random_start:random_start + max_sample_size]

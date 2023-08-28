@@ -1,4 +1,6 @@
+import os
 from cluster_to_phonemes_bart import *
+import Levenshtein
 
 
 def load_last(model):
@@ -16,8 +18,33 @@ def load_last(model):
     return load_step, best_score, conf_type, conf_dup, conf_size
 
 
+def visualize_alignment(reference, hypothesis):
+    alignment = Levenshtein.opcodes(reference, hypothesis)
+    ref_display = []
+    hyp_display = []
+    for op, ref_start, ref_end, hyp_start, hyp_end in alignment:
+        ref_chunk = reference[ref_start:ref_end]
+        hyp_chunk = hypothesis[hyp_start:hyp_end]
+        if op == "equal":
+            ref_display.append(ref_chunk)
+            hyp_display.append(hyp_chunk)
+        elif op == "replace":
+            max_len = max(len(ref_chunk), len(hyp_chunk))
+            ref_display.append('[' + ref_chunk.ljust(max_len) + ']')
+            hyp_display.append('[' + hyp_chunk.ljust(max_len) + ']')
+        elif op == "delete":
+            ref_display.append(ref_chunk)
+            hyp_display.append(' ' * (ref_end - ref_start))
+        elif op == "insert":
+            ref_display.append(' ' * (hyp_end - hyp_start))
+            hyp_display.append(hyp_chunk)
+    return ''.join(ref_display), ''.join(hyp_display)
+
+
 # main:
 if __name__ == '__main__':
+    output_file = "tmp.txt"
+    os.remove(output_file)
 
     model = get_model()
     model = model.to(device)
@@ -36,17 +63,23 @@ if __name__ == '__main__':
 
         min_new_tokens = int(0.25 * MAX_LENGTH)
 
-        y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100)
+        y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100)[0]
 
-        y_gen = y_gen.cpu().numpy().tolist()
-        y_gen = " ".join([str(x) for x in y_gen if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
 
-        y_ref = y_ref[0].cpu().numpy().tolist()
-        y_ref = " ".join([str(x) for x in y_ref if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
-        x_ = x_gen[0].cpu().numpy().tolist()
-        x = " ".join([str(x) for x in x_ if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
+        def tensor_to_strings(t):
+            t = t.cpu().numpy().tolist()
+            s = " ".join([str(x) for x in t if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
+            s_list = s.split(SEP)
+            return s_list
 
-        with open("tmp.txt", 'a') as f:
-            f.write(f'x: {x}\n')
-            f.write(f'gen: {y_gen}\n')
-            f.write(f'ref: {y_ref}\n\n')
+
+        y_gen = tensor_to_strings(y_gen)
+        y_ref = tensor_to_strings(y_ref)
+        if len(y_gen) != len(y_ref):
+            y_gen = y_gen[0]
+            y_ref = y_ref[0]
+
+        for y1, y2 in zip(y_ref, y_gen):
+            vis = visualize_alignment(y1, y2)
+            with open(output_file, 'a') as f:
+                f.write("\n".join(vis) + "\n")
