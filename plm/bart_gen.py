@@ -91,7 +91,8 @@ if __name__ == '__main__':
 
         y_gen = tensor_to_strings(y_gen)
 
-        y_pred = model(x_gen)[0].argmax(dim=-1)
+        y_pred = model(x_gen).logits.argmax(dim=-1)[0]
+        print(y_pred.shape)
         y_pred = tensor_to_strings(y_pred)
 
         y_ref = tensor_to_strings(y_ref[0])
