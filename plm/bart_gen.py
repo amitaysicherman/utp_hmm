@@ -1,4 +1,4 @@
-#sbatch --gres=gpu:1,vmem:24g --mem=75G -c5 --time=7-0 --wrap "python bart_gen.py"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G -c5 --time=7-0 --wrap "python bart_gen.py"
 import os
 from cluster_to_phonemes_bart import *
 import Levenshtein
@@ -70,7 +70,7 @@ if __name__ == '__main__':
         def tensor_to_strings(t):
             t = t.cpu().numpy().tolist()
             s = " ".join([str(x) for x in t if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
-            s_list = s.split(SEP)
+            s_list = s.split(str(SEP))
             return s_list
 
 
