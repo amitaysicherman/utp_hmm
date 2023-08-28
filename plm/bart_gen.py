@@ -2,7 +2,6 @@ from cluster_to_phonemes_bart import *
 
 
 def load_last(model):
-
     if not os.path.exists(f"models/{config_name}_last.cp"):
         return 0, 0, ONE, False, 2
 
@@ -44,7 +43,10 @@ if __name__ == '__main__':
 
         y_ref = y_ref[0].cpu().numpy().tolist()
         y_ref = " ".join([str(x) for x in y_ref if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
-        print(
-            f'x: {" ".join([str(x) for x in x_gen[0].cpu().numpy().tolist() if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])}\n')
-        print(f'gen: {y_gen}\n')
-        print(f'ref: {y_ref}\n\n')
+        x_ = x_gen[0].cpu().numpy().tolist()
+        x = " ".join([str(x) for x in x_ if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
+
+        with open("tmp.txt", 'a') as f:
+            f.write(f'x: {x}\n')
+            f.write(f'gen: {y_gen}\n')
+            f.write(f'ref: {y_ref}\n\n')
