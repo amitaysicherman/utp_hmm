@@ -30,12 +30,16 @@ if ds == "lr":
     MAX_DS_SIZE = 2 ** 17
     train_dataset_size = 100_000
     test_size = 1_000
+    max_sample_size = 20
+
 else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
     phonemes_file_test = "data/TIMIT_NS_TEST_PH_IDX.txt"
     MAX_DS_SIZE = 4000
     train_dataset_size = 1_000
     test_size = 100
+    max_sample_size = 10
+
 load_cp = ""
 config_name = f"learn_mapping_bart_{ds}"
 gen_file = f"results/{config_name}_gen.txt"
@@ -145,7 +149,13 @@ class PhonemesDataset(Dataset):
         for _ in range(self.samples_count):
             sample = [START_TOKEN]
             while len(sample) < self.max_len:
-                sample += self.phonemes_data[np.random.randint(0, max_line_index)]
+
+                new_sample = self.phonemes_data[np.random.randint(0, max_line_index)]
+                # choose random subset of phonemes with length max_sample_size.
+                if len(new_sample) > max_sample_size:
+                    random_start = np.random.randint(0, len(new_sample) - max_sample_size)
+                    new_sample = new_sample[random_start:random_start + max_sample_size]
+                sample += new_sample
                 sample += [SEP]
             sample = sample[:self.max_len - 1] + [END_TOKEN]
             self.data.append(sample)
