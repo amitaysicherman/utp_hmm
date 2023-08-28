@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     for j, (x_gen, y_ref) in enumerate(train_data):
         x_gen = x_gen.to(device)
-
+        y_ref = y_ref.to(device)
         min_new_tokens = int(0.25 * MAX_LENGTH)
 
         y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100)[0]
