@@ -19,27 +19,34 @@ def load_last(model):
     return load_step, best_score, conf_type, conf_dup, conf_size
 
 
-def visualize_alignment(reference, hypothesis):
-    alignment = Levenshtein.opcodes(reference, hypothesis)
+def visualize_word_alignment(reference, hypothesis):
+    ref_words = reference.split()
+    hyp_words = hypothesis.split()
+
+    alignment = Levenshtein.opcodes(ref_words, hyp_words)
+
     ref_display = []
     hyp_display = []
+
     for op, ref_start, ref_end, hyp_start, hyp_end in alignment:
-        ref_chunk = reference[ref_start:ref_end]
-        hyp_chunk = hypothesis[hyp_start:hyp_end]
+        ref_chunk = ref_words[ref_start:ref_end]
+        hyp_chunk = hyp_words[hyp_start:hyp_end]
+
         if op == "equal":
-            ref_display.append(ref_chunk)
-            hyp_display.append(hyp_chunk)
+            ref_display.extend(ref_chunk)
+            hyp_display.extend(hyp_chunk)
         elif op == "replace":
             max_len = max(len(ref_chunk), len(hyp_chunk))
-            ref_display.append('[' + ref_chunk.ljust(max_len) + ']')
-            hyp_display.append('[' + hyp_chunk.ljust(max_len) + ']')
+            ref_display.extend(['[' + word + ']' for word in ref_chunk] + ['[ ]'] * (max_len - len(ref_chunk)))
+            hyp_display.extend(['[' + word + ']' for word in hyp_chunk] + ['[ ]'] * (max_len - len(hyp_chunk)))
         elif op == "delete":
-            ref_display.append(ref_chunk)
-            hyp_display.append(' ' * (ref_end - ref_start))
+            ref_display.extend(ref_chunk)
+            hyp_display.extend(['[ ]'] * (ref_end - ref_start))
         elif op == "insert":
-            ref_display.append(' ' * (hyp_end - hyp_start))
-            hyp_display.append(hyp_chunk)
-    return ''.join(ref_display), ''.join(hyp_display)
+            ref_display.extend(['[ ]'] * (hyp_end - hyp_start))
+            hyp_display.extend(hyp_chunk)
+
+    return ' '.join(ref_display), ' '.join(hyp_display)
 
 
 # main:
