@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G -c5 --time=7-0 --wrap "python bart_gen.py"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=0-12 --wrap "python bart_gen.py"
 import os
 from cluster_to_phonemes_bart import *
 import Levenshtein

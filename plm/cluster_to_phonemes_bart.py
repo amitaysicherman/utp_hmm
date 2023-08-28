@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G -c5 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
 import random
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -376,8 +376,8 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     i, best_test_acc, curr_type, curr_dup, curr_size = load_last(model, optimizer)
-    print(
-        f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
+    with open(output_file, "a") as f:
+        f.write(f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
     model = model.train()
 
     scores = Scores()
