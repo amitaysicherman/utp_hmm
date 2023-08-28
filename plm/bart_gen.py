@@ -98,8 +98,8 @@ if __name__ == '__main__':
             y_gen = [y_gen[0]]
             y_ref = [y_ref[0]]
         for y1, y2 in zip(y_ref, y_gen):
-            wer_score, *vis = compute_wer_and_alignment(y1, y2)
+            # wer_score, *vis = compute_wer_and_alignment(y1, y2)
 
             with open(output_file, 'a') as f:
-                f.write(f"WER: {wer_score}\n")
-                f.write("\n".join(vis) + "\n")
+                # f.write(f"WER: {wer_score}\n")
+                f.write("\n".join([y1, y2]) + "\n")
