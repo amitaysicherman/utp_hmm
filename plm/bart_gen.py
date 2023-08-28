@@ -92,8 +92,11 @@ if __name__ == '__main__':
         y_gen = tensor_to_strings(y_gen)
         y_ref = tensor_to_strings(y_ref)
         if len(y_gen) != len(y_ref):
-            y_gen = y_gen[0]
-            y_ref = y_ref[0]
+            with open(output_file, 'a') as f:
+                f.write(f"y_gen: {len(y_gen)}\n")
+                f.write(f"y_ref: {len(y_ref)}\n")
+            y_gen = [y_gen[0]]
+            y_ref = [y_ref[0]]
         for y1, y2 in zip(y_ref, y_gen):
             wer_score, *vis = compute_wer_and_alignment(y1, y2)
 
