@@ -70,8 +70,9 @@ if __name__ == '__main__':
     train_dataset = PhonemesDataset(phonemes_file, type_=curr_type, dup=curr_dup,
                                     size=curr_size)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    print(
-        f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
+    with open(output_file, "a") as f:
+        f.write(
+            f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
     model = model.train()
 
     for j, (x_gen, y_ref) in enumerate(train_data):
@@ -96,6 +97,7 @@ if __name__ == '__main__':
         y_pred = tensor_to_strings(y_pred)
 
         y_ref = tensor_to_strings(y_ref[0])
+        print(len(y_gen), len(y_pred), len(y_ref))
         if len(y_gen) != len(y_ref):
             y_gen = [y_gen[0]]
             y_pred = [y_pred[0]]
