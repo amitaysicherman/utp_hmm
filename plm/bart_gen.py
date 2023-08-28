@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
         y_gen = tensor_to_strings(y_gen)
 
-        y_pred = model(x_gen).logits.argmax(dim=-1)[0]
+        y_pred = model(input_ids=x_gen, labels=y_ref).logits.argmax(dim=-1)[0]
         print(y_pred.shape)
         y_pred = tensor_to_strings(y_pred)
 
