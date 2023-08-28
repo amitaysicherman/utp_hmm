@@ -22,7 +22,8 @@ def load_last(model):
 def compute_wer_and_alignment(reference, hypothesis):
     ref_words = reference.split()
     hyp_words = hypothesis.split()
-
+    if not len(ref_words) or not len(hyp_words):
+        return len(hyp_words), '', ' '.join(['[ ]'] * len(hyp_words))
     alignment = Levenshtein.opcodes(ref_words, hyp_words)
 
     ref_display = []
