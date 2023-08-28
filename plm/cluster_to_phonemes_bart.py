@@ -28,16 +28,19 @@ if ds == "lr":
     phonemes_file = "data/lr_train.txt"
     phonemes_file_test = "data/lr_test.txt"
     MAX_DS_SIZE = 2 ** 17
+    train_dataset_size = 100_000
+    test_size = 1_000
 else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
     phonemes_file_test = "data/TIMIT_NS_TEST_PH_IDX.txt"
     MAX_DS_SIZE = 4000
+    train_dataset_size = 1_000
+    test_size = 100
 load_cp = ""
 config_name = f"learn_mapping_bart_{ds}"
 gen_file = f"results/{config_name}_gen.txt"
+
 EPOCHS = 1_000
-test_size = 1_000
-train_dataset_size = 50_000
 
 ONE = 0
 SPHERE = 2
