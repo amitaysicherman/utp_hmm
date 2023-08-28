@@ -31,6 +31,10 @@ if ds == "lr":
     train_dataset_size = 100_000
     test_size = 1_000
     max_sample_size = 20
+    d_model = 768
+    nhead = 12
+    num_layers = 12
+
 
 else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
@@ -39,6 +43,11 @@ else:
     train_dataset_size = 1_000
     test_size = 100
     max_sample_size = 10
+
+    d_model = 256
+    nhead = 4
+    num_layers = 4
+
 
 load_cp = ""
 config_name = f"learn_mapping_bart_{ds}"
@@ -275,9 +284,6 @@ def step_config(cur_type, cur_dup, curr_size, score):
 
 
 def get_model() -> BartForConditionalGeneration:
-    d_model = 768
-    nhead = 12
-    num_layers = 12
 
     config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH, encoder_layers=num_layers,
                         encoder_ffn_dim=d_model,
