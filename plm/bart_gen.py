@@ -111,3 +111,4 @@ if __name__ == '__main__':
                 f.write(f"y_ref: {y1}\n")
                 f.write(f"y_pred: {y2}\n")
                 f.write(f"y_gen: {y3}\n")
+                f.write("\n")
