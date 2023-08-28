@@ -90,16 +90,25 @@ if __name__ == '__main__':
 
 
         y_gen = tensor_to_strings(y_gen)
+
+        y_pred = model(x_gen)[0].argmax(dim=-1)
+        y_pred = tensor_to_strings(y_pred)
+
         y_ref = tensor_to_strings(y_ref[0])
         if len(y_gen) != len(y_ref):
             with open(output_file, 'a') as f:
                 f.write(f"y_gen: {len(y_gen)}\n")
                 f.write(f"y_ref: {len(y_ref)}\n")
+
             y_gen = [y_gen[0]]
+            y_pred = [y_pred[0]]
             y_ref = [y_ref[0]]
-        for y1, y2 in zip(y_ref, y_gen):
+
+        for y1, y2, y3 in zip(y_ref, y_pred, y_gen):
             # wer_score, *vis = compute_wer_and_alignment(y1, y2)
 
             with open(output_file, 'a') as f:
                 # f.write(f"WER: {wer_score}\n")
-                f.write("\n".join([y1, y2]) + "\n")
+                f.write(f"y_ref: {y1}\n")
+                f.write(f"y_pred: {y2}\n")
+                f.write(f"y_gen: {y3}\n")
