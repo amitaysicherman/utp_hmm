@@ -17,7 +17,7 @@ EPOCHS = 1_000
 last_config = False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--ds', type=str, default="tm")
+parser.add_argument('--ds', type=str, default="lr")
 parser.add_argument('--model_size', type=str, default="s")
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--lr", type=float, default=1e-4)
