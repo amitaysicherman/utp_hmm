@@ -18,7 +18,7 @@ class HubertFeaturesExtractor:
         self.km = joblib.load(km_path)
 
     def extract_features(self, audio_file):
-        audio, _ = torchaudio.load(audio_file)
+        audio, _ = torchaudio.load(audio_file).to(device)
         features = self.model.extract_features(
             source=audio,
             padding_mask=None,
