@@ -360,7 +360,7 @@ def step_config(cur_type, cur_dup, curr_size, score):
 def get_model() -> BartForConditionalGeneration:
     config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH, encoder_layers=num_layers,
                         encoder_ffn_dim=d_model,
-                        encoder_attention_heads=nhead, decoder_layers=num_layers, decoder_ffn_dim=d_model,
+                        encoder_attention_heads=nhead, decoder_layers=1, decoder_ffn_dim=d_model,
                         decoder_attention_heads=nhead,
                         d_model=d_model, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
                         decoder_start_token_id=START_TOKEN, forced_eos_token_id=END_TOKEN)  # Set vocab size
