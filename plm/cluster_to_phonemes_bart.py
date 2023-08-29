@@ -9,7 +9,6 @@ from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
-from jiwer import wer
 import argparse
 
 save_update_steps = 1_000
@@ -47,12 +46,17 @@ elif model_size == "l":
     d_model = 768
     nhead = 12
     num_layers = 12
+elif model_size == "xl":
+    d_model = 1024
+    nhead = 16
+    num_layers = 16
 else:
     raise ValueError(f"Unknown size {model_size}")
 
 if ds == "lr":
-    phonemes_file = "data/lr_train.txt"
-    phonemes_file_test = "data/lr_test.txt"
+    phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"
+    phonemes_file_test = "data/LIBRISPEECH_TEST_idx.txt"
+    clusters_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
     MAX_DS_SIZE = 2 ** 17
     train_dataset_size = 100_000
     test_size = 1_000
@@ -61,6 +65,8 @@ if ds == "lr":
 else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
     phonemes_file_test = "data/TIMIT_NS_TEST_PH_IDX.txt"
+    clusters_file = "data/TIMIT_NS_TRAIN_CLUSTERS.txt"
+
     MAX_DS_SIZE = 4000
     train_dataset_size = 1_000
     test_size = 100
@@ -377,10 +383,10 @@ def get_datasets():
     test_dataset = PhonemesDataset(phonemes_file_test, type_=curr_type, dup=curr_dup,
                                    size=-1, samples_count=test_size)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    clusters_dataset = ClustersPhonemesDataset(phonemes_file, phonemes_file.replace("PH_IDX", "CLUSTERS"),
-                                               samples_count=curr_size)
-    clusters_data = DataLoader(clusters_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    return train_dataset, train_data, test_dataset, test_data, clusters_dataset, clusters_data
+    # clusters_dataset = ClustersPhonemesDataset(phonemes_file, clusters_file,
+    #                                            samples_count=curr_size)
+    # clusters_data = DataLoader(clusters_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    return train_dataset, train_data, test_dataset, test_data  # , clusters_dataset, clusters_data
 
 
 def save(model, optimizer, i, best_score, update_best, conf_type, conf_dup, conf_size):
@@ -425,7 +431,9 @@ if __name__ == '__main__':
     model = model.train()
     scores = Scores()
     for epoch in range(EPOCHS):
-        train_dataset, train_data, test_dataset, test_data, clusters_dataset, clusters_data = get_datasets()
+        # train_dataset, train_data, test_dataset, test_data, clusters_dataset, clusters_data = get_datasets()
+        train_dataset, train_data, test_dataset, test_data = get_datasets()
+
         pbar = tqdm(train_data, total=len(train_data))
 
         for x_train, y_train in pbar:
@@ -449,12 +457,12 @@ if __name__ == '__main__':
                         scores.update_values_from_output(outputs, y_test, "test")
                     scores.to_file("test")
 
-                    for x_test, y_test in clusters_data:
-                        x_test = x_test.to(device)
-                        y_test = y_test.to(device)
-                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
-                        scores.update_values_from_output(outputs, y_test, "cluster")
-                    scores.to_file("cluster")
+                    # for x_test, y_test in clusters_data:
+                    #     x_test = x_test.to(device)
+                    #     y_test = y_test.to(device)
+                    #     outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
+                    #     scores.update_values_from_output(outputs, y_test, "cluster")
+                    # scores.to_file("cluster")
                 model.train()
                 update_best = False
                 if scores.test_acc > best_test_acc:
@@ -462,7 +470,7 @@ if __name__ == '__main__':
                     update_best = True
 
                 scores.resset_test()
-                scores.reset_cluster()
+                # scores.reset_cluster()
 
                 save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
 
