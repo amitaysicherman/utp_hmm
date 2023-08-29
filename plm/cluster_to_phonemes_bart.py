@@ -23,8 +23,9 @@ parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--max_sample_size", type=int, default=10)
 parser.add_argument("--max_length", type=int, default=512)
+parser.add_argument("--start_mode", type=int, default=1, choices=[0, 1, 2])
 args = parser.parse_args()
-
+start_mode = args.start_mode
 BATCH_SIZE = args.batch_size
 LR = args.lr
 ds = args.ds
@@ -426,6 +427,12 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     i, best_test_acc, curr_type, curr_dup, curr_size = load_last(model, optimizer)
+    if start_mode != 0:
+        curr_type = SPHERE
+        curr_dup = True
+        if start_mode == 2:
+            curr_size = MAX_DS_SIZE
+
     print(
         f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
     model = model.train()
