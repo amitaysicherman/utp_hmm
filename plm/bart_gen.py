@@ -99,7 +99,7 @@ if __name__ == '__main__':
         print(y_ref[:20])
         y_gen = tensor_to_strings(y_gen)
         y_pred = tensor_to_strings(y_pred)
-        y_ref = tensor_to_strings(y_ref[0])
+        y_ref = tensor_to_strings(y_ref)
         print(len(y_gen), len(y_pred), len(y_ref))
         if len(y_gen) != len(y_ref):
             y_gen = [y_gen[0]]
