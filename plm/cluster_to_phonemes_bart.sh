@@ -8,14 +8,14 @@
 
 # Define the args list directly in this file
 readarray -t args_list <<EOL
-lr xl 1 1e-4 50 512
-lr xl 1 1e-4 50 256
-lr m 1 1e-4 50 512
-lr m 1 1e-4 50 256
-lr xl 1 1e-4 10 512
-lr xl 1 1e-4 10 256
-lr m 1 1e-4 10 512
-lr m 1 1e-4 10 256
+lr xl 1 2e-4 50 512
+lr xl 1 2e-4 50 256
+lr m 1 2e-4 50 512
+lr m 1 2e-4 50 256
+lr xl 1 2e-4 10 512
+lr xl 1 2e-4 10 256
+lr m 1 2e-4 10 512
+lr m 1 2e-4 10 256
 EOL
 
 ARGS="${args_list[$SLURM_ARRAY_TASK_ID-1]}"
