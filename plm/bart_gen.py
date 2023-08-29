@@ -93,14 +93,15 @@ if __name__ == '__main__':
 
         y_pred = model(input_ids=x_gen, labels=y_ref).logits.argmax(dim=-1)[0]
         y_ref = y_ref[0]
-        print("----")
-        print(y_gen[:20])
-        print(y_pred[:20])
-        print(y_ref[:20])
+        with open(output_file, 'a') as f:
+            f.write(f"i: {i}\n")
+            f.write(f"y_ref: {y_ref[:20]}\n")
+            f.write(f"y_pred: {y_pred[:20]}\n")
+            f.write(f"y_gen: {y_gen[:20]}\n")
+            f.write("\n")
         y_gen = tensor_to_strings(y_gen)
         y_pred = tensor_to_strings(y_pred)
         y_ref = tensor_to_strings(y_ref)
-        print(len(y_gen), len(y_pred), len(y_ref))
         if len(y_gen) != len(y_ref):
             y_gen = [y_gen[0]]
             y_pred = [y_pred[0]]
