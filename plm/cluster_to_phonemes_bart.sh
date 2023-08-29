@@ -2,7 +2,7 @@
 #SBATCH --time=0-12
 #SBATCH --mem=32g
 #SBATCH --cpus-per-task=4
-#SBATCH --array=1-8
+#SBATCH --array=1-24
 #SBATCH --gres=gpu,vmem:8g
 #SBATCH --killable
 #SBATCH --requeue
