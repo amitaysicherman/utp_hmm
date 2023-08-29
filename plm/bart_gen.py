@@ -1,5 +1,8 @@
 # sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=0-12 --wrap "python bart_gen.py"
 import os
+
+import torch
+
 from cluster_to_phonemes_bart import *
 import Levenshtein
 
@@ -92,11 +95,13 @@ if __name__ == '__main__':
 
 
         y_pred = model(input_ids=x_gen, labels=y_ref).logits.argmax(dim=-1)[0]
+        y_pred2 = model(input_ids=torch.ones_like(x_gen) + CLUSTERS_FIRST_TOKEN, labels=y_ref).logits.argmax(dim=-1)[0]
         y_ref = y_ref[0]
         with open(output_file, 'a') as f:
             f.write(f"i: {i}\n")
             f.write(f"y_ref: {y_ref[:20]}\n")
             f.write(f"y_pred: {y_pred[:20]}\n")
+            f.write(f"y_pred2: {y_pred2[:20]}\n")
             f.write(f"y_gen: {y_gen[:20]}\n")
             f.write("\n")
         y_gen = tensor_to_strings(y_gen)
