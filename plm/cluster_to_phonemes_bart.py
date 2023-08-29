@@ -92,6 +92,9 @@ class Scores:
     test_loss = 0.0
     test_acc = 0.0
     test_count = 0
+    cluster_loss = 0.0
+    cluster_acc = 0.0
+    cluster_count = 0
 
     def resset_train(self):
         self.train_loss = 0.0
@@ -103,9 +106,15 @@ class Scores:
         self.test_acc = 0.0
         self.test_count = 0
 
+    def reset_cluster(self):
+        self.cluster_loss = 0.0
+        self.cluster_acc = 0.0
+        self.cluster_count = 0
+
     def reset(self):
         self.resset_train()
         self.resset_test()
+        self.reset_cluster()
 
     def update_value(self, loss, acc, train_test):
 
@@ -113,10 +122,16 @@ class Scores:
             self.train_loss += loss
             self.train_acc += acc
             self.train_count += 1
-        else:
+        elif train_test == "test":
             self.test_loss += loss
             self.test_acc += acc
             self.test_count += 1
+        elif train_test == "cluster":
+            self.cluster_loss += loss
+            self.cluster_acc += acc
+            self.cluster_count += 1
+        else:
+            raise ValueError("Unknown train_test")
 
     def update_values_from_output(self, outputs, y, train_test):
         loss = outputs.loss.item()
@@ -135,19 +150,60 @@ class Scores:
         test_acc = self.test_acc / self.test_count if self.test_count > 0 else 0
         return f"TEST:{test_loss},{test_acc}"
 
+    def cluster_to_str(self):
+        cluster_loss = self.cluster_loss / self.cluster_count if self.cluster_count > 0 else 0
+        cluster_acc = self.cluster_acc / self.cluster_count if self.cluster_count > 0 else 0
+        return f"CLUSTER:{cluster_loss},{cluster_acc}"
+
     def to_file(self, train_test):
         if train_test == "train":
             with open(output_file, "a") as f:
                 f.write(self.train_to_str() + "\n")
-        else:
+        elif train_test == "test":
             with open(output_file, "a") as f:
                 f.write(self.test_to_str() + "\n")
+        elif train_test == "cluster":
+            with open(output_file, "a") as f:
+                f.write(self.cluster_to_str() + "\n")
+        else:
+            raise ValueError("Unknown train_test")
 
 
 def random_gaussian(n, dim=2):
     point = np.random.normal(size=(n, dim))
     point /= np.linalg.norm(point, axis=1, keepdims=True)
     return point
+
+
+class ClustersPhonemesDataset(Dataset):
+    def __init__(self, phonemes_file, clusters_file, max_len=MAX_LENGTH, samples_count=train_dataset_size):
+        with open(phonemes_file, 'r') as f:
+            phonemes_data = f.readlines()
+        self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
+        with open(clusters_file, 'r') as f:
+            clusters_data = f.readlines()
+        self.clusters_data = [[int(x) for x in line.strip().split()] for line in clusters_data]
+        self.clusters_data = [[CLUSTERS_FIRST_TOKEN + x for x in line] for line in self.clusters_data]
+        self.max_len = max_len
+        self.data = []
+        self.clusters = []
+        for _ in range(samples_count):
+            sample = [START_TOKEN]
+            cluster_sample = [START_TOKEN]
+            while len(sample) < self.max_len and len(cluster_sample) < self.max_len:
+                new_index = np.random.randint(0, len(self.phonemes_data))
+                sample += self.phonemes_data[new_index] + [SEP]
+                cluster_sample = self.clusters_data[new_index] + [SEP]
+            sample = sample[:self.max_len - 1] + [END_TOKEN]
+            cluster_sample = cluster_sample[:self.max_len - 1] + [END_TOKEN]
+            self.clusters.append(cluster_sample)
+            self.data.append(sample)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return torch.LongTensor(self.clusters[idx]), torch.LongTensor(self.data[idx])
 
 
 class PhonemesDataset(Dataset):
@@ -316,7 +372,10 @@ def get_datasets():
     test_dataset = PhonemesDataset(phonemes_file_test, type_=curr_type, dup=curr_dup,
                                    size=-1, samples_count=test_size)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    return train_dataset, train_data, test_dataset, test_data
+    clusters_dataset = ClustersPhonemesDataset(phonemes_file, phonemes_file.replace("PH_IDX", "CLUSTERS"),
+                                               samples_count=curr_size)
+    clusters_data = DataLoader(clusters_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    return train_dataset, train_data, test_dataset, test_data, clusters_dataset, clusters_data
 
 
 def save(model, optimizer, i, best_score, update_best, conf_type, conf_dup, conf_size):
@@ -348,38 +407,6 @@ def load_last(model, optimizer):
     return load_step, best_score, conf_type, conf_dup, conf_size
 
 
-def gen(model: BartForConditionalGeneration, dataset, split_name, i):
-    with open(gen_file, "a") as f:
-        f.write("-----------------------------")
-        f.write(f"split: {split_name}\n")
-        f.write("-----------------------------")
-    wer_gen_scores = []
-    for j, (x_gen, y_ref) in enumerate(dataset):
-
-        x_gen = x_gen.to(device)
-
-        min_new_tokens = int(0.25 * MAX_LENGTH)
-
-        y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens,
-                               top_k=6, num_beams=100, output_scores=True, return_dict_in_generate=True,
-                               num_return_sequences=4)['sequences'][0]
-
-        y_gen = y_gen.cpu().numpy().tolist()
-        y_gen = " ".join([str(x) for x in y_gen if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
-
-        y_ref = y_ref[0].cpu().numpy().tolist()
-        y_ref = " ".join([str(x) for x in y_ref if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])
-        with open(gen_file, "a") as f:
-            f.write(
-                f'x: {" ".join([str(x) for x in x_gen[0].cpu().numpy().tolist() if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN, SEP]])}\n')
-            f.write(f"gen: {y_gen}\n")
-            f.write(f"ref: {y_ref}\n\n")
-        wer_gen_scores.append(wer(y_ref, y_gen))
-        if j > 5:
-            break
-    print(f"step {i},split {split_name}, wer: {np.mean(wer_gen_scores)}")
-
-
 # main:
 if __name__ == '__main__':
 
@@ -394,7 +421,7 @@ if __name__ == '__main__':
 
     scores = Scores()
     for epoch in range(EPOCHS):
-        train_dataset, train_data, test_dataset, test_data = get_datasets()
+        train_dataset, train_data, test_dataset, test_data, clusters_dataset, clusters_data = get_datasets()
         pbar = tqdm(train_data, total=len(train_data))
 
         for x_train, y_train in pbar:
@@ -415,21 +442,25 @@ if __name__ == '__main__':
                         x_test = x_test.to(device)
                         y_test = y_test.to(device)
                         outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
-                        scores.update_values_from_output(outputs, y_train, "test")
+                        scores.update_values_from_output(outputs, y_test, "test")
+                    scores.to_file("test")
+
+                    for x_test, y_test in clusters_data:
+                        x_test = x_test.to(device)
+                        y_test = y_test.to(device)
+                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
+                        scores.update_values_from_output(outputs, y_test, "cluster")
+                    scores.to_file("cluster")
                 model.train()
                 update_best = False
                 if scores.test_acc > best_test_acc:
                     best_test_acc = scores.test_acc / scores.test_count
                     update_best = True
-                scores.to_file("test")
-                scores.resset_test()
-                save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
 
-            # if i % gen_steps == 0:
-            #     model.eval()
-            #     gen(model, train_data, "train", i)
-            #     gen(model, test_data, "test", i)
-            #     model.train()
+                scores.resset_test()
+                scores.reset_cluster()
+
+                save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
 
             if i % warmup_steps == 0:
                 scores.to_file("train")
