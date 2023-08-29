@@ -29,7 +29,7 @@ class HubertFeaturesExtractor:
         return clusters
 
 
-def save_timit_feaures(timit_base, output_base, hubert_cp, km_model):
+def save_timit_feaures(timit_base, output_file, hubert_cp, km_model):
     hfe = HubertFeaturesExtractor(hubert_cp, km_model)
     files = glob.glob(timit_base + "*/*/*.PHN")
     files = sorted(files)
@@ -41,7 +41,7 @@ def save_timit_feaures(timit_base, output_base, hubert_cp, km_model):
         new_clusters = [str(x) for x in new_clusters]
         new_clusters = " ".join(new_clusters)
         clusters.append(new_clusters)
-    with open(os.path.join(output_base, "clusters.txt"), 'w') as f:
+    with open(output_file, 'w') as f:
         f.write("\n".join(clusters))
 
 
