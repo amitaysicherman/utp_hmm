@@ -34,7 +34,7 @@ def save_timit_feaures(timit_base, output_file, hubert_cp, km_model):
     files = glob.glob(timit_base + "*/*/*.PHN")
     files = sorted(files)
     files = [x for x in files if "SA" not in x.split("/")[-1]]
-    files = [x.replace(".PHN", "WAV") for x in files]
+    files = [x.replace(".PHN", ".WAV") for x in files]
     clusters = []
     for audio_file in tqdm(files):
         new_clusters = hfe.extract_features(audio_file)
