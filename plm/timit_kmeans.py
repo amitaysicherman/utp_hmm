@@ -39,7 +39,10 @@ def save_timit_feaures(timit_base, output_file, hubert_cp, km_model):
     clusters = []
     for audio_file in tqdm(files):
         new_clusters = hfe.extract_features(audio_file)
+        new_clusters = [new_clusters[0]] + [new_clusters[i] for i in range(1, len(new_clusters)) if
+                                            new_clusters[i] != new_clusters[i - 1]]
         new_clusters = [str(x) for x in new_clusters]
+
         new_clusters = " ".join(new_clusters)
         clusters.append(new_clusters)
     with open(output_file, 'w') as f:
