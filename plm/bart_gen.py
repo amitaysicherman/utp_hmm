@@ -80,7 +80,8 @@ if __name__ == '__main__':
         y_ref = y_ref.to(device)
         min_new_tokens = int(0.25 * MAX_LENGTH)
 
-        y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100)[0]
+        y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100,
+                               decoder_start_token_id=START_TOKEN)[0]
 
 
         def tensor_to_strings(t):
@@ -91,7 +92,7 @@ if __name__ == '__main__':
 
 
         y_pred = model(input_ids=x_gen, labels=y_ref).logits.argmax(dim=-1)[0]
-        y_ref=y_ref[0]
+        y_ref = y_ref[0]
         print("----")
         print(y_gen[:20])
         print(y_pred[:20])
