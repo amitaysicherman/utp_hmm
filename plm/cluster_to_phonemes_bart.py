@@ -183,6 +183,12 @@ class ClustersPhonemesDataset(Dataset):
         with open(clusters_file, 'r') as f:
             clusters_data = f.readlines()
         self.clusters_data = [[int(x) for x in line.strip().split()] for line in clusters_data]
+
+        SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41, 47, 54,
+                                 55, 56, 57, 60, 63, 66, 67, 71, 74, 78, 81, 83, 84, 86, 89, 92, 93,
+                                 96])
+        self.clusters_data = [[x for x in line if x not in SIL_CLUSTERS] for line in self.clusters_data]
+
         self.clusters_data = [[CLUSTERS_FIRST_TOKEN + x for x in line] for line in self.clusters_data]
         self.max_len = max_len
         self.data = []
