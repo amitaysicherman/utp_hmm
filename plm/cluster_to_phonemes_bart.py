@@ -12,28 +12,50 @@ from dataclasses import dataclass
 from jiwer import wer
 import argparse
 
-BATCH_SIZE = 1  # 32
-LR = 1e-4
 save_update_steps = 1_000
-gen_steps = 50_000
 warmup_steps = 50
+EPOCHS = 1_000
 last_config = False
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="tm")
-
+parser.add_argument('--model_size', type=str, default="s")
+parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--lr", type=float, default=1e-4)
+parser.add_argument("--max_sample_size", type=int, default=10)
+parser.add_argument("--max_length", type=int, default=512)
 args = parser.parse_args()
 
+BATCH_SIZE = args.batch_size
+LR = args.lr
 ds = args.ds
+max_sample_size = args.max_sample_size
+model_size = args.model_size
+MAX_LENGTH = args.max_length
+
+config_name = f"learn_mapping_bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{max_sample_size}_{MAX_LENGTH}"
+
+if model_size == "s":
+    d_model = 256
+    nhead = 4
+    num_layers = 4
+elif model_size == "m":
+    d_model = 512
+    nhead = 8
+    num_layers = 8
+elif model_size == "l":
+    d_model = 768
+    nhead = 12
+    num_layers = 12
+else:
+    raise ValueError(f"Unknown size {model_size}")
+
 if ds == "lr":
     phonemes_file = "data/lr_train.txt"
     phonemes_file_test = "data/lr_test.txt"
     MAX_DS_SIZE = 2 ** 17
     train_dataset_size = 100_000
     test_size = 1_000
-    max_sample_size = 20
-    d_model = 768
-    nhead = 12
-    num_layers = 12
 
 
 else:
@@ -42,22 +64,14 @@ else:
     MAX_DS_SIZE = 4000
     train_dataset_size = 1_000
     test_size = 100
-    max_sample_size = 10
 
-    d_model = 256
-    nhead = 4
     num_layers = 4
 
-
-load_cp = ""
-config_name = f"learn_mapping_bart_{ds}"
-gen_file = f"results/{config_name}_gen.txt"
-
-EPOCHS = 1_000
+# gen_file = f"results/{config_name}_gen.txt"
+output_file = f"results/{config_name}.txt"
 
 ONE = 0
 SPHERE = 2
-MAX_LENGTH = 512
 PHONEMES_LAST_TOKEN = 38
 CLUSTERS_FIRST_TOKEN = PHONEMES_LAST_TOKEN + 1
 N_CLUSTERS = 100
@@ -68,7 +82,6 @@ START_TOKEN = SEP + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-output_file = f"results/{config_name}.txt"
 
 
 @dataclass
@@ -283,7 +296,6 @@ def step_config(cur_type, cur_dup, curr_size, score):
 
 
 def get_model() -> BartForConditionalGeneration:
-
     config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH, encoder_layers=num_layers,
                         encoder_ffn_dim=d_model,
                         encoder_attention_heads=nhead, decoder_layers=num_layers, decoder_ffn_dim=d_model,
