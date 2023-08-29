@@ -33,7 +33,7 @@ max_sample_size = args.max_sample_size
 model_size = args.model_size
 MAX_LENGTH = args.max_length
 
-config_name = f"learn_mapping_bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{max_sample_size}_{MAX_LENGTH}"
+config_name = f"learn_mapping_bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{max_sample_size}_{MAX_LENGTH}_{start_mode}"
 
 if model_size == "s":
     d_model = 256
