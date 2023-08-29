@@ -424,7 +424,6 @@ if __name__ == '__main__':
     print(
         f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
     model = model.train()
-
     scores = Scores()
     for epoch in range(EPOCHS):
         train_dataset, train_data, test_dataset, test_data, clusters_dataset, clusters_data = get_datasets()

@@ -90,12 +90,14 @@ if __name__ == '__main__':
             return s_list
 
 
-        y_gen = tensor_to_strings(y_gen)
-
         y_pred = model(input_ids=x_gen, labels=y_ref).logits.argmax(dim=-1)[0]
-        print(y_pred.shape)
+        y_ref=y_ref[0]
+        print("----")
+        print(y_gen[:20])
+        print(y_pred[:20])
+        print(y_ref[:20])
+        y_gen = tensor_to_strings(y_gen)
         y_pred = tensor_to_strings(y_pred)
-
         y_ref = tensor_to_strings(y_ref[0])
         print(len(y_gen), len(y_pred), len(y_ref))
         if len(y_gen) != len(y_ref):
