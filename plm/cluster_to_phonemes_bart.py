@@ -19,8 +19,8 @@ last_config = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
 parser.add_argument('--model_size', type=str, default="s")
-parser.add_argument("--batch_size", type=int, default=1)
-parser.add_argument("--lr", type=float, default=1e-4)
+parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--lr", type=float, default=1e-5)
 parser.add_argument("--max_sample_size", type=int, default=10)
 parser.add_argument("--max_length", type=int, default=512)
 parser.add_argument("--start_mode", type=int, default=1, choices=[0, 1, 2])
@@ -34,7 +34,8 @@ model_size = args.model_size
 MAX_LENGTH = args.max_length
 
 config_name = f"learn_mapping_bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{max_sample_size}_{MAX_LENGTH}_{start_mode}"
-
+train_dataset_size = 10_000
+test_size = 500
 if model_size == "s":
     d_model = 256
     nhead = 4
@@ -55,24 +56,18 @@ else:
     raise ValueError(f"Unknown size {model_size}")
 
 if ds == "lr":
-    phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"
+    phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"  # TODO train
     phonemes_file_test = "data/LIBRISPEECH_TEST_idx.txt"
-    clusters_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
+    clusters_file = "data/LIBRISPEECH_TEST_clusters.txt"  # TODO train
     MAX_DS_SIZE = 2 ** 17
-    train_dataset_size = 100_000
-    test_size = 1_000
+
 
 
 else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
     phonemes_file_test = "data/TIMIT_NS_TEST_PH_IDX.txt"
     clusters_file = "data/TIMIT_NS_TRAIN_CLUSTERS.txt"
-
     MAX_DS_SIZE = 4000
-    train_dataset_size = 1_000
-    test_size = 100
-
-    num_layers = 4
 
 # gen_file = f"results/{config_name}_gen.txt"
 output_file = f"results/{config_name}.txt"
@@ -176,41 +171,48 @@ class Scores:
             raise ValueError("Unknown train_test")
 
 
-def random_gaussian(n, dim=2):
-    point = np.random.normal(size=(n, dim))
-    point /= np.linalg.norm(point, axis=1, keepdims=True)
-    return point
+SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41, 47, 54,
+                         55, 56, 57, 60, 63, 66, 67, 71, 74, 78, 81, 83, 84, 86, 89, 92, 93,
+                         96])
 
 
 class ClustersPhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, clusters_file, max_len=MAX_LENGTH, samples_count=train_dataset_size):
+    def __init__(self, phonemes_file, clusters_file, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=-1):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
         with open(clusters_file, 'r') as f:
             clusters_data = f.readlines()
         self.clusters_data = [[int(x) for x in line.strip().split()] for line in clusters_data]
-
-        SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41, 47, 54,
-                                 55, 56, 57, 60, 63, 66, 67, 71, 74, 78, 81, 83, 84, 86, 89, 92, 93,
-                                 96])
         self.clusters_data = [[x for x in line if x not in SIL_CLUSTERS] for line in self.clusters_data]
-
         self.clusters_data = [[CLUSTERS_FIRST_TOKEN + x for x in line] for line in self.clusters_data]
         self.max_len = max_len
         self.data = []
         self.clusters = []
+        max_line_index = len(self.phonemes_data) if size == -1 else size
+        max_line_index = min(max_line_index, len(self.phonemes_data))
         for _ in range(samples_count):
             sample = [START_TOKEN]
             cluster_sample = [START_TOKEN]
-            while len(sample) < self.max_len and len(cluster_sample) < self.max_len:
-                new_index = np.random.randint(0, len(self.phonemes_data))
-                sample += self.phonemes_data[new_index] + [SEP]
-                cluster_sample = self.clusters_data[new_index] + [SEP]
-            sample = sample[:self.max_len - 1] + [END_TOKEN]
-            cluster_sample = cluster_sample[:self.max_len - 1] + [END_TOKEN]
-            self.clusters.append(cluster_sample)
+
+            while True:
+                new_index = np.random.randint(0, max_line_index)
+                new_sample = self.phonemes_data[new_index][:] + [SEP]
+                new_cluster_sample = self.clusters_data[new_index][:] + [SEP]
+
+                if (len(sample) + len(new_sample) >= self.max_len - 1) or (
+                        len(cluster_sample) + len(new_cluster_sample) >= self.max_len):
+                    break
+
+                sample += new_sample
+                cluster_sample += new_cluster_sample
+
+            sample += [END_TOKEN]
+            cluster_sample += [END_TOKEN]
+            sample += [PAD_TOKEN] * (self.max_len - len(sample))
+            cluster_sample += [PAD_TOKEN] * (self.max_len - len(cluster_sample))
             self.data.append(sample)
+            self.clusters.append(cluster_sample)
 
     def __len__(self):
         return len(self.data)
@@ -219,45 +221,11 @@ class ClustersPhonemesDataset(Dataset):
         return torch.LongTensor(self.clusters[idx]), torch.LongTensor(self.data[idx])
 
 
-class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=-1):
-        with open(phonemes_file, 'r') as f:
-            phonemes_data = f.readlines()
-        self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
-        self.size = size
-        self.max_len = max_len
-        self.type = type_
-        self.dup = dup
-        self.samples_count = samples_count
-        self.data = []
-
-        self.build_data()
-
-    def build_data(self):
-        max_line_index = len(self.phonemes_data) if self.size == -1 else self.size
-        max_line_index = min(max_line_index, len(self.phonemes_data))
-        self.data = []
-        for _ in range(self.samples_count):
-            sample = [START_TOKEN]
-            while len(sample) < self.max_len:
-
-                new_sample = self.phonemes_data[np.random.randint(0, max_line_index)]
-                if len(new_sample) > max_sample_size:
-                    random_start = np.random.randint(0, len(new_sample) - max_sample_size)
-                    new_sample = new_sample[random_start:random_start + max_sample_size]
-                sample += new_sample
-                sample += [SEP]
-            sample = sample[:self.max_len - 1] + [END_TOKEN]
-            self.data.append(sample)
-
-    def update_config(self, type_, dup, size):
-        self.type = type_
-        self.dup = dup
-        self.size = size
-        self.build_data()
-
-    def __len__(self):
-        return len(self.data)
+class NoiseAdder:
+    def __init__(self, do_duplicate: bool, sphere_noise: bool):
+        self.do_duplicate = do_duplicate
+        self.sphere_noise = sphere_noise
+        self.range_units = np.arange(N_CLUSTERS)
 
     def build_mapping_one(self):
         units_mapping = list(range(PHONEMES_LAST_TOKEN + 1))
@@ -270,9 +238,14 @@ class PhonemesDataset(Dataset):
             inv_mapping[u].append(i)
         return inv_mapping
 
+    def random_gaussian(self, n, dim=2):
+        point = np.random.normal(size=(n, dim))
+        point /= np.linalg.norm(point, axis=1, keepdims=True)
+        return point
+
     def build_mapping_sphere(self):
-        phonemes = random_gaussian(PHONEMES_LAST_TOKEN + 1)
-        clusters = random_gaussian(N_CLUSTERS)
+        phonemes = self.random_gaussian(PHONEMES_LAST_TOKEN + 1)
+        clusters = self.random_gaussian(N_CLUSTERS)
         cosine_distances = 100 * (1 - cdist(phonemes, clusters, metric='cosine'))
         probabilities = softmax(cosine_distances, axis=0)
         probabilities = probabilities / np.sum(probabilities, axis=1, keepdims=True)
@@ -280,72 +253,89 @@ class PhonemesDataset(Dataset):
         return probabilities
 
     def build_mapping(self):
-        if self.type == ONE:
+        if not self.sphere_noise:
             return self.build_mapping_one()
-        elif self.type == SPHERE:
-            return self.build_mapping_sphere()
-        else:
-            raise ValueError("Unknown type")
+        return self.build_mapping_sphere()
 
-    def add_noise(self, clean):
-        inv_mapping = self.build_mapping()
-
-        values = np.arange(5)
-        random_numbers = np.random.random(4)
-        sorted_numbers = np.sort(np.concatenate(([0, 1], random_numbers)))
-        weights = np.diff(sorted_numbers)
+    def get_length(self, count, n_max=5):
+        weights = np.diff(np.sort(np.concatenate(([0, 1], np.random.random(n_max - 1)))))
         np.random.shuffle(weights)
-        if self.dup:
-            length = random.choices(values, weights=weights, k=len(clean))
+        if self.do_duplicate:
+            length = random.choices(np.arange(n_max), weights=weights, k=count)
 
         else:
-            length = [1] * len(clean)
+            length = [1] * count
+        return length
 
-        final_clean = [clean[0]]  # start token
-        final_noise = [clean[0]]  # start token
-        range_units = np.arange(N_CLUSTERS)
-        finish = False
-        for c in clean[1:]:
-            if finish:
-                break
-            if c == SEP:
-                final_clean.append(SEP)
-                final_noise.append(SEP)
-                if len(final_noise) == self.max_len - 1:
-                    final_clean.append(END_TOKEN)
-                    final_noise.append(END_TOKEN)
+    def get_new_token(self, inv_mapping, c):
+        if not self.sphere_noise:
+            new_token = random.choice(inv_mapping[c])
+        else:  # self.type == SPHERE:
+            new_token = np.random.choice(self.range_units, p=inv_mapping[c])
+        return new_token + CLUSTERS_FIRST_TOKEN
+
+    def add_noise(self, clean_sample):
+        inv_mapping = self.build_mapping()
+        length = self.get_length(len(clean_sample))
+        noise_sample = []
+        for c in clean_sample:
+            for _ in range(length.pop()):
+                new_token = self.get_new_token(inv_mapping, c)
+                noise_sample.append(new_token)
+        return noise_sample
+
+
+class PhonemesDataset(Dataset):
+    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=-1):
+        with open(phonemes_file, 'r') as f:
+            phonemes_data = f.readlines()
+        self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
+        self.size = size
+        self.max_len = max_len
+        self.type = type_
+        self.dup = dup
+        self.samples_count = samples_count
+        self.clean = []
+        self.noise = []
+        self.noise_adder = NoiseAdder(do_duplicate=bool(dup), sphere_noise=type_ == SPHERE)
+        self.build_data()
+
+    def build_data(self):
+        max_line_index = len(self.phonemes_data) if self.size == -1 else self.size
+        max_line_index = min(max_line_index, len(self.phonemes_data))
+
+        for _ in tqdm(range(self.samples_count), desc="Build Dataset"):
+            concat_clean_samples = [START_TOKEN]
+            concat_noise_samples = [START_TOKEN]
+            while True:
+                clean_sample = self.phonemes_data[np.random.randint(0, max_line_index)][:]
+                if len(clean_sample) > max_sample_size:
+                    random_start = np.random.randint(0, len(clean_sample) - max_sample_size)
+                    clean_sample = clean_sample[random_start:random_start + max_sample_size]
+                noise_sample = self.noise_adder.add_noise(clean_sample)
+                clean_sample += [SEP]
+                noise_sample += [SEP]
+
+                if (len(concat_clean_samples) + len(clean_sample) >= self.max_len - 1) or (
+                        len(concat_noise_samples) + len(noise_sample) >= self.max_len - 1):
                     break
+                concat_clean_samples += clean_sample
+                concat_noise_samples += noise_sample
 
-            elif c == END_TOKEN:
-                final_clean.append(END_TOKEN)
-                final_noise.append(END_TOKEN)
-                break
-            else:
-                final_clean.append(c)
-                for _ in range(length.pop()):
+            concat_clean_samples += [END_TOKEN]
+            concat_noise_samples += [END_TOKEN]
+            concat_clean_samples += [PAD_TOKEN] * (self.max_len - len(concat_clean_samples))
+            concat_noise_samples += [PAD_TOKEN] * (self.max_len - len(concat_noise_samples))
+            self.clean.append(concat_clean_samples)
+            self.noise.append(concat_noise_samples)
 
-                    if self.type == ONE:
-                        new_token = random.choice(inv_mapping[c])
-                    else:  # self.type == SPHERE:
-                        new_token = np.random.choice(range_units, p=inv_mapping[c])
-
-                    new_token = CLUSTERS_FIRST_TOKEN + new_token
-                    final_noise.append(new_token)
-                    if len(final_noise) == self.max_len - 1:
-                        final_clean.append(END_TOKEN)
-                        final_noise.append(END_TOKEN)
-                        finish = True
-                        break
-
-        final_clean += [PAD_TOKEN] * (MAX_LENGTH - len(final_clean))
-        final_noise += [PAD_TOKEN] * (MAX_LENGTH - len(final_noise))
-
-        return final_clean, final_noise
+    def __len__(self):
+        return len(self.clean)
 
     def __getitem__(self, idx):
-        clean, noise = self.add_noise(self.data[idx])
-        clean = torch.LongTensor(clean)
-        noise = torch.LongTensor(noise)
+
+        clean = torch.LongTensor(self.clean[idx])
+        noise = torch.LongTensor(self.noise[idx])
         return noise, clean
 
 
@@ -377,17 +367,17 @@ def get_model() -> BartForConditionalGeneration:
     return model
 
 
-def get_datasets():
+def get_datasets(curr_type, curr_dup, curr_size):
     train_dataset = PhonemesDataset(phonemes_file, type_=curr_type, dup=curr_dup,
                                     size=curr_size)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     test_dataset = PhonemesDataset(phonemes_file_test, type_=curr_type, dup=curr_dup,
                                    size=-1, samples_count=test_size)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    # clusters_dataset = ClustersPhonemesDataset(phonemes_file, clusters_file,
-    #                                            samples_count=curr_size)
-    # clusters_data = DataLoader(clusters_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    return train_dataset, train_data, test_dataset, test_data  # , clusters_dataset, clusters_data
+    clusters_dataset = ClustersPhonemesDataset(phonemes_file_test, clusters_file,
+                                               samples_count=test_size, size=curr_size)
+    clusters_data = DataLoader(clusters_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    return train_data, test_data, clusters_data
 
 
 def save(model, optimizer, i, best_score, update_best, conf_type, conf_dup, conf_size):
@@ -438,8 +428,7 @@ if __name__ == '__main__':
     model = model.train()
     scores = Scores()
     for epoch in range(EPOCHS):
-        # train_dataset, train_data, test_dataset, test_data, clusters_dataset, clusters_data = get_datasets()
-        train_dataset, train_data, test_dataset, test_data = get_datasets()
+        train_data, test_data, clusters_data = get_datasets(curr_type, curr_dup, curr_size)
 
         pbar = tqdm(train_data, total=len(train_data))
 
@@ -464,12 +453,12 @@ if __name__ == '__main__':
                         scores.update_values_from_output(outputs, y_test, "test")
                     scores.to_file("test")
 
-                    # for x_test, y_test in clusters_data:
-                    #     x_test = x_test.to(device)
-                    #     y_test = y_test.to(device)
-                    #     outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
-                    #     scores.update_values_from_output(outputs, y_test, "cluster")
-                    # scores.to_file("cluster")
+                    for x_test, y_test in clusters_data:
+                        x_test = x_test.to(device)
+                        y_test = y_test.to(device)
+                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
+                        scores.update_values_from_output(outputs, y_test, "cluster")
+                    scores.to_file("cluster")
                 model.train()
                 update_best = False
                 if scores.test_acc > best_test_acc:
@@ -477,7 +466,7 @@ if __name__ == '__main__':
                     update_best = True
 
                 scores.resset_test()
-                # scores.reset_cluster()
+                scores.reset_cluster()
 
                 save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
 
