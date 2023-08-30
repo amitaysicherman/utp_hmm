@@ -2,7 +2,7 @@
 #SBATCH --time=7-00
 #SBATCH --mem=32g
 #SBATCH --cpus-per-task=4
-#SBATCH --array=1-12
+#SBATCH --array=1-8
 #SBATCH --gres=gpu,vmem:8g
 #SBATCH --output=output-%A_%a.txt
 
