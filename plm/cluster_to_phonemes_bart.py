@@ -82,7 +82,8 @@ N_CLUSTERS = 100
 CLUSTERS_LAST_TOKEN = CLUSTERS_FIRST_TOKEN + N_CLUSTERS
 PAD_TOKEN = CLUSTERS_LAST_TOKEN + 1
 SEP = PAD_TOKEN + 1
-START_TOKEN = SEP + 1
+DECODER_MASK_TOKEN = SEP + 1
+START_TOKEN = DECODER_MASK_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -449,13 +450,14 @@ if __name__ == '__main__':
             x_train = x_train.to(device)
             y_train = y_train.to(device)
 
-            with torch.no_grad():
-                model.eval()
-                model_output = model(input_ids=x_train, labels=y_train,
-                                     output_hidden_states=False).logits.argmax(dim=-1)
-                model.train()
+            # with torch.no_grad():
+            #     model.eval()
+            #     model_output = model(input_ids=x_train, labels=y_train,
+            #                          output_hidden_states=False).logits.argmax(dim=-1)
+            #     model.train()
             alpha = 0.5
-            mixed_input_ids = torch.where(torch.rand(x_train.shape).to(device) < alpha, model_output, y_train)
+            decoder_mask = torch.ones_like(y_train) + DECODER_MASK_TOKEN
+            mixed_input_ids = torch.where(torch.rand(x_train.shape).to(device) < alpha, decoder_mask, y_train)
 
             decoder_input_ids = shift_tokens_right(mixed_input_ids)
 
