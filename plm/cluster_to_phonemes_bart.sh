@@ -8,14 +8,10 @@
 
 # Define the args list directly in this file
 readarray -t args_list <<EOL
-l 50 0
-s 50 0
 l 50 1
 s 50 1
 l 50 2
 s 50 2
-l 10 0
-s 10 0
 l 10 1
 s 10 1
 l 10 2
