@@ -455,8 +455,8 @@ if __name__ == '__main__':
             #     model_output = model(input_ids=x_train, labels=y_train,
             #                          output_hidden_states=False).logits.argmax(dim=-1)
             #     model.train()
-            alpha = 0.5
-            decoder_mask = torch.ones_like(y_train) + DECODER_MASK_TOKEN
+            alpha = 0.75
+            decoder_mask = torch.zeros_like(y_train) + DECODER_MASK_TOKEN
             mixed_input_ids = torch.where(torch.rand(x_train.shape).to(device) < alpha, decoder_mask, y_train)
 
             decoder_input_ids = shift_tokens_right(mixed_input_ids)
