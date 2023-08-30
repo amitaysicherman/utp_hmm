@@ -58,7 +58,7 @@ else:
     raise ValueError(f"Unknown size {model_size}")
 
 if ds == "lr":
-    phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"  # TODO train
+    phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"
     phonemes_file_test = "data/LIBRISPEECH_TEST_idx.txt"
     clusters_file = "data/LIBRISPEECH_TEST_clusters.txt"  # TODO train
     MAX_DS_SIZE = 2 ** 17
