@@ -19,7 +19,7 @@ last_config = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
 parser.add_argument('--model_size', type=str, default="s")
-parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--batch_size", type=int, default=8)
 parser.add_argument("--lr", type=float, default=1e-5)
 parser.add_argument("--max_sample_size", type=int, default=10)
 parser.add_argument("--max_length", type=int, default=512)
