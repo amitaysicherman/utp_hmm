@@ -24,7 +24,7 @@ parser.add_argument('--model_size', type=str, default="s")
 parser.add_argument("--batch_size", type=int, default=8)
 parser.add_argument("--lr", type=float, default=5e-5)
 parser.add_argument("--max_sample_size", type=int, default=10)
-parser.add_argument("--max_length", type=int, default=512)
+parser.add_argument("--max_length", type=int, default=256)
 parser.add_argument("--start_mode", type=int, default=1, choices=[0, 1, 2])
 args = parser.parse_args()
 start_mode = args.start_mode
