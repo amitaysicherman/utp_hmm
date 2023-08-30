@@ -1,4 +1,6 @@
 # sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
+# https://aclanthology.org/P19-2049.pdf
+
 import random
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -84,6 +86,16 @@ START_TOKEN = SEP + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def shift_tokens_right(input_ids: torch.Tensor, pad_token_id=PAD_TOKEN, decoder_start_token_id=START_TOKEN):
+    """
+    Shift input ids one token to the right.
+    """
+    shifted_input_ids = input_ids.new_zeros(input_ids.shape)
+    shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
+    shifted_input_ids[:, 0] = decoder_start_token_id
+    return shifted_input_ids
 
 
 @dataclass
@@ -437,11 +449,23 @@ if __name__ == '__main__':
             x_train = x_train.to(device)
             y_train = y_train.to(device)
 
-            outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
+            with torch.no_grad():
+                model.eval()
+                model_output = model(input_ids=x_train, labels=y_train,
+                                     output_hidden_states=False).logits.argmax(dim=-1)
+                model.train()
+            alpha = 0.5
+            mixed_input_ids = torch.where(torch.rand(x_train.shape) < alpha, model_output, y_train)
+
+            decoder_input_ids = shift_tokens_right(mixed_input_ids)
+
+            outputs = model(input_ids=x_train, labels=y_train, decoder_input_ids=decoder_input_ids,
+                            output_hidden_states=False)
+
             scores.update_values_from_output(outputs, y_train, "train")
+            optimizer.zero_grad()
             outputs.loss.backward()
             optimizer.step()
-            optimizer.zero_grad()
 
             if i % save_update_steps == 0:
                 model.eval()
@@ -449,14 +473,14 @@ if __name__ == '__main__':
                     for x_test, y_test in test_data:
                         x_test = x_test.to(device)
                         y_test = y_test.to(device)
-                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
+                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=False)
                         scores.update_values_from_output(outputs, y_test, "test")
                     scores.to_file("test")
 
                     for x_test, y_test in clusters_data:
                         x_test = x_test.to(device)
                         y_test = y_test.to(device)
-                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
+                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=False)
                         scores.update_values_from_output(outputs, y_test, "cluster")
                     scores.to_file("cluster")
                 model.train()
