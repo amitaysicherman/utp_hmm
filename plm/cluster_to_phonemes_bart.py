@@ -427,6 +427,6 @@ if __name__ == '__main__':
                     curr_size *= 2
                     with open(output_file, "a") as f:
                         f.write(f"step {i}, update config to {curr_size}" + "\n")
-                    new_sample_counts = train_dataset_size * np.sqrt(curr_size)
+                    new_sample_counts = int(train_dataset_size * np.sqrt(curr_size))
                     train_data, test_data, clusters_data = get_datasets(curr_size, new_sample_counts)
                     break
