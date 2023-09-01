@@ -23,21 +23,19 @@ parser.add_argument('--ds', type=str, default="lr")
 parser.add_argument('--model_size', type=str, default="s")
 parser.add_argument("--batch_size", type=int, default=8)
 parser.add_argument("--lr", type=float, default=5e-5)
-parser.add_argument("--max_sample_size", type=int, default=10)
 parser.add_argument("--max_length", type=int, default=256)
-parser.add_argument("--start_mode", type=int, default=1, choices=[0, 1, 2])
 args = parser.parse_args()
-start_mode = args.start_mode
 BATCH_SIZE = args.batch_size
 LR = args.lr
 ds = args.ds
-max_sample_size = args.max_sample_size
 model_size = args.model_size
 MAX_LENGTH = args.max_length
+MAX_DS_SIZE = 2048
 
-config_name = f"learn_mapping_bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{max_sample_size}_{MAX_LENGTH}_{start_mode}"
+config_name = f"bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 train_dataset_size = 10_000
 test_size = 500
+
 if model_size == "s":
     d_model = 256
     nhead = 4
@@ -60,8 +58,7 @@ else:
 if ds == "lr":
     phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"
     phonemes_file_test = "data/LIBRISPEECH_TEST_idx.txt"
-    clusters_file = "data/LIBRISPEECH_TEST_clusters.txt"  # TODO train
-    MAX_DS_SIZE = 2 ** 17
+    clusters_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
 
 
 
@@ -69,9 +66,7 @@ else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
     phonemes_file_test = "data/TIMIT_NS_TEST_PH_IDX.txt"
     clusters_file = "data/TIMIT_NS_TRAIN_CLUSTERS.txt"
-    MAX_DS_SIZE = 4000
 
-# gen_file = f"results/{config_name}_gen.txt"
 output_file = f"results/{config_name}.txt"
 
 ONE = 0
@@ -87,16 +82,6 @@ START_TOKEN = DECODER_MASK_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def shift_tokens_right(input_ids: torch.Tensor, pad_token_id=PAD_TOKEN, decoder_start_token_id=START_TOKEN):
-    """
-    Shift input ids one token to the right.
-    """
-    shifted_input_ids = input_ids.new_zeros(input_ids.shape)
-    shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
-    shifted_input_ids[:, 0] = decoder_start_token_id
-    return shifted_input_ids
 
 
 @dataclass
@@ -190,7 +175,7 @@ SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41
 
 
 class ClustersPhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, clusters_file, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=-1):
+    def __init__(self, phonemes_file, clusters_file, max_len=MAX_LENGTH, samples_count=test_size):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
@@ -202,7 +187,7 @@ class ClustersPhonemesDataset(Dataset):
         self.max_len = max_len
         self.data = []
         self.clusters = []
-        max_line_index = len(self.phonemes_data) if size == -1 else size
+        max_line_index = len(self.phonemes_data)
         max_line_index = min(max_line_index, len(self.phonemes_data))
         for _ in range(samples_count):
             sample = [START_TOKEN]
@@ -235,21 +220,13 @@ class ClustersPhonemesDataset(Dataset):
 
 
 class NoiseAdder:
-    def __init__(self, do_duplicate: bool, sphere_noise: bool):
-        self.do_duplicate = do_duplicate
-        self.sphere_noise = sphere_noise
+    def __init__(self, size: int):
         self.range_units = np.arange(N_CLUSTERS)
-
-    def build_mapping_one(self):
-        units_mapping = list(range(PHONEMES_LAST_TOKEN + 1))
-        units_mapping += [random.randint(0, PHONEMES_LAST_TOKEN) for _ in
-                          range(N_CLUSTERS - (PHONEMES_LAST_TOKEN + 1))]
-        random.shuffle(units_mapping)
-        units_mapping = np.array(units_mapping)
-        inv_mapping = {i: [] for i in range(PHONEMES_LAST_TOKEN + 1)}
-        for i, u in enumerate(units_mapping):
-            inv_mapping[u].append(i)
-        return inv_mapping
+        self.maps = []
+        for i in range(size):
+            random.seed(i)
+            np.random.seed(i)
+            self.maps.append(self.build_mapping())
 
     def random_gaussian(self, n, dim=2):
         point = np.random.normal(size=(n, dim))
@@ -266,29 +243,21 @@ class NoiseAdder:
         return probabilities
 
     def build_mapping(self):
-        if not self.sphere_noise:
-            return self.build_mapping_one()
         return self.build_mapping_sphere()
 
     def get_length(self, count, n_max=5):
         weights = np.diff(np.sort(np.concatenate(([0, 1], np.random.random(n_max - 1)))))
         np.random.shuffle(weights)
-        if self.do_duplicate:
-            length = random.choices(np.arange(n_max), weights=weights, k=count)
-
-        else:
-            length = [1] * count
+        length = random.choices(np.arange(n_max), weights=weights, k=count)
         return length
 
     def get_new_token(self, inv_mapping, c):
-        if not self.sphere_noise:
-            new_token = random.choice(inv_mapping[c])
-        else:  # self.type == SPHERE:
-            new_token = np.random.choice(self.range_units, p=inv_mapping[c])
+        new_token = np.random.choice(self.range_units, p=inv_mapping[c])
         return new_token + CLUSTERS_FIRST_TOKEN
 
     def add_noise(self, clean_sample):
-        inv_mapping = self.build_mapping()
+
+        inv_mapping = random.choice(self.maps)
         length = self.get_length(len(clean_sample))
         noise_sample = []
         for c in clean_sample:
@@ -299,32 +268,24 @@ class NoiseAdder:
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, type_, dup, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=-1):
+    def __init__(self, phonemes_file, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=1):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
-        self.size = size
         self.max_len = max_len
-        self.type = type_
-        self.dup = dup
         self.samples_count = samples_count
         self.clean = []
         self.noise = []
-        self.noise_adder = NoiseAdder(do_duplicate=bool(dup), sphere_noise=type_ == SPHERE)
+        self.noise_adder = NoiseAdder(size=size)
         self.build_data()
 
     def build_data(self):
-        max_line_index = len(self.phonemes_data) if self.size == -1 else self.size
-        max_line_index = min(max_line_index, len(self.phonemes_data))
-
+        max_line_index = len(self.phonemes_data)
         for _ in tqdm(range(self.samples_count), desc="Build Dataset"):
             concat_clean_samples = [START_TOKEN]
             concat_noise_samples = [START_TOKEN]
             while True:
                 clean_sample = self.phonemes_data[np.random.randint(0, max_line_index)][:]
-                if len(clean_sample) > max_sample_size:
-                    random_start = np.random.randint(0, len(clean_sample) - max_sample_size)
-                    clean_sample = clean_sample[random_start:random_start + max_sample_size]
                 noise_sample = self.noise_adder.add_noise(clean_sample)
                 clean_sample += [SEP]
                 noise_sample += [SEP]
@@ -352,21 +313,6 @@ class PhonemesDataset(Dataset):
         return noise, clean
 
 
-def step_config(cur_type, cur_dup, curr_size, score):
-    is_update = False
-    if score > 0.6:
-        if curr_size < MAX_DS_SIZE:
-            curr_size *= 2
-            is_update = True
-        elif cur_type == ONE:
-            cur_type = SPHERE
-            is_update = True
-        elif cur_type == SPHERE and not cur_dup:
-            cur_dup = True
-            is_update = True
-    return cur_type, cur_dup, curr_size, is_update
-
-
 def get_model() -> BartForConditionalGeneration:
     config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH, encoder_layers=num_layers,
                         encoder_ffn_dim=d_model, encoder_attention_heads=nhead,
@@ -380,27 +326,22 @@ def get_model() -> BartForConditionalGeneration:
     return model
 
 
-def get_datasets(curr_type, curr_dup, curr_size):
-    train_dataset = PhonemesDataset(phonemes_file, type_=curr_type, dup=curr_dup,
-                                    size=curr_size)
+def get_datasets(curr_size, train_sample_count):
+    train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=train_sample_count)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    test_dataset = PhonemesDataset(phonemes_file_test, type_=curr_type, dup=curr_dup,
-                                   size=-1, samples_count=test_size)
+    test_dataset = PhonemesDataset(phonemes_file_test, size=curr_size, samples_count=test_size)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    clusters_dataset = ClustersPhonemesDataset(phonemes_file_test, clusters_file,
-                                               samples_count=test_size, size=curr_size)
+    clusters_dataset = ClustersPhonemesDataset(phonemes_file, clusters_file, samples_count=test_size)
     clusters_data = DataLoader(clusters_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     return train_data, test_data, clusters_data
 
 
-def save(model, optimizer, i, best_score, update_best, conf_type, conf_dup, conf_size):
+def save(model, optimizer, i, best_score, update_best, conf_size):
     data_save = {
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'step': i,
         'best_score': best_score,
-        'conf_type': conf_type,
-        'conf_dup': conf_dup,
         'conf_size': conf_size
     }
     torch.save(data_save, f"models/{config_name}_last.cp")
@@ -410,16 +351,14 @@ def save(model, optimizer, i, best_score, update_best, conf_type, conf_dup, conf
 
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0, 0, ONE, False, 2
+        return 0, 0, 1
     checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
     best_score = checkpoint['best_score']
-    conf_type = checkpoint['conf_type']
-    conf_dup = checkpoint['conf_dup']
     conf_size = checkpoint['conf_size']
-    return load_step, best_score, conf_type, conf_dup, conf_size
+    return load_step, best_score, conf_size
 
 
 # main:
@@ -429,40 +368,22 @@ if __name__ == '__main__':
     model = model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-    i, best_test_acc, curr_type, curr_dup, curr_size = load_last(model, optimizer)
-    if start_mode != 0:
-        curr_type = SPHERE
-        curr_dup = True
-        if start_mode == 2:
-            curr_size = MAX_DS_SIZE
+    i, best_test_acc, curr_size = load_last(model, optimizer)
 
     print(
-        f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
+        f"load cp-  i:{i}, best_test_acc:{best_test_acc},  curr_size:{curr_size}")
     model = model.train()
     scores = Scores()
+    train_data, test_data, clusters_data = get_datasets(curr_size, train_dataset_size)
+
     for epoch in range(EPOCHS):
-        train_data, test_data, clusters_data = get_datasets(curr_type, curr_dup, curr_size)
-
         pbar = tqdm(train_data, total=len(train_data))
-
         for x_train, y_train in pbar:
             i += 1
             x_train = x_train.to(device)
             y_train = y_train.to(device)
 
-            # with torch.no_grad():
-            #     model.eval()
-            #     model_output = model(input_ids=x_train, labels=y_train,
-            #                          output_hidden_states=False).logits.argmax(dim=-1)
-            #     model.train()
-            alpha = 0.75
-            decoder_mask = torch.zeros_like(y_train) + DECODER_MASK_TOKEN
-            mixed_input_ids = torch.where(torch.rand(x_train.shape).to(device) < alpha, decoder_mask, y_train)
-
-            decoder_input_ids = shift_tokens_right(mixed_input_ids)
-
-            outputs = model(input_ids=x_train, labels=y_train, decoder_input_ids=decoder_input_ids,
-                            output_hidden_states=False)
+            outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=False)
 
             scores.update_values_from_output(outputs, y_train, "train")
             optimizer.zero_grad()
@@ -494,19 +415,18 @@ if __name__ == '__main__':
                 scores.resset_test()
                 scores.reset_cluster()
 
-                save(model, optimizer, i, best_test_acc, update_best, curr_type, curr_dup, curr_size)
+                save(model, optimizer, i, best_test_acc, update_best, curr_size)
 
             if i % warmup_steps == 0:
-                scores.to_file("train")
 
-                if not last_config:
-                    curr_type, curr_dup, curr_size, is_update = step_config(curr_type, curr_dup, curr_size,
-                                                                            scores.train_acc / scores.train_count)
-                    if curr_type == SPHERE and curr_dup and curr_size == MAX_DS_SIZE:
-                        last_config = True
-                    if is_update:
-                        with open(output_file, "a") as f:
-                            f.write(f"step {i}, update config to {curr_type}, {curr_dup}, {curr_size}" + "\n")
-                        config_update_counter = 0
-                        break
+                scores.to_file("train")
+                cur_acc = scores.train_acc / scores.train_count
                 scores.resset_train()
+
+                if curr_size < MAX_DS_SIZE and cur_acc > 0.8:
+                    curr_size *= 2
+                    with open(output_file, "a") as f:
+                        f.write(f"step {i}, update config to {curr_size}" + "\n")
+                    new_sample_counts = train_dataset_size * np.sqrt(curr_size)
+                    train_data, test_data, clusters_data = get_datasets(curr_size, new_sample_counts)
+                    break
