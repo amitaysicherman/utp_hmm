@@ -6,10 +6,27 @@
 #SBATCH --gres=gpu,vmem:8g
 #SBATCH --output=output-%A_%a.txt
 
-python cluster_to_phonemes_bart.py --model_size "s"
-python cluster_to_phonemes_bart.py --model_size "m"
-python cluster_to_phonemes_bart.py --model_size "l"
-python cluster_to_phonemes_bart.py --model_size "xl"
+case $SLURM_ARRAY_TASK_ID in
+    1)
+        model_size='s'
+        ;;
+    2)
+        model_size='m'
+        ;;
+    3)
+        model_size='l'
+        ;;
+    4)
+        model_size='xl'
+        ;;
+    *)
+        echo "Invalid array index"
+        exit 1
+        ;;
+esac
+
+python cluster_to_phonemes_bart.py --model_size "$model_size"
+
 
 
 
