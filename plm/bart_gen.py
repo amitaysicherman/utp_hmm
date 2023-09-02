@@ -9,17 +9,13 @@ import Levenshtein
 
 def load_last(model):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0, 0, ONE, False, 2
-
+        return 0, 0, 1
     checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
-    # optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
     best_score = checkpoint['best_score']
-    conf_type = checkpoint['conf_type']
-    conf_dup = checkpoint['conf_dup']
     conf_size = checkpoint['conf_size']
-    return load_step, best_score, conf_type, conf_dup, conf_size
+    return load_step, best_score, conf_size
 
 
 def compute_wer_and_alignment(reference, hypothesis):
@@ -68,14 +64,13 @@ if __name__ == '__main__':
     model = get_model()
     model = model.to(device)
 
-    i, best_test_acc, curr_type, curr_dup, curr_size = load_last(model)
+    i, best_score, curr_size = load_last(model)
 
-    train_dataset = PhonemesDataset(phonemes_file, type_=curr_type, dup=curr_dup,
-                                    size=curr_size)
+    train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=100)
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True, drop_last=True)
     with open(output_file, "a") as f:
         f.write(
-            f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_type:{curr_type}, curr_dup:{curr_dup}, curr_size:{curr_size}")
+            f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_size:{curr_size}")
     model = model.train()
 
     for j, (x_gen, y_ref) in enumerate(train_data):
