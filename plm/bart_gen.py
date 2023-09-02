@@ -70,7 +70,7 @@ if __name__ == '__main__':
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True, drop_last=True)
     with open(output_file, "a") as f:
         f.write(
-            f"load cp-  i:{i}, best_test_acc:{best_test_acc}, curr_size:{curr_size}")
+            f"load cp-  i:{i}, best_test_acc:{best_score}, curr_size:{curr_size}")
     model = model.train()
 
     for j, (x_gen, y_ref) in enumerate(train_data):
