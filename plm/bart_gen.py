@@ -57,7 +57,7 @@ def compute_wer_and_alignment(reference, hypothesis):
 
 # main:
 if __name__ == '__main__':
-    output_file = "tmp.txt"
+    output_file = "tmp2.txt"
     if os.path.exists(output_file):
         os.remove(output_file)
 
