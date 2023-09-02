@@ -79,7 +79,7 @@ if __name__ == '__main__':
         min_new_tokens = int(0.25 * MAX_LENGTH)
 
         y_gen = model.generate(x_gen, max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100,
-                               decoder_start_token_id=PAD_TOKEN)[0]
+                               decoder_start_token_id=START_TOKEN)[0]
 
 
         def tensor_to_strings(t):
