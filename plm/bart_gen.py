@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
         encoder_input_ids = x_gen
 
-        num_beams = 100
+        num_beams = 6
         input_ids = torch.ones((num_beams, 1), device=model.device, dtype=torch.long)
         input_ids = input_ids * model.config.decoder_start_token_id
 
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         )
         y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, **model_kwargs)
 
-        y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100,
+        y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=num_beams,
                                decoder_start_token_id=END_TOKEN)[0]
 
         print('y_gen', y_gen)
