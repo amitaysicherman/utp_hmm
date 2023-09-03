@@ -108,7 +108,7 @@ if __name__ == '__main__':
                 MinLengthLogitsProcessor(min_new_tokens, eos_token_id=model.config.eos_token_id),
             ]
         )
-
+        3/0
         y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, **model_kwargs)
 
         y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100,

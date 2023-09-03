@@ -20,7 +20,7 @@ last_config = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
-parser.add_argument('--model_size', type=str, default="s")
+parser.add_argument('--model_size', type=str, default="m")
 parser.add_argument("--batch_size", type=int, default=8)
 parser.add_argument("--lr", type=float, default=5e-5)
 parser.add_argument("--max_length", type=int, default=256)
@@ -59,8 +59,6 @@ if ds == "lr":
     phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"
     phonemes_file_test = "data/LIBRISPEECH_TEST_idx.txt"
     clusters_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
-
-
 
 else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
