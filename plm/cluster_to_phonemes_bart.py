@@ -370,7 +370,7 @@ if __name__ == '__main__':
             x_train = x_train.to(device)
             y_train = y_train.to(device)
 
-            outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=False)
+            outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
 
             train_scores.update_values_from_output(outputs, y_train)
             optimizer.zero_grad()
