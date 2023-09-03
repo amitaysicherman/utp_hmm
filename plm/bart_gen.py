@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         num_beams = 6
         input_ids = torch.ones((num_beams, 1), device=model.device, dtype=torch.long)
-        input_ids = input_ids * START_TOKEN
+        input_ids = input_ids * PAD_TOKEN
 
         model_kwargs = {
             "encoder_outputs": model.get_encoder()(
@@ -111,7 +111,7 @@ if __name__ == '__main__':
         y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor,max_length=MAX_LENGTH, **model_kwargs)
 
         y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=num_beams,
-                               decoder_start_token_id=START_TOKEN)[0]
+                               decoder_start_token_id=PAD_TOKEN)[0]
         with open(output_file, 'a') as f:
             f.write(f'y_gen {y_gen} \n')
             f.write(f'y_gen2 {y_gen2} \n')
