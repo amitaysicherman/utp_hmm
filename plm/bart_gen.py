@@ -78,8 +78,44 @@ if __name__ == '__main__':
         y_ref = y_ref.to(device)
         min_new_tokens = int(0.25 * MAX_LENGTH)
 
+        from transformers import (
+            LogitsProcessorList,
+            MinLengthLogitsProcessor,
+            BeamSearchScorer,
+        )
+        import torch
+
+        encoder_input_ids = x_gen
+
+        num_beams = 3
+        input_ids = torch.ones((num_beams, 1), device=model.device, dtype=torch.long)
+        input_ids = input_ids * model.config.decoder_start_token_id
+
+        model_kwargs = {
+            "encoder_outputs": model.get_encoder()(
+                encoder_input_ids.repeat_interleave(num_beams, dim=0), return_dict=True
+            )
+        }
+
+        beam_scorer = BeamSearchScorer(
+            batch_size=1,
+            num_beams=num_beams,
+            device=model.device,
+        )
+
+        logits_processor = LogitsProcessorList(
+            [
+                MinLengthLogitsProcessor(min_new_tokens, eos_token_id=model.config.eos_token_id),
+            ]
+        )
+
+        y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, **model_kwargs)
+
         y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100,
                                decoder_start_token_id=END_TOKEN)[0]
+
+        print('y_gen', y_gen)
+        print('y_gen2', y_gen2)
 
 
         def tensor_to_strings(t):
