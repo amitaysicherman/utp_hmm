@@ -38,7 +38,7 @@ MAX_DS_SIZE = 2048
 config_name = f"bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
-train_dataset_size = 10_000
+train_dataset_size = 1_000_000
 test_size = 500
 
 if model_size == "s":
