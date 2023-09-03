@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         num_beams = 100
         input_ids = torch.ones((num_beams, 1), device=model.device, dtype=torch.long)
-        input_ids = input_ids * model.config.decoder_start_token_id
+        input_ids = input_ids * PAD_TOKEN
 
         model_kwargs = {
             "encoder_outputs": model.get_encoder()(
