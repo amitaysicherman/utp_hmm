@@ -112,9 +112,9 @@ if __name__ == '__main__':
 
         y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=num_beams,
                                decoder_start_token_id=END_TOKEN)[0]
-
-        print('y_gen', y_gen)
-        print('y_gen2', y_gen2)
+        with open(output_file, 'a') as f:
+            f.write('y_gen', y_gen)
+            f.write('y_gen2', y_gen2)
 
 
         def tensor_to_strings(t):
