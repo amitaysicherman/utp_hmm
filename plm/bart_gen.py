@@ -110,7 +110,7 @@ if __name__ == '__main__':
         )
         y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, **model_kwargs)
 
-        y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=,
+        y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=100,
                                decoder_start_token_id=END_TOKEN)[0]
 
         print('y_gen', y_gen)
