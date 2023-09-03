@@ -9,13 +9,12 @@ import Levenshtein
 
 def load_last(model):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0, 0, 1
+        return 0, 1
     checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
     load_step = checkpoint['step']
-    best_score = checkpoint['best_score']
     conf_size = checkpoint['conf_size']
-    return load_step, best_score, conf_size
+    return load_step, conf_size
 
 
 def compute_wer_and_alignment(reference, hypothesis):
@@ -64,13 +63,13 @@ if __name__ == '__main__':
     model = get_model()
     model = model.to(device)
 
-    i, best_score, curr_size = load_last(model)
+    i, curr_size = load_last(model)
     curr_size = curr_size // 2
     train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=100)
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True, drop_last=True)
     with open(output_file, "a") as f:
         f.write(
-            f"load cp-  i:{i}, best_test_acc:{best_score}, curr_size:{curr_size}")
+            f"load cp-  i:{i}, , curr_size:{curr_size}")
     model = model.train()
 
     for j, (x_gen, y_ref) in enumerate(train_data):
@@ -108,10 +107,12 @@ if __name__ == '__main__':
                 MinLengthLogitsProcessor(min_new_tokens, eos_token_id=END_TOKEN),
             ]
         )
-        y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor,max_length=MAX_LENGTH, **model_kwargs)
+        y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, max_length=MAX_LENGTH,
+                                   **model_kwargs)
 
-        y_gen = model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=num_beams,
-                               decoder_start_token_id=PAD_TOKEN)[0]
+        y_gen = \
+        model.generate(x_gen[:, :-1], max_new_tokens=MAX_LENGTH, min_new_tokens=min_new_tokens, num_beams=num_beams,
+                       decoder_start_token_id=PAD_TOKEN)[0]
         with open(output_file, 'a') as f:
             f.write(f'y_gen {y_gen} \n')
             f.write(f'y_gen2 {y_gen2} \n')

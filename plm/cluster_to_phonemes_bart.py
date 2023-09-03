@@ -1,8 +1,10 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
 # https://aclanthology.org/P19-2049.pdf
 
 import random
 from torch.utils.data import Dataset, DataLoader
+from torch.nn.parallel import DataParallel
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -12,6 +14,7 @@ from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
 import argparse
+from torch.utils.tensorboard import SummaryWriter
 
 save_update_steps = 1_000
 warmup_steps = 50
@@ -21,8 +24,8 @@ last_config = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
 parser.add_argument('--model_size', type=str, default="m")
-parser.add_argument("--batch_size", type=int, default=8)
-parser.add_argument("--lr", type=float, default=5e-5)
+parser.add_argument("--batch_size", type=int, default=64)
+parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--max_length", type=int, default=256)
 args = parser.parse_args()
 BATCH_SIZE = args.batch_size
@@ -33,6 +36,8 @@ MAX_LENGTH = args.max_length
 MAX_DS_SIZE = 2048
 
 config_name = f"bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
+writer = SummaryWriter(f"results/{config_name}")
+
 train_dataset_size = 10_000
 test_size = 500
 
@@ -58,12 +63,14 @@ else:
 if ds == "lr":
     phonemes_file = "data/LIBRISPEECH_TRAIN_idx.txt"
     phonemes_file_test = "data/LIBRISPEECH_TEST_idx.txt"
-    clusters_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
+    clusters_train_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
+    clusters_test_file = "data/LIBRISPEECH_TEST_clusters.txt"
 
 else:
     phonemes_file = "data/TIMIT_NS_TRAIN_PH_IDX.txt"
     phonemes_file_test = "data/TIMIT_NS_TEST_PH_IDX.txt"
-    clusters_file = "data/TIMIT_NS_TRAIN_CLUSTERS.txt"
+    clusters_train_file = "data/TIMIT_NS_TRAIN_CLUSTERS.txt"
+    clusters_test_file = "data/TIMIT_NS_TEST_CLUSTERS.txt"
 
 output_file = f"results/{config_name}.txt"
 
@@ -84,87 +91,38 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 @dataclass
 class Scores:
-    train_loss = 0.0
-    train_acc = 0.0
-    train_count = 0
-    test_loss = 0.0
-    test_acc = 0.0
-    test_count = 0
-    cluster_loss = 0.0
-    cluster_acc = 0.0
-    cluster_count = 0
-
-    def resset_train(self):
-        self.train_loss = 0.0
-        self.train_acc = 0.0
-        self.train_count = 0.0
-
-    def resset_test(self):
-        self.test_loss = 0.0
-        self.test_acc = 0.0
-        self.test_count = 0
-
-    def reset_cluster(self):
-        self.cluster_loss = 0.0
-        self.cluster_acc = 0.0
-        self.cluster_count = 0
+    name: str
+    loss = 0.0
+    acc = 0.0
+    count = 0
 
     def reset(self):
-        self.resset_train()
-        self.resset_test()
-        self.reset_cluster()
+        self.loss = 0.0
+        self.acc = 0.0
+        self.count = 0.0
 
-    def update_value(self, loss, acc, train_test):
+    def update_value(self, loss, acc):
+        self.loss += loss
+        self.acc += acc
+        self.count += 1
 
-        if train_test == "train":
-            self.train_loss += loss
-            self.train_acc += acc
-            self.train_count += 1
-        elif train_test == "test":
-            self.test_loss += loss
-            self.test_acc += acc
-            self.test_count += 1
-        elif train_test == "cluster":
-            self.cluster_loss += loss
-            self.cluster_acc += acc
-            self.cluster_count += 1
-        else:
-            raise ValueError("Unknown train_test")
-
-    def update_values_from_output(self, outputs, y, train_test):
+    def update_values_from_output(self, outputs, y):
         loss = outputs.loss.item()
         preds = outputs.logits.argmax(dim=-1)
         mask = y != PAD_TOKEN
         acc = ((preds[mask] == y[mask]).sum() / y[mask].numel()).item()
-        self.update_value(loss, acc, train_test)
+        self.update_value(loss, acc)
 
-    def train_to_str(self):
-        train_loss = self.train_loss / self.train_count if self.train_count > 0 else 0
-        train_acc = self.train_acc / self.train_count if self.train_count > 0 else 0
-        return f"TRAIN:{train_loss},{train_acc}"
+    def get_scores(self):
+        loss = self.loss / self.count if self.count > 0 else 0
+        acc = self.acc / self.count if self.count > 0 else 0
+        return loss, acc
 
-    def test_to_str(self):
-        test_loss = self.test_loss / self.test_count if self.test_count > 0 else 0
-        test_acc = self.test_acc / self.test_count if self.test_count > 0 else 0
-        return f"TEST:{test_loss},{test_acc}"
-
-    def cluster_to_str(self):
-        cluster_loss = self.cluster_loss / self.cluster_count if self.cluster_count > 0 else 0
-        cluster_acc = self.cluster_acc / self.cluster_count if self.cluster_count > 0 else 0
-        return f"CLUSTER:{cluster_loss},{cluster_acc}"
-
-    def to_file(self, train_test):
-        if train_test == "train":
-            with open(output_file, "a") as f:
-                f.write(self.train_to_str() + "\n")
-        elif train_test == "test":
-            with open(output_file, "a") as f:
-                f.write(self.test_to_str() + "\n")
-        elif train_test == "cluster":
-            with open(output_file, "a") as f:
-                f.write(self.cluster_to_str() + "\n")
-        else:
-            raise ValueError("Unknown train_test")
+    def to_file(self, i):
+        loss, acc = self.get_scores()
+        writer.add_scalar(f'{self.name}_loss', loss, i)
+        writer.add_scalar(f'{self.name}_acc', acc, i)
+        self.reset()
 
 
 SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41, 47, 54,
@@ -190,7 +148,6 @@ class ClustersPhonemesDataset(Dataset):
         for _ in range(samples_count):
             sample = [START_TOKEN]
             cluster_sample = [START_TOKEN]
-
             while True:
                 new_index = np.random.randint(0, max_line_index)
                 new_sample = self.phonemes_data[new_index][:] + [SEP]
@@ -218,13 +175,19 @@ class ClustersPhonemesDataset(Dataset):
 
 
 class NoiseAdder:
-    def __init__(self, size: int):
+    def __init__(self, size: int, single_seed=-1):
         self.range_units = np.arange(N_CLUSTERS)
         self.maps = []
-        for i in range(size):
-            random.seed(i)
-            np.random.seed(i)
+        if single_seed != -1:
+            random.seed(single_seed)
+            np.random.seed(single_seed)
             self.maps.append(self.build_mapping())
+            return
+        else:
+            for i in range(size):
+                random.seed(i)
+                np.random.seed(i)
+                self.maps.append(self.build_mapping())
 
     def random_gaussian(self, n, dim=2):
         point = np.random.normal(size=(n, dim))
@@ -253,61 +216,65 @@ class NoiseAdder:
         new_token = np.random.choice(self.range_units, p=inv_mapping[c])
         return new_token + CLUSTERS_FIRST_TOKEN
 
-    def add_noise(self, clean_sample):
+    def add_noise(self, clean_sample, max_noise_len):
 
         inv_mapping = random.choice(self.maps)
         length = self.get_length(len(clean_sample))
         noise_sample = []
+        clean_count = 0
         for c in clean_sample:
             for _ in range(length.pop()):
+                if clean_count >= max_noise_len:
+                    break
+                clean_count += 1
                 new_token = self.get_new_token(inv_mapping, c)
                 noise_sample.append(new_token)
-        return noise_sample
+
+        return noise_sample, clean_count
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=1):
+    def __init__(self, phonemes_file, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=1, single_seed=-1):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
+        self.phonemes_data = [x for x in self.phonemes_data if len(x) < MAX_LENGTH - 3]
         self.max_len = max_len
         self.samples_count = samples_count
-        self.clean = []
-        self.noise = []
-        self.noise_adder = NoiseAdder(size=size)
-        self.build_data()
+        self.noise_adder = NoiseAdder(size=size, single_seed=single_seed)
+        self.max_line_index = len(self.phonemes_data)
 
-    def build_data(self):
-        max_line_index = len(self.phonemes_data)
-        for _ in tqdm(range(self.samples_count), desc="Build Dataset"):
-            concat_clean_samples = [START_TOKEN]
-            concat_noise_samples = [START_TOKEN]
-            while True:
-                clean_sample = self.phonemes_data[np.random.randint(0, max_line_index)][:]
-                noise_sample = self.noise_adder.add_noise(clean_sample)
-                clean_sample += [SEP]
-                noise_sample += [SEP]
+    def get_clean_noise_sample(self):
+        concat_clean_samples = [START_TOKEN]
+        concat_noise_samples = [START_TOKEN]
+        while True:
+            clean_sample = self.phonemes_data[np.random.randint(0, self.max_line_index)][:]
+            max_noise_len = self.max_len - len(concat_noise_samples) - 2
+            if max_noise_len <= 0:
+                break
+            noise_sample, max_clean_len = self.noise_adder.add_noise(clean_sample, max_noise_len)
+            clean_sample = clean_sample[:max_clean_len]
+            clean_sample += [SEP]
+            noise_sample += [SEP]
 
-                if (len(concat_clean_samples) + len(clean_sample) >= self.max_len - 1) or (
-                        len(concat_noise_samples) + len(noise_sample) >= self.max_len - 1):
-                    break
-                concat_clean_samples += clean_sample
-                concat_noise_samples += noise_sample
+            if len(concat_clean_samples) + len(clean_sample) >= self.max_len - 1:
+                break
+            concat_clean_samples += clean_sample
+            concat_noise_samples += noise_sample
 
-            concat_clean_samples += [END_TOKEN]
-            concat_noise_samples += [END_TOKEN]
-            concat_clean_samples += [PAD_TOKEN] * (self.max_len - len(concat_clean_samples))
-            concat_noise_samples += [PAD_TOKEN] * (self.max_len - len(concat_noise_samples))
-            self.clean.append(concat_clean_samples)
-            self.noise.append(concat_noise_samples)
+        concat_clean_samples += [END_TOKEN]
+        concat_noise_samples += [END_TOKEN]
+        concat_clean_samples += [PAD_TOKEN] * (self.max_len - len(concat_clean_samples))
+        concat_noise_samples += [PAD_TOKEN] * (self.max_len - len(concat_noise_samples))
+        return concat_clean_samples, concat_noise_samples
 
     def __len__(self):
-        return len(self.clean)
+        return self.samples_count
 
     def __getitem__(self, idx):
-
-        clean = torch.LongTensor(self.clean[idx])
-        noise = torch.LongTensor(self.noise[idx])
+        clean, noise = self.get_clean_noise_sample()
+        clean = torch.LongTensor(clean)
+        noise = torch.LongTensor(noise)
         return noise, clean
 
 
@@ -327,36 +294,51 @@ def get_model() -> BartForConditionalGeneration:
 def get_datasets(curr_size, train_sample_count):
     train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=train_sample_count)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+
     test_dataset = PhonemesDataset(phonemes_file_test, size=curr_size, samples_count=test_size)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    clusters_dataset = ClustersPhonemesDataset(phonemes_file, clusters_file, samples_count=test_size)
-    clusters_data = DataLoader(clusters_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    return train_data, test_data, clusters_data
+
+    test_map_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=test_size,
+                                       single_seed=curr_size * 2)
+    test_map_data = DataLoader(test_map_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+
+    clusters_train_dataset = ClustersPhonemesDataset(phonemes_file, clusters_train_file, samples_count=test_size)
+    clusters_train_data = DataLoader(clusters_train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+
+    clusters_test_dataset = ClustersPhonemesDataset(phonemes_file_test, clusters_test_file, samples_count=test_size)
+    clusters_test_data = DataLoader(clusters_test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+
+    return train_data, test_data, test_map_data, clusters_train_data, clusters_test_data
 
 
-def save(model, optimizer, i, best_score, update_best, conf_size):
+def save(model, optimizer, i, conf_size):
     data_save = {
-        'model': model.state_dict(),
+        'model': model.module.state_dict() if torch.cuda.device_count() > 1 else model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'step': i,
-        'best_score': best_score,
         'conf_size': conf_size
     }
     torch.save(data_save, f"models/{config_name}_last.cp")
-    if update_best:
-        torch.save(data_save, f"models/{config_name}_best.cp")
 
 
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0, 0, 1
+        return 0, 1
     checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
-    best_score = checkpoint['best_score']
     conf_size = checkpoint['conf_size']
-    return load_step, best_score, conf_size
+    return load_step, conf_size
+
+
+def eval_test_dataset(model, dataset, score):
+    for x_test, y_test in dataset:
+        x_test = x_test.to(device)
+        y_test = y_test.to(device)
+        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=False)
+        score.update_values_from_output(outputs, y_test)
+    score.to_file(i)
 
 
 # main:
@@ -366,13 +348,20 @@ if __name__ == '__main__':
     model = model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-    i, best_test_acc, curr_size = load_last(model, optimizer)
+    i, curr_size = load_last(model, optimizer)
+    if torch.cuda.device_count() > 1:
+        model = DataParallel(model)
 
     print(
-        f"load cp-  i:{i}, best_test_acc:{best_test_acc},  curr_size:{curr_size}")
+        f"load cp-  i:{i},   curr_size:{curr_size}")
     model = model.train()
-    scores = Scores()
-    train_data, test_data, clusters_data = get_datasets(curr_size, train_dataset_size)
+    train_data, test_data, test_map_data, clusters_train_data, clusters_test_data = get_datasets(curr_size,
+                                                                                                 train_dataset_size)
+    train_scores = Scores("train")
+    test_scores = Scores("test")
+    test_map_scores = Scores("test_map")
+    cluster_train_scores = Scores("cluster_train")
+    cluster_test_scores = Scores("cluster_test")
 
     for epoch in range(EPOCHS):
         pbar = tqdm(train_data, total=len(train_data))
@@ -383,7 +372,7 @@ if __name__ == '__main__':
 
             outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=False)
 
-            scores.update_values_from_output(outputs, y_train, "train")
+            train_scores.update_values_from_output(outputs, y_train)
             optimizer.zero_grad()
             outputs.loss.backward()
             optimizer.step()
@@ -391,40 +380,21 @@ if __name__ == '__main__':
             if i % save_update_steps == 0:
                 model.eval()
                 with torch.no_grad():
-                    for x_test, y_test in test_data:
-                        x_test = x_test.to(device)
-                        y_test = y_test.to(device)
-                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=False)
-                        scores.update_values_from_output(outputs, y_test, "test")
-                    scores.to_file("test")
-
-                    for x_test, y_test in clusters_data:
-                        x_test = x_test.to(device)
-                        y_test = y_test.to(device)
-                        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=False)
-                        scores.update_values_from_output(outputs, y_test, "cluster")
-                    scores.to_file("cluster")
+                    eval_test_dataset(model, test_data, test_scores)
+                    eval_test_dataset(model, test_map_data, test_map_scores)
+                    eval_test_dataset(model, clusters_train_data, cluster_train_scores)
+                    eval_test_dataset(model, clusters_test_data, cluster_test_scores)
                 model.train()
-                update_best = False
-                if scores.test_acc > best_test_acc:
-                    best_test_acc = scores.test_acc / scores.test_count
-                    update_best = True
-
-                scores.resset_test()
-                scores.reset_cluster()
-
-                save(model, optimizer, i, best_test_acc, update_best, curr_size)
+                save(model, optimizer, i, curr_size)
 
             if i % warmup_steps == 0:
-
-                scores.to_file("train")
-                cur_acc = scores.train_acc / scores.train_count
-                scores.resset_train()
+                _, cur_acc = train_scores.get_scores()
+                train_scores.to_file(i)
 
                 if curr_size < MAX_DS_SIZE and cur_acc > 0.8:
                     curr_size *= 2
-                    with open(output_file, "a") as f:
-                        f.write(f"step {i}, update config to {curr_size}" + "\n")
+                    writer.add_scalar('ds_size', curr_size, i)
                     new_sample_counts = int(train_dataset_size * np.sqrt(curr_size))
-                    train_data, test_data, clusters_data = get_datasets(curr_size, new_sample_counts)
+                    train_data, test_data, test_map_data, clusters_train_data, clusters_test_data = get_datasets(
+                        curr_size, new_sample_counts)
                     break
