@@ -107,7 +107,7 @@ class Scores:
         self.count += 1
 
     def update_values_from_output(self, outputs, y):
-        loss = outputs.loss.item()
+        loss = outputs.loss.mean().item()
         preds = outputs.logits.argmax(dim=-1)
         mask = y != PAD_TOKEN
         acc = ((preds[mask] == y[mask]).sum() / y[mask].numel()).item()
@@ -371,10 +371,10 @@ if __name__ == '__main__':
             y_train = y_train.to(device)
 
             outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
-
+            loss = outputs.loss.mean()
             train_scores.update_values_from_output(outputs, y_train)
             optimizer.zero_grad()
-            outputs.loss.backward()
+            loss.backward()
             optimizer.step()
 
             if i % save_update_steps == 0:
