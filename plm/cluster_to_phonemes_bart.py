@@ -336,7 +336,7 @@ def eval_test_dataset(model, dataset, score):
     for x_test, y_test in dataset:
         x_test = x_test.to(device)
         y_test = y_test.to(device)
-        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=False)
+        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
         score.update_values_from_output(outputs, y_test)
     score.to_file(i)
 
