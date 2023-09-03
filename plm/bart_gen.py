@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         num_beams = 6
         input_ids = torch.ones((num_beams, 1), device=model.device, dtype=torch.long)
-        input_ids = input_ids * model.config.decoder_start_token_id
+        input_ids = input_ids * START_TOKEN
 
         model_kwargs = {
             "encoder_outputs": model.get_encoder()(
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
         logits_processor = LogitsProcessorList(
             [
-                MinLengthLogitsProcessor(min_new_tokens, eos_token_id=model.config.eos_token_id),
+                MinLengthLogitsProcessor(min_new_tokens, eos_token_id=END_TOKEN),
             ]
         )
         y_gen2 = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor,max_length=MAX_LENGTH, **model_kwargs)
