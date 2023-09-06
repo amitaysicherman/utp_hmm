@@ -391,7 +391,7 @@ if __name__ == '__main__':
                 _, cur_acc = train_scores.get_scores()
                 train_scores.to_file(i)
 
-                if curr_size < MAX_DS_SIZE and cur_acc > 0.8:
+                if curr_size < MAX_DS_SIZE and cur_acc > 0.75:
                     curr_size *= 2
                     writer.add_scalar('ds_size', curr_size, i)
                     new_sample_counts = int(train_dataset_size * np.sqrt(curr_size))
