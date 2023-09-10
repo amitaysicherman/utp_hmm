@@ -1,12 +1,11 @@
 # sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=0-12 --wrap "python bart_gen.py"
-import os
+
 
 from transformers import (
     LogitsProcessorList,
     MinLengthLogitsProcessor,
     BeamSearchScorer,
 )
-import torch
 from cluster_to_phonemes_bart import *
 from jiwer import wer
 
@@ -65,9 +64,24 @@ if __name__ == '__main__':
                 MinLengthLogitsProcessor(min_new_tokens, eos_token_id=END_TOKEN),
             ]
         )
-        y_gen = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, max_length=MAX_LENGTH,
-                                  **model_kwargs)
-        y_gen = [x for x in y_gen[0].cpu().numpy().tolist() if x != PAD_TOKEN]
+
+        gen_output = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, max_length=MAX_LENGTH,
+                                       # stopping_criteria=StoppingCriteriaList(MaxLengthCriteria(max_length=MAX_LENGTH)),
+                                       output_scores=True, return_dict_in_generate=True, **model_kwargs)
+        y_gen = gen_output.sequences
+        scores = gen_output.scores[0][0]
+        scores = scores.cpu().numpy().tolist()
+
+        y_gen = [x for x in y_gen[0].cpu().numpy().tolist()]
+        scores = [s for s, g in zip(scores, y_gen) if g != PAD_TOKEN]
+
+        y_gen = [x for x in y_gen if x != PAD_TOKEN]
+
+        with open(output_file, 'a') as f:
+            f.write(f"i: {j}")
+            for g, s in zip(y_gen, scores):
+                f.write(f"{g}:{s}\n")
+
         y_gen = " ".join([str(x) for x in y_gen])
         # def tensor_to_strings(t):
         #     t = t.cpu().numpy().tolist()
