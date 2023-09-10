@@ -44,7 +44,7 @@ if __name__ == '__main__':
         y_ref = y_ref.to(device)
         min_new_tokens = int(0.1 * MAX_LENGTH)
         encoder_input_ids = x_gen
-        num_beams = 25
+        num_beams = 10
         input_ids = torch.ones((num_beams, 1), device=model.device, dtype=torch.long)
         input_ids = input_ids * PAD_TOKEN
 
