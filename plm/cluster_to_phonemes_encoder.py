@@ -334,7 +334,6 @@ if __name__ == '__main__':
                 ignore_index=PAD_TOKEN
             )
             train_scores.update_values_from_output(logits, loss.item(), y_train)
-            3/0
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
