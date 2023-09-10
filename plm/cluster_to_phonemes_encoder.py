@@ -1,9 +1,11 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_encoder.py"
 # https://aclanthology.org/P19-2049.pdf
 
 import random
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.parallel import DataParallel
+from x_transformers import TransformerWrapper, Encoder
+import torch.nn.functional as F
 
 import numpy as np
 import torch
@@ -11,10 +13,10 @@ from tqdm import tqdm
 import os
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
-from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
 import argparse
 from torch.utils.tensorboard import SummaryWriter
+from torch import nn
 
 save_update_steps = 1_000
 warmup_steps = 50
@@ -34,7 +36,7 @@ ds = args.ds
 model_size = args.model_size
 MAX_LENGTH = args.max_length
 MAX_DS_SIZE = 2048
-config_name = f"bart_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
+config_name = f"encoder_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
 train_dataset_size = 1_000_000
@@ -81,10 +83,8 @@ N_CLUSTERS = 100
 CLUSTERS_LAST_TOKEN = CLUSTERS_FIRST_TOKEN + N_CLUSTERS
 PAD_TOKEN = CLUSTERS_LAST_TOKEN + 1
 SEP = PAD_TOKEN + 1
-DECODER_MASK_TOKEN = SEP + 1
-START_TOKEN = DECODER_MASK_TOKEN + 1
-END_TOKEN = START_TOKEN + 1
-N_TOKENS = END_TOKEN + 1
+N_TOKENS = SEP + 1
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -105,9 +105,8 @@ class Scores:
         self.acc += acc
         self.count += 1
 
-    def update_values_from_output(self, outputs, y):
-        loss = outputs.loss.mean().item()
-        preds = outputs.logits.argmax(dim=-1)
+    def update_values_from_output(self, logit, loss, y):
+        preds = logit.argmax(dim=-1)
         mask = y != PAD_TOKEN
         acc = ((preds[mask] == y[mask]).sum() / y[mask].numel()).item()
         self.update_value(loss, acc)
@@ -127,50 +126,6 @@ class Scores:
 SIL_CLUSTERS = np.array([1, 2, 4, 10, 12, 20, 21, 22, 27, 31, 34, 37, 39, 40, 41, 47, 54,
                          55, 56, 57, 60, 63, 66, 67, 71, 74, 78, 81, 83, 84, 86, 89, 92, 93,
                          96])
-
-
-class ClustersPhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, clusters_file, max_len=MAX_LENGTH, samples_count=test_size):
-        with open(phonemes_file, 'r') as f:
-            phonemes_data = f.readlines()
-        self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
-        with open(clusters_file, 'r') as f:
-            clusters_data = f.readlines()
-        self.clusters_data = [[int(x) for x in line.strip().split()] for line in clusters_data]
-        self.clusters_data = [[x for x in line if x not in SIL_CLUSTERS] for line in self.clusters_data]
-        self.clusters_data = [[CLUSTERS_FIRST_TOKEN + x for x in line] for line in self.clusters_data]
-        self.max_len = max_len
-        self.data = []
-        self.clusters = []
-        max_line_index = len(self.phonemes_data)
-        max_line_index = min(max_line_index, len(self.phonemes_data))
-        for _ in range(samples_count):
-            sample = [START_TOKEN]
-            cluster_sample = [START_TOKEN]
-            while True:
-                new_index = np.random.randint(0, max_line_index)
-                new_sample = self.phonemes_data[new_index][:] + [SEP]
-                new_cluster_sample = self.clusters_data[new_index][:] + [SEP]
-
-                if (len(sample) + len(new_sample) >= self.max_len - 1) or (
-                        len(cluster_sample) + len(new_cluster_sample) >= self.max_len):
-                    break
-
-                sample += new_sample
-                cluster_sample += new_cluster_sample
-
-            sample += [END_TOKEN]
-            cluster_sample += [END_TOKEN]
-            sample += [PAD_TOKEN] * (self.max_len - len(sample))
-            cluster_sample += [PAD_TOKEN] * (self.max_len - len(cluster_sample))
-            self.data.append(sample)
-            self.clusters.append(cluster_sample)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return torch.LongTensor(self.clusters[idx]), torch.LongTensor(self.data[idx])
 
 
 class NoiseAdder:
@@ -220,16 +175,18 @@ class NoiseAdder:
         inv_mapping = random.choice(self.maps)
         length = self.get_length(len(clean_sample))
         noise_sample = []
+        clean_sample = []
         clean_count = 0
         for c in clean_sample:
             for _ in range(length.pop()):
+
                 if clean_count >= max_noise_len:
                     break
                 clean_count += 1
                 new_token = self.get_new_token(inv_mapping, c)
                 noise_sample.append(new_token)
-
-        return noise_sample, clean_count
+                clean_sample.append(c)
+        return clean_sample, noise_sample, clean_count
 
 
 class PhonemesDataset(Dataset):
@@ -244,14 +201,14 @@ class PhonemesDataset(Dataset):
         self.max_line_index = len(self.phonemes_data)
 
     def get_clean_noise_sample(self):
-        concat_clean_samples = [START_TOKEN]
-        concat_noise_samples = [START_TOKEN]
+        concat_clean_samples = []
+        concat_noise_samples = []
         while True:
             clean_sample = self.phonemes_data[np.random.randint(0, self.max_line_index)][:]
             max_noise_len = self.max_len - len(concat_noise_samples) - 2
             if max_noise_len <= 0:
                 break
-            noise_sample, max_clean_len = self.noise_adder.add_noise(clean_sample, max_noise_len)
+            clean_sample, noise_sample, max_clean_len = self.noise_adder.add_noise(clean_sample, max_noise_len)
             clean_sample = clean_sample[:max_clean_len]
             clean_sample += [SEP]
             noise_sample += [SEP]
@@ -261,8 +218,6 @@ class PhonemesDataset(Dataset):
             concat_clean_samples += clean_sample
             concat_noise_samples += noise_sample
 
-        concat_clean_samples += [END_TOKEN]
-        concat_noise_samples += [END_TOKEN]
         concat_clean_samples += [PAD_TOKEN] * (self.max_len - len(concat_clean_samples))
         concat_noise_samples += [PAD_TOKEN] * (self.max_len - len(concat_noise_samples))
         return concat_clean_samples, concat_noise_samples
@@ -277,13 +232,17 @@ class PhonemesDataset(Dataset):
         return noise, clean
 
 
-def get_model() -> BartForConditionalGeneration:
-    config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH, encoder_layers=num_layers,
-                        encoder_ffn_dim=d_model, encoder_attention_heads=nhead,
-                        decoder_layers=num_layers, decoder_ffn_dim=d_model, decoder_attention_heads=nhead,
-                        d_model=d_model, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
-                        decoder_start_token_id=START_TOKEN, forced_eos_token_id=END_TOKEN)  # Set vocab size
-    model = BartForConditionalGeneration(config)
+def get_model() -> TransformerWrapper:
+    model = TransformerWrapper(
+        num_tokens=N_TOKENS + 1,
+        max_seq_len=MAX_LENGTH,
+        logits_dim=N_TOKENS + 1,
+        attn_layers=Encoder(
+            dim=d_model,
+            depth=num_layers,
+            heads=nhead,
+        )
+    )
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f'{params:,} trainable parameters')
@@ -291,6 +250,7 @@ def get_model() -> BartForConditionalGeneration:
 
 
 def get_datasets(curr_size, train_sample_count):
+
     train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=train_sample_count)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
@@ -301,13 +261,7 @@ def get_datasets(curr_size, train_sample_count):
                                        single_seed=curr_size * 2)
     test_map_data = DataLoader(test_map_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-    clusters_train_dataset = ClustersPhonemesDataset(phonemes_file, clusters_train_file, samples_count=test_size)
-    clusters_train_data = DataLoader(clusters_train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-
-    clusters_test_dataset = ClustersPhonemesDataset(phonemes_file_test, clusters_test_file, samples_count=test_size)
-    clusters_test_data = DataLoader(clusters_test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-
-    return train_data, test_data, test_map_data, clusters_train_data, clusters_test_data
+    return train_data, test_data, test_map_data
 
 
 def save(model, optimizer, i, conf_size):
@@ -335,8 +289,15 @@ def eval_test_dataset(model, dataset, score):
     for x_test, y_test in dataset:
         x_test = x_test.to(device)
         y_test = y_test.to(device)
-        outputs = model(input_ids=x_test, labels=y_test, output_hidden_states=True)
-        score.update_values_from_output(outputs, y_test)
+
+        logits = model(x_test)
+        loss = F.cross_entropy(
+            logits.transpose(1, 2),
+            y_test,
+            ignore_index=PAD_TOKEN
+        )
+        score.update_values_from_output(logits, loss.item(), y_test)
+
     score.to_file(i)
 
 
@@ -347,6 +308,7 @@ if __name__ == '__main__':
     model = model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+
     i, curr_size = load_last(model, optimizer)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
@@ -354,13 +316,10 @@ if __name__ == '__main__':
     print(
         f"load cp-  i:{i},   curr_size:{curr_size}")
     model = model.train()
-    train_data, test_data, test_map_data, clusters_train_data, clusters_test_data = get_datasets(curr_size,
-                                                                                                 train_dataset_size)
+    train_data, test_data, test_map_data = get_datasets(curr_size, train_dataset_size)
     train_scores = Scores("train")
     test_scores = Scores("test")
     test_map_scores = Scores("test_map")
-    cluster_train_scores = Scores("cluster_train")
-    cluster_test_scores = Scores("cluster_test")
 
     for epoch in range(EPOCHS):
         pbar = tqdm(train_data, total=len(train_data))
@@ -368,10 +327,13 @@ if __name__ == '__main__':
             i += 1
             x_train = x_train.to(device)
             y_train = y_train.to(device)
-
-            outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
-            loss = outputs.loss.mean()
-            train_scores.update_values_from_output(outputs, y_train)
+            logits = model(x_train)
+            loss = F.cross_entropy(
+                logits.transpose(1, 2),
+                y_train,
+                ignore_index=PAD_TOKEN
+            )
+            train_scores.update_values_from_output(logits, loss.item(), y_train)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -381,8 +343,6 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     eval_test_dataset(model, test_data, test_scores)
                     eval_test_dataset(model, test_map_data, test_map_scores)
-                    eval_test_dataset(model, clusters_train_data, cluster_train_scores)
-                    eval_test_dataset(model, clusters_test_data, cluster_test_scores)
                 model.train()
                 save(model, optimizer, i, curr_size)
 
@@ -394,6 +354,5 @@ if __name__ == '__main__':
                     curr_size *= 2
                     writer.add_scalar('ds_size', curr_size, i)
                     new_sample_counts = int(train_dataset_size * np.sqrt(curr_size))
-                    train_data, test_data, test_map_data, clusters_train_data, clusters_test_data = get_datasets(
-                        curr_size, new_sample_counts)
+                    train_data, test_data, test_map_data = get_datasets(curr_size, new_sample_counts)
                     break
