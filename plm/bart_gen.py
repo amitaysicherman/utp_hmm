@@ -67,7 +67,7 @@ if __name__ == '__main__':
         )
         y_gen = model.beam_search(input_ids, beam_scorer, logits_processor=logits_processor, max_length=MAX_LENGTH,
                                   **model_kwargs)
-        y_gen = [x for x in y_gen[0].cpu().numpy().tolist() if x not in != PAD_TOKEN]
+        y_gen = [x for x in y_gen[0].cpu().numpy().tolist() if x != PAD_TOKEN]
         y_gen = " ".join([str(x) for x in y_gen])
         # def tensor_to_strings(t):
         #     t = t.cpu().numpy().tolist()
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         # y_pred = model(input_ids=x_gen, labels=y_ref).logits.argmax(dim=-1)[0]
         # y_pred2 = model(input_ids=torch.ones_like(x_gen) + CLUSTERS_FIRST_TOKEN, labels=y_ref).logits.argmax(dim=-1)[0]
         y_ref = y_ref[0]
-        y_ref = [x for x in y_ref.cpu().numpy().tolist() if x not in != PAD_TOKEN]
+        y_ref = [x for x in y_ref.cpu().numpy().tolist() if x != PAD_TOKEN]
         y_ref = " ".join([str(x) for x in y_ref])
         wer_scores.append(wer(y_ref, y_gen))
         with open(output_file, 'a') as f:
