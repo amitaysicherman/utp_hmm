@@ -83,6 +83,8 @@ if __name__ == '__main__':
         wer_scores.append(wer(y_ref, y_gen))
         with open(output_file, 'a') as f:
             f.write(f"i: {j} , WER : {wer_scores[-1]}\n")
+            f.write(f"y_ref: {y_ref[:100]}\n")
+            f.write(f"y_gen: {y_gen[:100]}\n")
             if j % 100 == 0:
                 f.write(f"WER mean : {sum(wer_scores) / len(wer_scores)}\n")
 
