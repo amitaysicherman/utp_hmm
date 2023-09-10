@@ -70,7 +70,7 @@ if __name__ == '__main__':
                                        output_scores=True, return_dict_in_generate=True, **model_kwargs)
         y_gen = gen_output.sequences
         scores = gen_output.scores[0][0]
-        scores = scores.cpu().numpy().tolist()
+        scores = scores.detach().cpu().numpy().tolist()
 
         y_gen = [x for x in y_gen[0].cpu().numpy().tolist()]
         scores = [s for s, g in zip(scores, y_gen) if g != PAD_TOKEN]
