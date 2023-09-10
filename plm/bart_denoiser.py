@@ -9,13 +9,15 @@ from transformers import BartConfig, BartForConditionalGeneration
 from jiwer import wer
 
 MAX_TOKEN = 38
-PAD_TOKEN = 39
+PAD_TOKEN = MAX_TOKEN + 1
+START_TOKEN = PAD_TOKEN + 1
+END_TOKEN = START_TOKEN + 1
+N_TOKENS = END_TOKEN + 1
+
 MIN_P = 0.0
-MAX_P = 0.2
-START_TOKEN = 40
-END_TOKEN = 41
-N_TOKENS = 42
-MAX_LENGTH = 100
+MAX_P = 0.5
+
+MAX_LENGTH = 256
 EPOCHS = 200
 BATCH_SIZE = 32
 LR = 0.0001
@@ -24,6 +26,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NoiseDataset(Dataset):
     def __init__(self, file_path):
+        self.max_len_no_start_end = MAX_LENGTH - 2
         with open(file_path, 'r') as file:
             self.data = [list(map(int, line.strip().split())) for line in file.readlines()]
 
@@ -51,14 +54,16 @@ class NoiseDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        noisy_sample = self.add_noise(self.data[index][:])
-        sample = self.data[index][:MAX_LENGTH]
-        noisy_sample = noisy_sample[:MAX_LENGTH]
+        while True:
+            noisy_sample = self.add_noise(self.data[index][:])
+            sample = self.data[index][:]
+            if len(noisy_sample) <= self.max_len_no_start_end and len(sample) <= self.max_len_no_start_end:
+                sample = [START_TOKEN] + sample + [END_TOKEN]
+                noisy_sample = [START_TOKEN] + noisy_sample + [END_TOKEN]
+                break
+            index = random.randint(0, len(self.data) - 1)
 
-        sample = [START_TOKEN] + sample + [END_TOKEN]
         sample = sample + [PAD_TOKEN] * (MAX_LENGTH - len(sample))
-
-        noisy_sample = [START_TOKEN] + noisy_sample + [END_TOKEN]
         noisy_sample = noisy_sample + [PAD_TOKEN] * (MAX_LENGTH - len(noisy_sample))
 
         return torch.tensor(noisy_sample), torch.tensor(sample)
@@ -88,7 +93,7 @@ def eval_wer_ds(dataset, model):
     return np.mean(wer_score)
 
 
-def get_model()->BartForConditionalGeneration:
+def get_model() -> BartForConditionalGeneration:
     config = BartConfig(vocab_size=N_TOKENS, max_position_embeddings=MAX_LENGTH, encoder_layers=3, encoder_ffn_dim=256,
                         encoder_attention_heads=4, decoder_layers=3, decoder_ffn_dim=256, decoder_attention_heads=4,
                         d_model=256, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
@@ -99,10 +104,12 @@ def get_model()->BartForConditionalGeneration:
     print(f'{params:,} trainable parameters')
     return model
 
+
 if __name__ == '__main__':
-    train_dataset = NoiseDataset('data/TIMIT_NS_TRAIN_PH_IDX.txt')
+
+    train_dataset = NoiseDataset('data/LIBRISPEECH_TRAIN_idx.txt')
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    test_dataset = NoiseDataset('data/TIMIT_NS_TRAIN_PH_IDX.txt')
+    test_dataset = NoiseDataset('data/LIBRISPEECH_TEST_idx.txt')
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
     model = get_model().to(device)
 
