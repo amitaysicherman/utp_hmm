@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     i, curr_size = load_last(model)
     curr_size = curr_size // 2
-    train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=100)
+    train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=1000)
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True, drop_last=True)
     with open(output_file, "a") as f:
         f.write(
