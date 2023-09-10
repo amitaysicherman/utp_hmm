@@ -175,7 +175,7 @@ class NoiseAdder:
         inv_mapping = random.choice(self.maps)
         length = self.get_length(len(clean_sample))
         noise_sample = []
-        clean_sample = []
+        new_clean_sample = []
         clean_count = 0
         for c in clean_sample:
             for _ in range(length.pop()):
@@ -185,8 +185,8 @@ class NoiseAdder:
                 clean_count += 1
                 new_token = self.get_new_token(inv_mapping, c)
                 noise_sample.append(new_token)
-                clean_sample.append(c)
-        return clean_sample, noise_sample, clean_count
+                new_clean_sample.append(c)
+        return new_clean_sample, noise_sample, clean_count
 
 
 class PhonemesDataset(Dataset):
@@ -334,6 +334,7 @@ if __name__ == '__main__':
                 ignore_index=PAD_TOKEN
             )
             train_scores.update_values_from_output(logits, loss.item(), y_train)
+            3/0
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
