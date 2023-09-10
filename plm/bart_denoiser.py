@@ -94,9 +94,13 @@ def eval_wer_ds(dataset, model):
 
 
 def get_model() -> BartForConditionalGeneration:
-    config = BartConfig(vocab_size=N_TOKENS, max_position_embeddings=MAX_LENGTH, encoder_layers=3, encoder_ffn_dim=256,
-                        encoder_attention_heads=4, decoder_layers=3, decoder_ffn_dim=256, decoder_attention_heads=4,
-                        d_model=256, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
+    d_model = 512
+    nhead = 8
+    num_layers = 8
+    config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH, encoder_layers=num_layers,
+                        encoder_ffn_dim=d_model, encoder_attention_heads=nhead,
+                        decoder_layers=num_layers, decoder_ffn_dim=d_model, decoder_attention_heads=nhead,
+                        d_model=d_model, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
                         decoder_start_token_id=START_TOKEN, forced_eos_token_id=END_TOKEN)  # Set vocab size
     model = BartForConditionalGeneration(config)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
