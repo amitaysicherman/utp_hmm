@@ -152,9 +152,9 @@ if __name__ == '__main__':
             f.write(f'Epoch {epoch} train wer: {train_wer} test wer: {test_wer}\n')
         if best_test_loss > np.mean(test_loss):
             best_test_loss = np.mean(test_loss)
-            torch.save(model.state_dict(), f'models/bart_denoiser_ns_test.cp')
-            torch.save(optimizer.state_dict(), f'models/bart_denoiser_ns_test_opt.cp')
+            torch.save(model.state_dict(), f'models/bart_denoiser_lr_test.cp')
+            torch.save(optimizer.state_dict(), f'models/bart_denoiser_lr_test_opt.cp')
         if best_train_loss > np.mean(train_loss):
             best_train_loss = np.mean(train_loss)
-            torch.save(model.state_dict(), f'models/bart_denoiser_ns_train.cp')
-            torch.save(optimizer.state_dict(), f'models/bart_denoiser_ns_train_opt.cp')
+            torch.save(model.state_dict(), f'models/bart_denoiser_lr_train.cp')
+            torch.save(optimizer.state_dict(), f'models/bart_denoiser_lr_train_opt.cp')
