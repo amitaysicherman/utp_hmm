@@ -35,8 +35,8 @@ LR = args.lr
 ds = args.ds
 model_size = args.model_size
 MAX_LENGTH = args.max_length
-MAX_DS_SIZE = 2048
-config_name = f"encoder_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
+MAX_DS_SIZE = 1_048_576
+config_name = f"encoder_all_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
 train_dataset_size = 1_000_000
@@ -184,6 +184,8 @@ class NoiseAdder:
                     break
                 clean_count += 1
                 new_token = self.get_new_token(inv_mapping, c)
+                if len(noise_sample) and new_token == noise_sample[-1]:
+                    continue
                 noise_sample.append(new_token)
                 new_clean_sample.append(c)
         return new_clean_sample, noise_sample, clean_count
@@ -264,12 +266,11 @@ def get_datasets(curr_size, train_sample_count):
     return train_data, test_data, test_map_data
 
 
-def save(model, optimizer, i, conf_size):
+def save(model, optimizer, i):
     data_save = {
         'model': model.module.state_dict() if torch.cuda.device_count() > 1 else model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'step': i,
-        'conf_size': conf_size
     }
     torch.save(data_save, f"models/{config_name}_last.cp")
 
@@ -281,8 +282,7 @@ def load_last(model, optimizer):
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
-    conf_size = checkpoint['conf_size']
-    return load_step, conf_size
+    return load_step
 
 
 def eval_test_dataset(model, dataset, score):
@@ -309,7 +309,8 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
-    i, curr_size = load_last(model, optimizer)
+    i = load_last(model, optimizer)
+    curr_size = MAX_DS_SIZE
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
 
@@ -344,7 +345,7 @@ if __name__ == '__main__':
                     eval_test_dataset(model, test_data, test_scores)
                     eval_test_dataset(model, test_map_data, test_map_scores)
                 model.train()
-                save(model, optimizer, i, curr_size)
+                save(model, optimizer, i)
 
             if i % warmup_steps == 0:
                 _, cur_acc = train_scores.get_scores()
