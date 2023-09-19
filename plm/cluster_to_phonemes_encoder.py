@@ -277,7 +277,7 @@ def save(model, optimizer, i):
 
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0, 1
+        return 0
     checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
