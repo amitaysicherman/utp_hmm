@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_encoder.py"
+# sbatch --gres=gpu:4,vmem:24g --mem=75G -c16 --time=7-0 --wrap "python cluster_to_phonemes_encoder.py"
 # https://aclanthology.org/P19-2049.pdf
 
 import random
