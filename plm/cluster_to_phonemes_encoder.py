@@ -198,7 +198,7 @@ class NoiseAdder:
     def build_mapping(self):
         return self.build_mapping_sphere()
 
-    def get_length(self, count, n_max=5):
+    def get_length(self, count, n_max=3):
         weights = np.diff(np.sort(np.concatenate(([0, 1], np.random.random(n_max - 1)))))
         np.random.shuffle(weights)
         length = random.choices(np.arange(n_max), weights=weights, k=count)
