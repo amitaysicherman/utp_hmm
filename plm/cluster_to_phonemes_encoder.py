@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G -c16 --time=7-0 --wrap "python cluster_to_phonemes_encoder.py"
+# sbatch --gres=gpu:8,vmem:24g --mem=75G -c32 --time=7-0 --wrap "python cluster_to_phonemes_encoder.py --arc=conv"
 # https://aclanthology.org/P19-2049.pdf
 
 import random
@@ -25,6 +25,7 @@ last_config = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
+parser.add_argument('--arc', type=str, default="transformer")
 parser.add_argument('--model_size', type=str, default="m")
 parser.add_argument("--batch_size", type=int, default=256)
 parser.add_argument("--lr", type=float, default=1e-4)
@@ -35,12 +36,49 @@ LR = args.lr
 ds = args.ds
 model_size = args.model_size
 MAX_LENGTH = args.max_length
+arc = args.arc
+
 MAX_DS_SIZE = 1_048_576
-config_name = f"encoder_all_{ds}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
+config_name = f"encoder_all_{ds}_{arc}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
 train_dataset_size = 1_000_000
 test_size = 500
+
+
+class ConvEncoder(nn.Module):
+    def __init__(
+            self,
+            model_dim,
+            kernel_size,
+            n_layers,
+            vocab_size,
+            dropout: float = 0.0,
+            conv_bias: bool = True,
+            fc_bias: bool = True,
+    ):
+        super().__init__()
+        self.dropout = dropout
+        self.emb = nn.Embedding(vocab_size + 1, model_dim)
+
+        self.conv_layers = nn.ModuleList()
+        for i in range(n_layers):
+            conv = nn.Sequential(
+                nn.Conv1d(model_dim, model_dim, kernel_size, bias=conv_bias, padding="same"),
+                nn.Dropout(p=dropout),
+                nn.GELU())
+            self.conv_layers.append(conv)
+        self.fc = nn.Linear(model_dim, vocab_size, bias=fc_bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.emb(x)
+        x = x.transpose(1, 2)
+        for conv in self.conv_layers:
+            x = conv(x)
+        x = x.transpose(1, 2)
+        x = self.fc(x)
+        return x
+
 
 if model_size == "s":
     d_model = 256
@@ -235,16 +273,30 @@ class PhonemesDataset(Dataset):
 
 
 def get_model() -> TransformerWrapper:
-    model = TransformerWrapper(
-        num_tokens=N_TOKENS + 1,
-        max_seq_len=MAX_LENGTH,
-        logits_dim=N_TOKENS + 1,
-        attn_layers=Encoder(
-            dim=d_model,
-            depth=num_layers,
-            heads=nhead,
+    if arc == "transformer" or arc == "":
+
+        model = TransformerWrapper(
+            num_tokens=N_TOKENS + 1,
+            max_seq_len=MAX_LENGTH,
+            logits_dim=N_TOKENS + 1,
+            attn_layers=Encoder(
+                dim=d_model,
+                depth=num_layers,
+                heads=nhead,
+            )
         )
-    )
+    elif arc == "conv":
+        model = ConvEncoder(
+            model_dim=d_model,
+            kernel_size=5,
+            n_layers=num_layers,
+            vocab_size=N_TOKENS,
+            dropout=0.1,
+            conv_bias=True,
+            fc_bias=True,
+        )
+    else:
+        raise ValueError(f"Unknown arc {arc}")
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f'{params:,} trainable parameters')
@@ -252,7 +304,6 @@ def get_model() -> TransformerWrapper:
 
 
 def get_datasets(curr_size, train_sample_count):
-
     train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=train_sample_count)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
