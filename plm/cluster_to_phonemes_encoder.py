@@ -215,25 +215,20 @@ class NoiseAdder:
         new_token = np.random.choice(self.range_units, p=inv_mapping[c])
         return new_token + CLUSTERS_FIRST_TOKEN
 
-    def add_noise(self, clean_sample, max_noise_len):
+    def add_noise(self, clean_sample):
 
         inv_mapping = random.choice(self.maps)
         length = self.get_length(len(clean_sample))
         noise_sample = []
         new_clean_sample = []
-        clean_count = 0
         for c in clean_sample:
             for _ in range(length.pop()):
-
-                if clean_count >= max_noise_len:
-                    break
-                clean_count += 1
                 new_token = self.get_new_token(inv_mapping, c)
                 if len(noise_sample) and new_token == noise_sample[-1]:
                     continue
                 noise_sample.append(new_token)
                 new_clean_sample.append(c)
-        return new_clean_sample, noise_sample, clean_count
+        return new_clean_sample, noise_sample
 
 
 class PhonemesDataset(Dataset):
@@ -242,7 +237,7 @@ class PhonemesDataset(Dataset):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
-        self.phonemes_data = [x for x in self.phonemes_data if len(x) < MAX_LENGTH - 3]
+        self.phonemes_data = [x for x in self.phonemes_data if len(x) < MAX_LENGTH]
         self.max_len = max_len
         self.noise_adder = NoiseAdder(size=size, single_seed=single_seed)
         self.max_line_index = len(self.phonemes_data)
@@ -262,15 +257,10 @@ class PhonemesDataset(Dataset):
         concat_noise_samples = []
         while True:
             clean_sample = self.phonemes_data[np.random.randint(0, self.max_line_index)][:]
-            max_noise_len = self.max_len - len(concat_noise_samples) - 2
-            if max_noise_len <= 0:
-                break
-            clean_sample, noise_sample, max_clean_len = self.noise_adder.add_noise(clean_sample, max_noise_len)
-            clean_sample = clean_sample[:max_clean_len]
+            clean_sample, noise_sample = self.noise_adder.add_noise(clean_sample)
             clean_sample += [SEP]
             noise_sample += [SEP]
-
-            if len(concat_clean_samples) + len(clean_sample) >= self.max_len - 1:
+            if len(concat_clean_samples) + len(clean_sample) >= self.max_len:
                 break
             concat_clean_samples += clean_sample
             concat_noise_samples += noise_sample
@@ -407,6 +397,8 @@ if __name__ == '__main__':
                                                    write_i if write_i % save_update_steps == 0 else 0, i)
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
+
             optimizer.step()
 
             if i % save_update_steps == 0:
