@@ -251,8 +251,6 @@ class PhonemesDataset(Dataset):
             clean, noise = self.get_clean_noise_sample()
             self.clean.append(clean)
             self.noise.append(noise)
-            if len(self.clean) >= 3000: #TODO(remove)
-                break
 
     def get_clean_noise_sample(self):
         concat_clean_samples = []
