@@ -145,10 +145,13 @@ class Scores:
 
     def update_values_from_output(self, logit, loss, y, write_i=0, i=0):
         preds = logit.argmax(dim=-1)
-        mask = y != PAD_TOKEN
         if write_i != 0:
-            text = preds[mask].cpu().detach().numpy()[0].tolist()
+            text = preds.cpu().detach().numpy()[0].tolist()
+            text = [str(x) for x in text if x != PAD_TOKEN]
+            text = " ".join(text)
             writer.add_text(f'{self.name}_{write_i}', str(text), i)
+        mask = y != PAD_TOKEN
+
         acc = ((preds[mask] == y[mask]).sum() / y[mask].numel()).item()
         self.update_value(loss, acc)
 
