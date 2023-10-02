@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:8,vmem:24g --mem=75G -c32 --time=7-0 --wrap "python cluster_to_phonemes_encoder.py --arc=conv"
+# sbatch --gres=gpu:8,vmem:24g --mem=75G -c32 --time=7-0 --wrap "python cluster_to_phonemes_encoder.py"
 # https://aclanthology.org/P19-2049.pdf
 
 import random
@@ -26,8 +26,8 @@ last_config = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
 parser.add_argument('--arc', type=str, default="transformer")
-parser.add_argument('--model_size', type=str, default="m")
-parser.add_argument("--batch_size", type=int, default=256)
+parser.add_argument('--model_size', type=str, default="l")
+parser.add_argument("--batch_size", type=int, default=1024)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--max_length", type=int, default=512)
 args = parser.parse_args()
@@ -38,12 +38,12 @@ model_size = args.model_size
 MAX_LENGTH = args.max_length
 arc = args.arc
 
-MAX_DS_SIZE = 1_048_576
+MAX_DS_SIZE = 16_384
 config_name = f"encoder_all_{ds}_{arc}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
-train_dataset_size = 1_000_000
-test_size = 500
+train_dataset_size_factor = MAX_DS_SIZE
+test_size_factor = 10
 
 
 class ConvEncoder(nn.Module):
@@ -199,7 +199,8 @@ class NoiseAdder:
         return self.build_mapping_sphere()
 
     def get_length(self, count, n_max=3):
-        weights = np.diff(np.sort(np.concatenate(([0, 1], np.random.random(n_max - 1)))))
+        weights_sort = np.sort(np.diff(np.sort(np.concatenate(([0, 1], np.random.random(n_max - 1))))))
+        weights = np.array([weights_sort[0], weights_sort[-1], *weights_sort[1:-1]])
         np.random.shuffle(weights)
         length = random.choices(np.arange(n_max), weights=weights, k=count)
         return length
@@ -230,15 +231,23 @@ class NoiseAdder:
 
 
 class PhonemesDataset(Dataset):
-    def __init__(self, phonemes_file, max_len=MAX_LENGTH, samples_count=train_dataset_size, size=1, single_seed=-1):
+    def __init__(self, phonemes_file, max_len=MAX_LENGTH, samples_factor=train_dataset_size_factor, size=1,
+                 single_seed=-1):
         with open(phonemes_file, 'r') as f:
             phonemes_data = f.readlines()
         self.phonemes_data = [[int(x) for x in line.strip().split()] for line in phonemes_data]
         self.phonemes_data = [x for x in self.phonemes_data if len(x) < MAX_LENGTH - 3]
         self.max_len = max_len
-        self.samples_count = samples_count
         self.noise_adder = NoiseAdder(size=size, single_seed=single_seed)
         self.max_line_index = len(self.phonemes_data)
+
+        self.clean = []
+        self.noise = []
+
+        for _ in tqdm(range(samples_factor * len(self.phonemes_data)), total=samples_factor * len(self.phonemes_data)):
+            clean, noise = self.get_clean_noise_sample()
+            self.clean.append(clean)
+            self.noise.append(noise)
 
     def get_clean_noise_sample(self):
         concat_clean_samples = []
@@ -263,12 +272,11 @@ class PhonemesDataset(Dataset):
         return concat_clean_samples, concat_noise_samples
 
     def __len__(self):
-        return self.samples_count
+        return len(self.clean)
 
     def __getitem__(self, idx):
-        clean, noise = self.get_clean_noise_sample()
-        clean = torch.LongTensor(clean)
-        noise = torch.LongTensor(noise)
+        clean = torch.LongTensor(self.clean[idx])
+        noise = torch.LongTensor(self.noise[idx])
         return noise, clean
 
 
@@ -304,13 +312,13 @@ def get_model() -> TransformerWrapper:
 
 
 def get_datasets(curr_size, train_sample_count):
-    train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=train_sample_count)
+    train_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_factor=train_sample_count)
     train_data = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-    test_dataset = PhonemesDataset(phonemes_file_test, size=curr_size, samples_count=test_size)
+    test_dataset = PhonemesDataset(phonemes_file_test, size=curr_size, samples_factor=test_size_factor)
     test_data = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
-    test_map_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_count=test_size,
+    test_map_dataset = PhonemesDataset(phonemes_file, size=curr_size, samples_factor=test_size_factor,
                                        single_seed=curr_size * 2)
     test_map_data = DataLoader(test_map_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
@@ -368,7 +376,7 @@ if __name__ == '__main__':
     print(
         f"load cp-  i:{i},   curr_size:{curr_size}")
     model = model.train()
-    train_data, test_data, test_map_data = get_datasets(curr_size, train_dataset_size)
+    train_data, test_data, test_map_data = get_datasets(curr_size, train_dataset_size_factor)
     train_scores = Scores("train")
     test_scores = Scores("test")
     test_map_scores = Scores("test_map")
@@ -401,10 +409,9 @@ if __name__ == '__main__':
             if i % warmup_steps == 0:
                 _, cur_acc = train_scores.get_scores()
                 train_scores.to_file(i)
-
-                if curr_size < MAX_DS_SIZE and cur_acc > 0.75:
-                    curr_size *= 2
-                    writer.add_scalar('ds_size', curr_size, i)
-                    new_sample_counts = int(train_dataset_size * np.sqrt(curr_size))
-                    train_data, test_data, test_map_data = get_datasets(curr_size, new_sample_counts)
-                    break
+                # if curr_size < MAX_DS_SIZE and cur_acc > 0.75:
+                #     curr_size *= 2
+                #     writer.add_scalar('ds_size', curr_size, i)
+                #     new_sample_counts = int(train_dataset_size * np.sqrt(curr_size))
+                #     train_data, test_data, test_map_data = get_datasets(curr_size, new_sample_counts)
+                #     break
