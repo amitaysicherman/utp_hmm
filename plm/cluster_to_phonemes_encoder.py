@@ -42,7 +42,7 @@ MAX_DS_SIZE = 4096
 config_name = f"encoder_all_{ds}_{arc}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
-train_dataset_size_factor = int(MAX_DS_SIZE / 10)
+train_dataset_size_factor = 10
 test_size_factor = 10
 
 
@@ -247,7 +247,9 @@ class PhonemesDataset(Dataset):
         self.clean = []
         self.noise = []
         self.samples_count = 0
-        while self.samples_count < samples_factor * len(self.phonemes_data):
+        for _ in tqdm(range(samples_factor * len(self.phonemes_data))):
+            if self.samples_count > samples_factor * len(self.phonemes_data):
+                break
             clean, noise = self.get_clean_noise_sample()
             self.clean.append(clean)
             self.noise.append(noise)
