@@ -42,7 +42,7 @@ MAX_DS_SIZE = 4096
 config_name = f"encoder_all_{ds}_{arc}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
-train_dataset_size_factor = 1  # int(MAX_DS_SIZE / 10)
+train_dataset_size_factor = int(MAX_DS_SIZE / 10)
 test_size_factor = 10
 
 
@@ -251,6 +251,8 @@ class PhonemesDataset(Dataset):
             clean, noise = self.get_clean_noise_sample()
             self.clean.append(clean)
             self.noise.append(noise)
+            if len(self.clean) >= 3000: #TODO(remove)
+                break
 
     def get_clean_noise_sample(self):
         concat_clean_samples = []
