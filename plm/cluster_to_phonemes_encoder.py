@@ -246,8 +246,8 @@ class PhonemesDataset(Dataset):
 
         self.clean = []
         self.noise = []
-
-        for _ in tqdm(range(samples_factor * len(self.phonemes_data)), total=samples_factor * len(self.phonemes_data)):
+        self.samples_count = 0
+        while self.samples_count < samples_factor * len(self.phonemes_data):
             clean, noise = self.get_clean_noise_sample()
             self.clean.append(clean)
             self.noise.append(noise)
@@ -269,6 +269,7 @@ class PhonemesDataset(Dataset):
                 break
             concat_clean_samples += clean_sample
             concat_noise_samples += noise_sample
+            self.samples_count += 1
 
         concat_clean_samples += [PAD_TOKEN] * (self.max_len - len(concat_clean_samples))
         concat_noise_samples += [PAD_TOKEN] * (self.max_len - len(concat_noise_samples))
