@@ -26,7 +26,7 @@ last_config = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--ds', type=str, default="lr")
 parser.add_argument('--arc', type=str, default="transformer")
-parser.add_argument('--model_size', type=str, default="l")
+parser.add_argument('--model_size', type=str, default="m")
 parser.add_argument("--batch_size", type=int, default=512)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--max_length", type=int, default=512)
