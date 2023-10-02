@@ -38,11 +38,11 @@ model_size = args.model_size
 MAX_LENGTH = args.max_length
 arc = args.arc
 
-MAX_DS_SIZE = 16_384
+MAX_DS_SIZE = 4096
 config_name = f"encoder_all_{ds}_{arc}_{model_size}_{BATCH_SIZE}_{LR}_{MAX_LENGTH}"
 writer = SummaryWriter(f"results/{config_name}")
 
-train_dataset_size_factor = MAX_DS_SIZE
+train_dataset_size_factor = int(MAX_DS_SIZE / 10)
 test_size_factor = 10
 
 
