@@ -143,9 +143,12 @@ class Scores:
         self.acc += acc
         self.count += 1
 
-    def update_values_from_output(self, logit, loss, y):
+    def update_values_from_output(self, logit, loss, y, write_i=0, i=0):
         preds = logit.argmax(dim=-1)
         mask = y != PAD_TOKEN
+        if write_i != 0:
+            text = preds[mask].cpu().detach().numpy()[0].tolist()
+            writer.add_text(f'{self.name}_{write_i}', str(text), i)
         acc = ((preds[mask] == y[mask]).sum() / y[mask].numel()).item()
         self.update_value(loss, acc)
 
@@ -344,8 +347,8 @@ def load_last(model, optimizer):
     return load_step
 
 
-def eval_test_dataset(model, dataset, score):
-    for x_test, y_test in dataset:
+def eval_test_dataset(model, dataset, score, i):
+    for write_i, (x_test, y_test) in enumerate(dataset):
         x_test = x_test.to(device)
         y_test = y_test.to(device)
 
@@ -355,7 +358,7 @@ def eval_test_dataset(model, dataset, score):
             y_test,
             ignore_index=PAD_TOKEN
         )
-        score.update_values_from_output(logits, loss.item(), y_test)
+        score.update_values_from_output(logits, loss.item(), y_test, write_i, i)
 
     score.to_file(i)
 
@@ -383,7 +386,7 @@ if __name__ == '__main__':
 
     for epoch in range(EPOCHS):
         pbar = tqdm(train_data, total=len(train_data))
-        for x_train, y_train in pbar:
+        for write_i, (x_train, y_train) in enumerate(pbar):
             i += 1
             x_train = x_train.to(device)
             y_train = y_train.to(device)
@@ -393,7 +396,9 @@ if __name__ == '__main__':
                 y_train,
                 ignore_index=PAD_TOKEN
             )
-            train_scores.update_values_from_output(logits, loss.item(), y_train)
+
+            train_scores.update_values_from_output(logits, loss.item(), y_train,
+                                                   write_i if write_i % save_update_steps == 0 else 0, i)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -401,8 +406,8 @@ if __name__ == '__main__':
             if i % save_update_steps == 0:
                 model.eval()
                 with torch.no_grad():
-                    eval_test_dataset(model, test_data, test_scores)
-                    eval_test_dataset(model, test_map_data, test_map_scores)
+                    eval_test_dataset(model, test_data, test_scores, i)
+                    eval_test_dataset(model, test_map_data, test_map_scores, i)
                 model.train()
                 save(model, optimizer, i)
 
