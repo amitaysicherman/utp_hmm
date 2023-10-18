@@ -1,7 +1,7 @@
 # sbatch --time=0-12 --gres=gpu:1,vmem:24g --mem=32G -c4 --wrap "python lr_idx_clusters.py"
 
 from nltk.corpus import cmudict
-from mapping import phonemes_to_index
+from mapping import phonemes_to_index,letters_to_index
 import glob
 import os
 import fairseq
@@ -53,6 +53,7 @@ def text_to_phonemes(text):
 
 def proccess_files(files, output_prefix):
     all_phonemes = []
+    all_letters = []
     all_cluseters = []
     all_names = []
     skip_count = 0
@@ -71,6 +72,8 @@ def proccess_files(files, output_prefix):
             if phonemes is None:
                 skip_count += 1
                 continue
+
+            all_letters.append([letters_to_index[l] for l in text])
             all_phonemes.append(phonemes)
             file_name = os.path.join(dir_name, suf_name + '.flac')
             new_clusters = hfe.extract_features(file_name)
@@ -83,6 +86,9 @@ def proccess_files(files, output_prefix):
 
     with open(f"{output_prefix}_idx.txt", 'w') as f:
         f.write("\n".join(all_phonemes))
+
+    with open(f"{output_prefix}_letters.txt", 'w') as f:
+        f.write("\n".join([" ".join([str(x) for x in l]) for l in all_letters]))
 
     with open(f"{output_prefix}_clusters.txt", 'w') as f:
         f.write("\n".join(all_cluseters))
