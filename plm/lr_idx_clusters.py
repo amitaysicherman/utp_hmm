@@ -73,7 +73,7 @@ def proccess_files(files, output_prefix):
                 skip_count += 1
                 continue
 
-            all_letters.append([letters_to_index[l] for l in text])
+            all_letters.append([letters_to_index[l] for l in text.lower()])
             all_phonemes.append(phonemes)
             file_name = os.path.join(dir_name, suf_name + '.flac')
             new_clusters = hfe.extract_features(file_name)
