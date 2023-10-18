@@ -153,8 +153,10 @@ if __name__ == '__main__':
     print(
         f"load cp-  i:{i},   curr_size:{curr_size}")
     model = model.train()
-    train_dataset = ClustersLettersDataset(clusters_train_file, letters_train_file)
-    test_dataset = ClustersLettersDataset(clusters_test_file, letters_test_file)
+    train_dataset = DataLoader(ClustersLettersDataset(clusters_train_file, letters_train_file), batch_size=BATCH_SIZE,
+                               shuffle=True, drop_last=True)
+    test_dataset = DataLoader(ClustersLettersDataset(clusters_test_file, letters_test_file), batch_size=BATCH_SIZE,
+                              shuffle=True, drop_last=True)
     train_scores = Scores("train")
     test_scores = Scores("test")
     test_map_scores = Scores("test_map")
