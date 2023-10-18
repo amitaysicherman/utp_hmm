@@ -85,10 +85,15 @@ class ClustersLettersDataset(Dataset):
     def __init__(self, clusters_file, letters_file):
         with open(clusters_file, 'r') as f:
             clusters = f.readlines()
-        self.clusters = [[int(x) for x in line.strip().split()] for line in clusters]
+        self.clusters = [[CLUSTERS_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
+        for i in range(len(self.clusters)):
+            self.clusters[i] = self.clusters[i] + [PAD_TOKEN] * (MAX_LENGTH - len(self.clusters[i]))
+
         with open(letters_file, 'r') as f:
             letters = f.readlines()
         self.letters = [[int(x) for x in line.strip().split()] for line in letters]
+        for i in range(len(self.letters)):
+            self.letters[i] = self.letters[i] + [PAD_TOKEN] * (MAX_LENGTH - len(self.letters[i]))
 
     def __len__(self):
         return len(self.letters)
