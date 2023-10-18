@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:4,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python cluster_to_phonemes_bart.py"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python superv_clusters_letters.py.py"
 # https://aclanthology.org/P19-2049.pdf
 
 import random
@@ -24,7 +24,6 @@ warmup_steps = 50
 EPOCHS = 1_000
 config_name = "super_clustering"
 writer = SummaryWriter(f"results/super_clustering")
-save_update_steps = 50
 letters_train_file = "data/LIBRISPEECH_TRAIN_letters.txt"
 letters_test_file = "data/LIBRISPEECH_TEST_letters.txt"
 clusters_train_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
