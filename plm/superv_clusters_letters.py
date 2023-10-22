@@ -9,16 +9,13 @@ import numpy as np
 import torch
 from tqdm import tqdm
 import os
-from scipy.special import softmax
-from scipy.spatial.distance import cdist
 from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
-import argparse
 from torch.utils.tensorboard import SummaryWriter
 
 BATCH_SIZE = 128
 LR = 0.001
-MAX_LENGTH = 256
+MAX_LENGTH = 512
 save_update_steps = 1_000
 warmup_steps = 50
 EPOCHS = 1_000
@@ -85,15 +82,18 @@ class ClustersLettersDataset(Dataset):
     def __init__(self, clusters_file, letters_file):
         with open(clusters_file, 'r') as f:
             clusters = f.readlines()
-        self.clusters = [[CLUSTERS_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
-        for i in range(len(self.clusters)):
-            self.clusters[i] = self.clusters[i] + [PAD_TOKEN] * (MAX_LENGTH - len(self.clusters[i]))
-
+        clusters = [[CLUSTERS_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
         with open(letters_file, 'r') as f:
             letters = f.readlines()
-        self.letters = [[int(x) for x in line.strip().split()] for line in letters]
-        for i in range(len(self.letters)):
-            self.letters[i] = self.letters[i] + [PAD_TOKEN] * (MAX_LENGTH - len(self.letters[i]))
+        letters = [[int(x) for x in line.strip().split()] for line in letters]
+
+        self.clusters = []
+        self.letters = []
+        for clus, let in zip(clusters, letters):
+            if len(clus) > MAX_LENGTH or len(let) > MAX_LENGTH:
+                continue
+            self.clusters.append(clus + [PAD_TOKEN] * (MAX_LENGTH - len(clus)))
+            self.letters.append(let + [PAD_TOKEN] * (MAX_LENGTH - len(let)))
 
     def __len__(self):
         return len(self.letters)
