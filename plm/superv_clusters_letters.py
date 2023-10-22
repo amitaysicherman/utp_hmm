@@ -13,9 +13,9 @@ from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 LR = 0.001
-MAX_LENGTH = 512
+MAX_LENGTH = 256
 save_update_steps = 1_000
 warmup_steps = 50
 EPOCHS = 1_000
