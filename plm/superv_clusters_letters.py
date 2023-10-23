@@ -92,8 +92,8 @@ class ClustersLettersDataset(Dataset):
         for clus, let in zip(clusters, letters):
             if len(clus) > MAX_LENGTH or len(let) > MAX_LENGTH:
                 continue
-            self.clusters.append(clus + [PAD_TOKEN] * (MAX_LENGTH - len(clus)))
-            self.letters.append(let + [PAD_TOKEN] * (MAX_LENGTH - len(let)))
+            self.clusters.append([START_TOKEN]+clus + [PAD_TOKEN] * (MAX_LENGTH - len(clus))+[END_TOKEN])
+            self.letters.append([START_TOKEN]+let + [PAD_TOKEN] * (MAX_LENGTH - len(let))+[END_TOKEN])
 
     def __len__(self):
         return len(self.letters)
