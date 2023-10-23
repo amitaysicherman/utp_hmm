@@ -1,4 +1,4 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python superv_clusters_letters.py.py"
+# sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python superv_clusters_letters.py"
 # https://aclanthology.org/P19-2049.pdf
 
 import random
@@ -103,7 +103,7 @@ class ClustersLettersDataset(Dataset):
 
 
 def get_model() -> BartForConditionalGeneration:
-    config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH, encoder_layers=num_layers,
+    config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH+2, encoder_layers=num_layers,
                         encoder_ffn_dim=d_model, encoder_attention_heads=nhead,
                         decoder_layers=num_layers, decoder_ffn_dim=d_model, decoder_attention_heads=nhead,
                         d_model=d_model, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
