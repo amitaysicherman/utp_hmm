@@ -96,7 +96,6 @@ class ClustersLettersDataset(Dataset):
             self.letters.append([START_TOKEN] + let + [END_TOKEN] + [PAD_TOKEN] * (MAX_LENGTH - len(let)))
 
     def __len__(self):
-        return 3
         return len(self.letters)
 
     def __getitem__(self, idx):
@@ -176,12 +175,8 @@ if __name__ == '__main__':
             y_train = y_train.to(device)
 
             outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
-            print(outputs.loss, end=" ")
             loss = outputs.loss
-            print(loss)
-            print(outputs.logits.argmax(dim=-1))
             train_scores.update_values_from_output(outputs, y_train)
-            print(train_scores.get_scores())
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
