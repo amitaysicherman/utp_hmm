@@ -13,7 +13,7 @@ from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 
-BATCH_SIZE = 64
+BATCH_SIZE = 512
 LR = 0.001
 MAX_LENGTH = 256
 save_update_steps = 1_000
@@ -35,9 +35,9 @@ START_TOKEN = PAD_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
 
-d_model = 512
-nhead = 8
-num_layers = 8
+d_model = 256
+nhead = 4
+num_layers = 3
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -92,10 +92,11 @@ class ClustersLettersDataset(Dataset):
         for clus, let in zip(clusters, letters):
             if len(clus) > MAX_LENGTH or len(let) > MAX_LENGTH:
                 continue
-            self.clusters.append([START_TOKEN]+clus + [PAD_TOKEN] * (MAX_LENGTH - len(clus))+[END_TOKEN])
-            self.letters.append([START_TOKEN]+let + [PAD_TOKEN] * (MAX_LENGTH - len(let))+[END_TOKEN])
+            self.clusters.append([START_TOKEN] + clus + [END_TOKEN] + [PAD_TOKEN] * (MAX_LENGTH - len(clus)))
+            self.letters.append([START_TOKEN] + let + [END_TOKEN] + [PAD_TOKEN] * (MAX_LENGTH - len(let)))
 
     def __len__(self):
+        return 3
         return len(self.letters)
 
     def __getitem__(self, idx):
@@ -103,7 +104,7 @@ class ClustersLettersDataset(Dataset):
 
 
 def get_model() -> BartForConditionalGeneration:
-    config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH+2, encoder_layers=num_layers,
+    config = BartConfig(vocab_size=N_TOKENS + 1, max_position_embeddings=MAX_LENGTH + 2, encoder_layers=num_layers,
                         encoder_ffn_dim=d_model, encoder_attention_heads=nhead,
                         decoder_layers=num_layers, decoder_ffn_dim=d_model, decoder_attention_heads=nhead,
                         d_model=d_model, pad_token_id=PAD_TOKEN, bos_token_id=START_TOKEN, eos_token_id=END_TOKEN,
@@ -146,11 +147,10 @@ def eval_test_dataset(model, dataset, score):
 
 # main:
 if __name__ == '__main__':
-
     model = get_model()
     model = model.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
     i, curr_size = load_last(model, optimizer)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
@@ -176,10 +176,16 @@ if __name__ == '__main__':
             y_train = y_train.to(device)
 
             outputs = model(input_ids=x_train, labels=y_train, output_hidden_states=True)
-            loss = outputs.loss.mean()
+            print(outputs.loss, end=" ")
+            loss = outputs.loss
+            print(loss)
+            print(outputs.logits.argmax(dim=-1))
             train_scores.update_values_from_output(outputs, y_train)
+            print(train_scores.get_scores())
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+
             optimizer.step()
 
             if i % save_update_steps == 0:
@@ -191,4 +197,5 @@ if __name__ == '__main__':
 
             if i % warmup_steps == 0:
                 _, cur_acc = train_scores.get_scores()
+
                 train_scores.to_file(i)
