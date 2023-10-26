@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 
 BATCH_SIZE = 512
-LR = 0.001
+LR = 0.0001
 MAX_LENGTH = 256
 save_update_steps = 1_000
 warmup_steps = 50
