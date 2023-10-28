@@ -57,11 +57,12 @@ elif args.model_size == "l":
     nhead = 16
     num_layers = 12
 
+
 config_name = f"super_clustering/{args.model_size}_{LR}"
 if not os.path.exists(f"results/{config_name}"):
-    os.mkdir(f"results/{config_name}")
+    os.makedirs(f"results/{config_name}")
 if not os.path.exists(f"models/{config_name}"):
-    os.mkdir(f"models/{config_name}")
+    os.makedirs(f"models/{config_name}")
 writer = SummaryWriter(f"results/{config_name}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
