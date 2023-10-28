@@ -13,13 +13,18 @@ from transformers import BartConfig, BartForConditionalGeneration
 from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 
-BATCH_SIZE = 512
-LR = 0.0001
-MAX_LENGTH = 256
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--model_size', type=str, default="m")
+parser.add_argument("--lr", type=float, default=0.0001)
+args = parser.parse_args()
+
+LR = args.lr
+MAX_LENGTH = 512
 save_update_steps = 1_000
 warmup_steps = 50
 EPOCHS = 1_000
-config_name = "super_clustering"
 writer = SummaryWriter(f"results/super_clustering")
 letters_train_file = "data/LIBRISPEECH_TRAIN_letters.txt"
 letters_test_file = "data/LIBRISPEECH_TEST_letters.txt"
@@ -35,9 +40,25 @@ START_TOKEN = PAD_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
 
-d_model = 256
-nhead = 4
-num_layers = 3
+if args.model_size == "s":
+    d_model = 256
+    nhead = 4
+    num_layers = 3
+
+    BATCH_SIZE = 256
+
+elif args.model_size == "m":
+    d_model = 512
+    nhead = 8
+    num_layers = 6
+    BATCH_SIZE = 64
+
+elif args.model_size == "l":
+    d_model = 1024
+    nhead = 16
+    num_layers = 12
+
+config_name = f"super_clustering_{args.model_size}_{LR}"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
