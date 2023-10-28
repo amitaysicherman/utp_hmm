@@ -56,6 +56,8 @@ elif args.model_size == "l":
     d_model = 1024
     nhead = 16
     num_layers = 12
+    BATCH_SIZE = 32
+
 
 
 config_name = f"super_clustering/{args.model_size}_{LR}"
