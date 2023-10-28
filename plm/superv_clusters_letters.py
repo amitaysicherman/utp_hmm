@@ -25,7 +25,6 @@ MAX_LENGTH = 512
 save_update_steps = 1_000
 warmup_steps = 50
 EPOCHS = 1_000
-writer = SummaryWriter(f"results/super_clustering")
 letters_train_file = "data/LIBRISPEECH_TRAIN_letters.txt"
 letters_test_file = "data/LIBRISPEECH_TEST_letters.txt"
 clusters_train_file = "data/LIBRISPEECH_TRAIN_clusters.txt"
@@ -58,7 +57,12 @@ elif args.model_size == "l":
     nhead = 16
     num_layers = 12
 
-config_name = f"super_clustering_{args.model_size}_{LR}"
+config_name = f"super_clustering/{args.model_size}_{LR}"
+if not os.path.exists(f"results/{config_name}"):
+    os.mkdir(f"results/{config_name}")
+if not os.path.exists(f"models/{config_name}"):
+    os.mkdir(f"models/{config_name}")
+writer = SummaryWriter(f"results/{config_name}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
