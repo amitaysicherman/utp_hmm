@@ -21,7 +21,7 @@ parser.add_argument("--lr", type=float, default=0.0001)
 args = parser.parse_args()
 
 LR = args.lr
-MAX_LENGTH = 512
+MAX_LENGTH = 256
 save_update_steps = 1_000
 warmup_steps = 50
 EPOCHS = 1_000
