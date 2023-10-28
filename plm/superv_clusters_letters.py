@@ -126,13 +126,12 @@ def save(model, optimizer, i):
 
 def load_last(model, optimizer):
     if not os.path.exists(f"models/{config_name}_last.cp"):
-        return 0, 1
+        return 0
     checkpoint = torch.load(f"models/{config_name}_last.cp", map_location=device)
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     load_step = checkpoint['step']
-    conf_size = checkpoint['conf_size']
-    return load_step, conf_size
+    return load_step
 
 
 def eval_test_dataset(model, dataset, score):
@@ -150,12 +149,11 @@ if __name__ == '__main__':
     model = model.to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
-    i, curr_size = load_last(model, optimizer)
+    i = load_last(model, optimizer)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
 
-    print(
-        f"load cp-  i:{i},   curr_size:{curr_size}")
+    print(f"load cp-  i:{i}")
     model = model.train()
     train_dataset = DataLoader(ClustersLettersDataset(clusters_train_file, letters_train_file), batch_size=BATCH_SIZE,
                                shuffle=True, drop_last=True)
