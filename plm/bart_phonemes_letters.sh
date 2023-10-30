@@ -14,7 +14,7 @@ case $SLURM_ARRAY_TASK_ID in
       noise=0.25
       ;;
     3)
-      noise=0.0
+      noise=0.1
       ;;
     *)
         echo "Invalid array index"
