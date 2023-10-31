@@ -1,6 +1,3 @@
-# sbatch --gres=gpu:1,vmem:24g --mem=75G -c4 --time=7-0 --wrap "python superv_clusters_letters.py"
-# https://aclanthology.org/P19-2049.pdf
-
 import random
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.parallel import DataParallel
@@ -57,7 +54,7 @@ elif args.model_size == "l":
     d_model = 1024
     nhead = 16
     num_layers = 12
-    BATCH_SIZE = 32
+    BATCH_SIZE = 8
 
 
 
