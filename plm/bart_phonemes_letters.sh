@@ -22,15 +22,15 @@ case $SLURM_ARRAY_TASK_ID in
       ;;
     4)
       noise=0.5
-      model_size='l'
+      model_size='m'
       ;;
     5)
       noise=0.25
-      model_size='l'
+      model_size='m'
       ;;
     6)
       noise=0.1
-      model_size='l'
+      model_size='m'
       ;;
     *)
         echo "Invalid array index"

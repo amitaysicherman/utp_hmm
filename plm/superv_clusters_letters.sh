@@ -31,14 +31,6 @@ case $SLURM_ARRAY_TASK_ID in
         model_size='m'
         lr=0.001
         ;;
-    7)
-        model_size='l'
-        lr=0.0001
-        ;;
-    8)
-        model_size='l'
-        lr=0.00001
-        ;;
     *)
         echo "Invalid array index"
         exit 1

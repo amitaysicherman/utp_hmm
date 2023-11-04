@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 
 import argparse
+from jiwer import wer
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_size', type=str, default="m")
@@ -27,7 +28,7 @@ letters_train_file = "data/LIBRISPEECH_TRAIN_letters.txt"
 letters_test_file = "data/LIBRISPEECH_TEST_letters.txt"
 phonemes_train_file = "data/LIBRISPEECH_TRAIN_idx.txt"
 phonemes_test_file = "data/LIBRISPEECH_TEST_idx.txt"
-noise= args.noise
+noise = args.noise
 LETTERS_LAST_TOKEN = 29
 CLUSTERS_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
 N_CLUSTERS = 38
@@ -56,11 +57,9 @@ elif args.model_size == "l":
     num_layers = 12
     BATCH_SIZE = 8
 
-
-
 config_name = f"bart_phonemes_letters/{args.model_size}_{LR}_{noise}"
-os.makedirs(f"results/{config_name}",exist_ok=True)
-os.makedirs(f"models/{config_name}",exist_ok=True)
+os.makedirs(f"results/{config_name}", exist_ok=True)
+os.makedirs(f"models/{config_name}", exist_ok=True)
 writer = SummaryWriter(f"results/{config_name}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -76,11 +75,13 @@ class Scores:
     def reset(self):
         self.loss = 0.0
         self.acc = 0.0
+        self.wer = 0.0
         self.count = 0.0
 
-    def update_value(self, loss, acc):
+    def update_value(self, loss, acc, wer):
         self.loss += loss
         self.acc += acc
+        self.wer += wer
         self.count += 1
 
     def update_values_from_output(self, outputs, y):
@@ -88,17 +89,30 @@ class Scores:
         preds = outputs.logits.argmax(dim=-1)
         mask = y != PAD_TOKEN
         acc = ((preds[mask] == y[mask]).sum() / y[mask].numel()).item()
-        self.update_value(loss, acc)
+
+        new_wer = []
+        for i in range(len(preds)):
+            pred = preds[i].detach().cpu().numpy().tolist()
+            pred = " ".join([x for x in pred if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
+            true = y[i].detach().cpu().numpy().tolist()
+            true = " ".join([x for x in true if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
+            new_wer.append(wer(true, pred))
+        new_wer = np.mean(new_wer)
+
+        self.update_value(loss, acc, new_wer)
 
     def get_scores(self):
         loss = self.loss / self.count if self.count > 0 else 0
         acc = self.acc / self.count if self.count > 0 else 0
-        return loss, acc
+        wer_score = self.wer / self.count if self.count > 0 else 0
+
+        return loss, acc, wer_score
 
     def to_file(self, i):
-        loss, acc = self.get_scores()
+        loss, acc, wer_score = self.get_scores()
         writer.add_scalar(f'{self.name}_loss', loss, i)
         writer.add_scalar(f'{self.name}_acc', acc, i)
+        writer.add_scalar(f'{self.name}_wer',  wer_score, i)
         self.reset()
 
 
