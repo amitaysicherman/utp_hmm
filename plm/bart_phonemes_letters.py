@@ -75,13 +75,13 @@ class Scores:
     def reset(self):
         self.loss = 0.0
         self.acc = 0.0
-        self.wer = 0.0
+        self.wer_score = 0.0
         self.count = 0.0
 
-    def update_value(self, loss, acc, wer):
+    def update_value(self, loss, acc, wer_score):
         self.loss += loss
         self.acc += acc
-        self.wer += wer
+        self.wer_score += wer_score
         self.count += 1
 
     def update_values_from_output(self, outputs, y):
@@ -104,7 +104,7 @@ class Scores:
     def get_scores(self):
         loss = self.loss / self.count if self.count > 0 else 0
         acc = self.acc / self.count if self.count > 0 else 0
-        wer_score = self.wer / self.count if self.count > 0 else 0
+        wer_score = self.wer_score / self.count if self.count > 0 else 0
 
         return loss, acc, wer_score
 
