@@ -93,9 +93,9 @@ class Scores:
         new_wer = []
         for i in range(len(preds)):
             pred = preds[i].detach().cpu().numpy().tolist()
-            pred = " ".join([x for x in pred if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
+            pred = " ".join([str(x) for x in pred if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
             true = y[i].detach().cpu().numpy().tolist()
-            true = " ".join([x for x in true if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
+            true = " ".join([str(x) for x in true if x not in [PAD_TOKEN, START_TOKEN, END_TOKEN]])
             new_wer.append(wer(true, pred))
         new_wer = np.mean(new_wer)
 
