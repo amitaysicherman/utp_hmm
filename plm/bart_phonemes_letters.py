@@ -71,6 +71,7 @@ class Scores:
     loss = 0.0
     acc = 0.0
     count = 0
+    wer_score = 0.0
 
     def reset(self):
         self.loss = 0.0
