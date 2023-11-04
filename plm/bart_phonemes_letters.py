@@ -234,6 +234,6 @@ if __name__ == '__main__':
                 save(model, optimizer, i)
 
             if i % warmup_steps == 0:
-                _, cur_acc = train_scores.get_scores()
+                _ = train_scores.get_scores()
 
                 train_scores.to_file(i)
