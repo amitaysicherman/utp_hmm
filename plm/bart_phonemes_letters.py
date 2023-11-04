@@ -28,10 +28,11 @@ letters_train_file = "data/LIBRISPEECH_TRAIN_letters.txt"
 letters_test_file = "data/LIBRISPEECH_TEST_letters.txt"
 phonemes_train_file = "data/LIBRISPEECH_TRAIN_idx.txt"
 phonemes_test_file = "data/LIBRISPEECH_TEST_idx.txt"
+clusters_test_file = "data/LIBRISPEECH_TEST_clusters.txt"
 noise = args.noise
 LETTERS_LAST_TOKEN = 29
 CLUSTERS_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
-N_CLUSTERS = 38
+N_CLUSTERS = 100
 CLUSTERS_LAST_TOKEN = CLUSTERS_FIRST_TOKEN + N_CLUSTERS
 PAD_TOKEN = CLUSTERS_LAST_TOKEN + 1
 START_TOKEN = PAD_TOKEN + 1
@@ -113,7 +114,7 @@ class Scores:
         loss, acc, wer_score = self.get_scores()
         writer.add_scalar(f'{self.name}_loss', loss, i)
         writer.add_scalar(f'{self.name}_acc', acc, i)
-        writer.add_scalar(f'{self.name}_wer',  wer_score, i)
+        writer.add_scalar(f'{self.name}_wer', wer_score, i)
         self.reset()
 
 
@@ -204,10 +205,13 @@ if __name__ == '__main__':
                                shuffle=True, drop_last=True)
     test_dataset = DataLoader(PhonemesLettersDataset(phonemes_test_file, letters_test_file), batch_size=BATCH_SIZE,
                               shuffle=True, drop_last=True)
+
+    test_clusters_dataset = DataLoader(PhonemesLettersDataset(clusters_test_file, letters_test_file),
+                                       batch_size=BATCH_SIZE,
+                                       shuffle=True, drop_last=True)
+
     train_scores = Scores("train")
     test_scores = Scores("test")
-    test_map_scores = Scores("test_map")
-    cluster_train_scores = Scores("cluster_train")
     cluster_test_scores = Scores("cluster_test")
 
     for epoch in range(EPOCHS):
@@ -230,6 +234,7 @@ if __name__ == '__main__':
                 model.eval()
                 with torch.no_grad():
                     eval_test_dataset(model, test_dataset, test_scores)
+                    eval_test_dataset(model, test_clusters_dataset, cluster_test_scores)
                 model.train()
                 save(model, optimizer, i)
 
