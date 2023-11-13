@@ -216,7 +216,7 @@ if __name__ == '__main__':
     test_dataset = DataLoader(PhonemesLettersDataset(phonemes_test_file, letters_test_file), batch_size=BATCH_SIZE,
                               shuffle=True, drop_last=True)
 
-    test_clusters_dataset = DataLoader(PhonemesLettersDataset(clusters_test_file, letters_test_file),
+    test_clusters_dataset = DataLoader(PhonemesLettersDataset(clusters_test_file, letters_test_file, True),
                                        batch_size=BATCH_SIZE,
                                        shuffle=True, drop_last=True)
 
