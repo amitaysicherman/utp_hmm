@@ -21,7 +21,7 @@ args = parser.parse_args()
 
 LR = args.lr
 MAX_LENGTH = 256
-save_update_steps = 1_000
+save_update_steps = 100
 warmup_steps = 50
 EPOCHS = 1_000
 letters_train_file = "data/LIBRISPEECH_TRAIN_letters.txt"
