@@ -129,7 +129,9 @@ class PhonemesLettersDataset(Dataset):
             clusters = f.readlines()
         if superv_clusters:
             clusters = [
-                [CLUSTERS_FIRST_TOKEN + clusters_to_phonemes[int(x)] if int(x) != SUPERV_BLANK else PAD_TOKEN for x in
+                [CLUSTERS_FIRST_TOKEN + clusters_to_phonemes[int(x)] if clusters_to_phonemes[
+                                                                            int(x)] != SUPERV_BLANK else PAD_TOKEN for x
+                 in
                  line.strip().split()] for line in
                 clusters]
 
