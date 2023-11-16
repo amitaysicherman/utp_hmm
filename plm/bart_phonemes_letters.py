@@ -136,15 +136,20 @@ class PhonemesLettersDataset(Dataset):
             clusters = [[PHONEMES_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
             if noise > 0:
                 for i in range(len(clusters)):
-                    for j in range(len(clusters[i])):
+                    new_clusters = []
+                    for c in clusters[i]:
                         if random.random() < noise:
                             type_ = random.choice(["insert", "delete", "replace"])
                             if type_ == "insert":
-                                clusters[i].insert(j, random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN))
+                                new_clusters.append(c)
+                                new_clusters.append(random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN))
                             elif type_ == "delete":
-                                clusters[i].pop(j)
+                                continue
                             elif type_ == "replace":
-                                clusters[i][j] = random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN)
+                                new_clusters.append(random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN))
+                        else:
+                            new_clusters.append(c)
+                    clusters[i] = new_clusters
 
         with open(letters_file, 'r') as f:
             letters = f.readlines()
