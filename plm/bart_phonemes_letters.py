@@ -32,10 +32,10 @@ phonemes_test_file = "data/LIBRISPEECH_TEST_idx.txt"
 clusters_test_file = "data/LIBRISPEECH_TEST_clusters.txt"
 noise = args.noise
 LETTERS_LAST_TOKEN = 29
-CLUSTERS_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
-N_CLUSTERS = 100
-CLUSTERS_LAST_TOKEN = CLUSTERS_FIRST_TOKEN + N_CLUSTERS
-PAD_TOKEN = CLUSTERS_LAST_TOKEN + 1
+PHONEMES_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
+N_PHONEMES = 39
+PHONEMES_LAST_TOKEN = PHONEMES_FIRST_TOKEN + N_PHONEMES
+PAD_TOKEN = PHONEMES_LAST_TOKEN + 1
 START_TOKEN = PAD_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
@@ -129,16 +129,22 @@ class PhonemesLettersDataset(Dataset):
             clusters = f.readlines()
         if superv_clusters:
             clusters = [
-                [CLUSTERS_FIRST_TOKEN + clusters_to_phonemes[int(x)] for x in line.strip().split() if
+                [PHONEMES_FIRST_TOKEN + clusters_to_phonemes[int(x)] for x in line.strip().split() if
                  clusters_to_phonemes[int(x)] != SUPERV_BLANK] for line in clusters]
 
         else:
-            clusters = [[CLUSTERS_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
+            clusters = [[PHONEMES_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
             if noise > 0:
                 for i in range(len(clusters)):
                     for j in range(len(clusters[i])):
                         if random.random() < noise:
-                            clusters[i][j] = random.randint(CLUSTERS_FIRST_TOKEN, CLUSTERS_LAST_TOKEN)
+                            type_ = random.choice(["insert", "delete", "replace"])
+                            if type_ == "insert":
+                                clusters[i].insert(j, random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN))
+                            elif type_ == "delete":
+                                clusters[i].pop(j)
+                            elif type_ == "replace":
+                                clusters[i][j] = random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN)
 
         with open(letters_file, 'r') as f:
             letters = f.readlines()
