@@ -38,11 +38,10 @@ PAD_TOKEN = CLUSTERS_LAST_TOKEN + 1
 START_TOKEN = PAD_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
-clusters_to_phonemes = np.array(
-    [10, 39, 39, 13, 39, 11, 28, 28, 0, 0, 39, 17, 39, 5, 35, 28, 21, 20, 22, 20, 39, 39, 39, 16, 0, 27, 22, 39, 37, 37,
-     27, 39, 5, 19, 39, 20, 28, 39, 16, 39, 39, 39, 16, 0, 22, 17, 0, 39, 0, 28, 21, 0, 27, 16, 39, 39, 39, 39, 5, 19,
-     39, 0, 16, 39, 17, 29, 39, 39, 2, 33, 35, 39, 0, 2, 39, 15, 35, 34, 39, 11, 22, 39, 9, 39, 39, 30, 39, 1, 23, 39,
-     20, 1, 39, 39, 12, 29, 39, 24, 36, 9])
+with open("models/clusters_phonemes_map.txt", "r") as f:
+    clusters_to_phonemes = f.read().splitlines()
+clusters_to_phonemes = [int(x) for x in clusters_to_phonemes]
+clusters_to_phonemes = np.array(clusters_to_phonemes)
 
 if args.model_size == "s":
     d_model = 256
