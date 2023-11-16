@@ -13,12 +13,13 @@ from torch.utils.tensorboard import SummaryWriter
 import argparse
 from jiwer import wer
 
+SUPERV_BLANK = 40
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_size', type=str, default="m")
 parser.add_argument("--lr", type=float, default=0.0001)
 parser.add_argument("--noise", type=float, default=0.5)
 args = parser.parse_args()
-
 LR = args.lr
 MAX_LENGTH = 256
 save_update_steps = 100
@@ -127,8 +128,10 @@ class PhonemesLettersDataset(Dataset):
         with open(phonemes_file, 'r') as f:
             clusters = f.readlines()
         if superv_clusters:
-            clusters = [[CLUSTERS_FIRST_TOKEN + clusters_to_phonemes[int(x)] for x in line.strip().split()] for line in
-                        clusters]
+            clusters = [
+                [CLUSTERS_FIRST_TOKEN + clusters_to_phonemes[int(x)] if int(x) != SUPERV_BLANK else PAD_TOKEN for x in
+                 line.strip().split()] for line in
+                clusters]
 
         else:
             clusters = [[CLUSTERS_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
