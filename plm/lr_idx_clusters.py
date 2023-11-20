@@ -14,11 +14,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class HubertFeaturesExtractor:
-    def __init__(self, ckpt_path, km_path, layer=6):
+    def __init__(self, ckpt_path, km_paths, layer=6):
         models, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task([ckpt_path])
         self.model = models[0].to(device)
         self.layer = layer
-        self.km = joblib.load(km_path)
+        self.km = [joblib.load(km_path) for km_path in km_paths]
 
     def extract_features(self, audio_file):
         audio, _ = torchaudio.load(audio_file)
@@ -29,8 +29,10 @@ class HubertFeaturesExtractor:
             mask=False,
             output_layer=self.layer,
         )[0][0].detach().cpu().numpy()
-        clusters = self.km.predict(features)
-        return clusters
+        names_clusters = []
+        for km in self.km:
+            names_clusters.append(km.predict(features))
+        return names_clusters
 
 
 def text_to_phonemes(text):
@@ -54,7 +56,8 @@ def text_to_phonemes(text):
 def proccess_files(files, output_prefix):
     all_phonemes = []
     all_letters = []
-    all_cluseters = []
+    all_cluseters_100 = []
+    all_cluseters_200 = []
     all_names = []
     skip_count = 0
     tot_count = 0
@@ -76,12 +79,18 @@ def proccess_files(files, output_prefix):
             all_letters.append([letters_to_index[l] for l in text.lower().replace(" ", "|")])
             all_phonemes.append(phonemes)
             file_name = os.path.join(dir_name, suf_name + '.flac')
-            new_clusters = hfe.extract_features(file_name)
-            new_clusters = [new_clusters[0]] + [new_clusters[i] for i in range(1, len(new_clusters)) if
-                                                new_clusters[i] != new_clusters[i - 1]]
-            new_clusters = [str(x) for x in new_clusters]
-            new_clusters = " ".join(new_clusters)
-            all_cluseters.append(new_clusters)
+
+            new_clusters_100, new_clusters_200 = hfe.extract_features(file_name)
+
+            def format_clusters(new_clusters):
+                new_clusters = [new_clusters[0]] + [new_clusters[i] for i in range(1, len(new_clusters)) if
+                                                    new_clusters[i] != new_clusters[i - 1]]
+                new_clusters = [str(x) for x in new_clusters]
+                new_clusters = " ".join(new_clusters)
+                return new_clusters
+
+            all_cluseters_100.append(format_clusters(new_clusters_100))
+            all_cluseters_200.append(format_clusters(new_clusters_200))
             all_names.append(file_name)
 
     with open(f"{output_prefix}_idx.txt", 'w') as f:
@@ -90,8 +99,10 @@ def proccess_files(files, output_prefix):
     with open(f"{output_prefix}_letters.txt", 'w') as f:
         f.write("\n".join([" ".join([str(x) for x in l]) for l in all_letters]))
 
-    with open(f"{output_prefix}_clusters.txt", 'w') as f:
-        f.write("\n".join(all_cluseters))
+    with open(f"{output_prefix}_clusters_100.txt", 'w') as f:
+        f.write("\n".join(all_cluseters_100))
+    with open(f"{output_prefix}_clusters_200.txt", 'w') as f:
+        f.write("\n".join(all_cluseters_200))
 
     with open(f"{output_prefix}_names.txt", 'w') as f:
         f.write("\n".join(all_names))
@@ -100,8 +111,8 @@ def proccess_files(files, output_prefix):
 if __name__ == "__main__":
     pronouncing_dict = cmudict.dict()
     hubert_cp = "./models/hubert_base_ls960.pt"
-    km_model = "./models/km100.bin"
-    hfe = HubertFeaturesExtractor(hubert_cp, km_model)
+    km_models = ["./models/km100.bin", "./models/km200.bin"]
+    hfe = HubertFeaturesExtractor(hubert_cp, km_models)
 
     test_file = sorted(glob.glob('/cs/dataset/Download/adiyoss/librispeech/LibriSpeech/dev-*/*/*/*.trans.txt'))
     proccess_files(test_file, "data/LIBRISPEECH_TEST")

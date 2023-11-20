@@ -220,7 +220,6 @@ if __name__ == '__main__':
     i = load_last(model, optimizer)
     if torch.cuda.device_count() > 1:
         model = DataParallel(model)
-
     print(f"load cp-  i:{i}")
     model = model.train()
     train_dataset = DataLoader(PhonemesLettersDataset(phonemes_train_file, letters_train_file), batch_size=BATCH_SIZE,
