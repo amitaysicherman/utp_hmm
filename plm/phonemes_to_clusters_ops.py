@@ -61,7 +61,7 @@ with open("models/clusters_phonemes_map.txt", "r") as f:
 clusters_to_phonemes = [int(x) for x in clusters_to_phonemes]
 clusters_to_phonemes = np.array(clusters_to_phonemes)
 
-with open("data/LIBRISPEECH_TRAIN_clusters.txt", "r") as f:
+with open("data/LIBRISPEECH_TRAIN_clusters_200.txt", "r") as f:
     clusters_ = f.read().splitlines()
 clusters = []
 for c in tqdm(clusters_):

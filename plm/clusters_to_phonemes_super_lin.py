@@ -8,7 +8,7 @@ import numpy as np
 from tqdm import tqdm
 from jiwer import wer
 
-input_size = 100
+input_size = 200
 input_pad = input_size
 output_size = 39  # Range 0-38
 output_pad = output_size
@@ -116,9 +116,9 @@ if __name__ == '__main__':
 
     model = SimpleSeq2SeqModel().to(device)
 
-    train_data = DataLoader(CustomDataset("data/LIBRISPEECH_TRAIN_clusters.txt", "data/LIBRISPEECH_TRAIN_idx.txt"),
+    train_data = DataLoader(CustomDataset("data/LIBRISPEECH_TRAIN_clusters_200.txt", "data/LIBRISPEECH_TRAIN_idx.txt"),
                             batch_size=64, shuffle=True, drop_last=True)
-    test_data = DataLoader(CustomDataset("data/LIBRISPEECH_TEST_clusters.txt", "data/LIBRISPEECH_TEST_idx.txt"),
+    test_data = DataLoader(CustomDataset("data/LIBRISPEECH_TEST_clusters_200.txt", "data/LIBRISPEECH_TEST_idx.txt"),
                            batch_size=64, shuffle=True, drop_last=True)
 
     # Use AdamW optimizer
@@ -136,11 +136,11 @@ if __name__ == '__main__':
         if test_acc > best_test_acc:
             best_test_acc = test_acc
 
-            torch.save(model.state_dict(), "models/simple_seq2seq_model_best.pth")
+            torch.save(model.state_dict(), "models/simple_seq2seq_model_best_200.pth")
             mapping = torch.arange(100).to(device).unsqueeze(0)
             mapping = model(mapping)[0].cpu().detach().numpy().argmax(axis=-1)
-            with open("models/clusters_phonemes_map.txt", "w") as f:
+            with open("models/clusters_phonemes_map_200.txt", "w") as f:
                 f.write("\n".join([str(x) for x in mapping]))
 
     # Save the trained model
-    torch.save(model.state_dict(), "models/simple_seq2seq_model.pth")
+    torch.save(model.state_dict(), "models/simple_seq2seq_model_200.pth")
