@@ -17,7 +17,7 @@ case $SLURM_ARRAY_TASK_ID in
 
       ;;
     3)
-      noise=0.1
+      noise=0.75
       model_size='s'
       ;;
     4)
@@ -29,7 +29,7 @@ case $SLURM_ARRAY_TASK_ID in
       model_size='m'
       ;;
     6)
-      noise=0.1
+      noise=0.75
       model_size='m'
       ;;
     *)
