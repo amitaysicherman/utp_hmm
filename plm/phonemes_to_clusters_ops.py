@@ -56,7 +56,7 @@ class PhonemesToClustersOps:
         return f"insert={self.insert}\ndelete={self.delete}\nreplace={self.replace}\nequal={self.equal})"
 
 
-with open("models/clusters_phonemes_map.txt", "r") as f:
+with open("models/clusters_phonemes_map_200.txt", "r") as f:
     clusters_to_phonemes = f.read().splitlines()
 clusters_to_phonemes = [int(x) for x in clusters_to_phonemes]
 clusters_to_phonemes = np.array(clusters_to_phonemes)

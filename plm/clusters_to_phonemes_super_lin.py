@@ -116,9 +116,9 @@ if __name__ == '__main__':
 
     model = SimpleSeq2SeqModel().to(device)
 
-    train_data = DataLoader(CustomDataset("data/LIBRISPEECH_TRAIN_clusters_200.txt", "data/LIBRISPEECH_TRAIN_idx.txt"),
+    train_data = DataLoader(CustomDataset(f"data/LIBRISPEECH_TRAIN_clusters_{input_size}.txt", "data/LIBRISPEECH_TRAIN_idx.txt"),
                             batch_size=64, shuffle=True, drop_last=True)
-    test_data = DataLoader(CustomDataset("data/LIBRISPEECH_TEST_clusters_200.txt", "data/LIBRISPEECH_TEST_idx.txt"),
+    test_data = DataLoader(CustomDataset(f"data/LIBRISPEECH_TEST_clusters_{input_size}.txt", "data/LIBRISPEECH_TEST_idx.txt"),
                            batch_size=64, shuffle=True, drop_last=True)
 
     # Use AdamW optimizer
@@ -136,11 +136,11 @@ if __name__ == '__main__':
         if test_acc > best_test_acc:
             best_test_acc = test_acc
 
-            torch.save(model.state_dict(), "models/simple_seq2seq_model_best_200.pth")
-            mapping = torch.arange(100).to(device).unsqueeze(0)
+            torch.save(model.state_dict(), f"models/simple_seq2seq_model_best_{input_size}.pth")
+            mapping = torch.arange(input_size).to(device).unsqueeze(0)
             mapping = model(mapping)[0].cpu().detach().numpy().argmax(axis=-1)
-            with open("models/clusters_phonemes_map_200.txt", "w") as f:
+            with open(f"models/clusters_phonemes_map_{input_size}.txt", "w") as f:
                 f.write("\n".join([str(x) for x in mapping]))
 
     # Save the trained model
-    torch.save(model.state_dict(), "models/simple_seq2seq_model_200.pth")
+    torch.save(model.state_dict(), f"models/simple_seq2seq_model_{input_size}.pth")
