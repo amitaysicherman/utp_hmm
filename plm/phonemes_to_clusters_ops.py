@@ -78,7 +78,7 @@ with open("data/LIBRISPEECH_TRAIN_idx.txt", "r") as f:
 phonemes = ["".join([chr(int(x) + ord("A")) for x in y.split()]) for y in phonemes]
 
 ops = PhonemesToClustersOps()
-for i in range(len(clusters)):
+for i in tqdm(range(len(clusters))):
     new_ops = PhonemesToClustersOps()
     new_ops.from_phonemes_clusters(phonemes[i], clusters[i])
     ops = ops + new_ops

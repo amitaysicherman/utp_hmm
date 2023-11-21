@@ -139,11 +139,8 @@ class PhonemesLettersDataset(Dataset):
                     new_clusters = []
                     for c in clusters[i]:
                         if random.random() < noise:
-                            type_ = random.choice(["insert", "delete", "replace"])
-                            if type_ == "insert":
-                                new_clusters.append(c)
-                                new_clusters.append(random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN))
-                            elif type_ == "delete":
+                            type_ = random.choice(["delete", "replace"])
+                            if type_ == "delete":
                                 continue
                             elif type_ == "replace":
                                 new_clusters.append(random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN))
