@@ -126,14 +126,20 @@ class Scores:
 class PhonemesLettersDataset(Dataset):
     def __init__(self, phonemes_file, letters_file, superv_clusters=False):
         with open(phonemes_file, 'r') as f:
-            clusters = f.readlines()
+            clusters_ = f.readlines()
         if superv_clusters:
-            clusters = [
-                [PHONEMES_FIRST_TOKEN + clusters_to_phonemes[int(x)] for x in line.strip().split() if
-                 clusters_to_phonemes[int(x)] != SUPERV_BLANK] for line in clusters]
+            clusters = []
+            for line in clusters_:
+                line = line.strip().split()
+                line = [clusters_to_phonemes[int(x)] for x in line]
+                line = [x for x in line if x != SUPERV_BLANK]
+
+                line = [PHONEMES_FIRST_TOKEN + x for i, x in enumerate(line) if i == 0 or x != line[i - 1]]
+                clusters.append(line)
+
 
         else:
-            clusters = [[PHONEMES_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters]
+            clusters = [[PHONEMES_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters_]
             if noise > 0:
                 for i in range(len(clusters)):
                     new_clusters = []
