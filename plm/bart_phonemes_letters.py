@@ -29,7 +29,7 @@ letters_train_file = "data/LIBRISPEECH_TRAIN_letters.txt"
 letters_test_file = "data/LIBRISPEECH_TEST_letters.txt"
 phonemes_train_file = "data/LIBRISPEECH_TRAIN_idx.txt"
 phonemes_test_file = "data/LIBRISPEECH_TEST_idx.txt"
-clusters_test_file = "data/LIBRISPEECH_TEST_clusters.txt"
+clusters_test_file = "data/LIBRISPEECH_TEST_clusters_100.txt"
 noise = args.noise
 LETTERS_LAST_TOKEN = 29
 PHONEMES_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
@@ -39,7 +39,7 @@ PAD_TOKEN = PHONEMES_LAST_TOKEN + 1
 START_TOKEN = PAD_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
-with open("models/clusters_phonemes_map.txt", "r") as f:
+with open("models/clusters_phonemes_map_100.txt", "r") as f:
     clusters_to_phonemes = f.read().splitlines()
 clusters_to_phonemes = [int(x) for x in clusters_to_phonemes]
 clusters_to_phonemes = np.array(clusters_to_phonemes)
