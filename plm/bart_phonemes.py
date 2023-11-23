@@ -1,4 +1,4 @@
-#running exmplae:
+# running exmplae:
 # python bart_phonemes.py --model_size s --lr 0.0001 --p_eq 0.5 --p_add 0.05 --p_del 0.25 --p_rep 0.2
 import random
 from torch.utils.data import Dataset, DataLoader
@@ -109,6 +109,7 @@ config_name = f"bart_phonemes/{args.model_size}_{LR}_{noiser}"
 os.makedirs(f"results/{config_name}", exist_ok=True)
 os.makedirs(f"models/{config_name}", exist_ok=True)
 writer = SummaryWriter(f"results/{config_name}")
+results_file = f"results/{config_name}/results.txt"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -161,6 +162,8 @@ class Scores:
         writer.add_scalar(f'{self.name}_loss', loss, i)
         writer.add_scalar(f'{self.name}_acc', acc, i)
         writer.add_scalar(f'{self.name}_wer', wer_score, i)
+        with open(results_file, "a") as f:
+            f.write(f"{i},{self.name},{loss},{acc},{wer_score}\n")
         self.reset()
 
 
