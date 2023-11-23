@@ -73,8 +73,8 @@ parser.add_argument("--p_rep", type=float, default=0.2)
 args = parser.parse_args()
 LR = args.lr
 MAX_LENGTH = 256
-save_update_steps = 100
-warmup_steps = 50
+save_update_steps = 1000
+warmup_steps = 500
 steps = 250_000
 train_file = "data/LIBRISPEECH_TRAIN_idx.txt"
 test_file = "data/LIBRISPEECH_TEST_idx.txt"
