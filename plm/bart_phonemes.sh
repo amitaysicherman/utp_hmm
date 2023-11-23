@@ -4,7 +4,7 @@
 #SBATCH --requeue
 #SBATCH --mem=16g
 #SBATCH --cpus-per-task=4
-#SBATCH --array=1-2
+#SBATCH --array=1-70
 #SBATCH --gres=gpu,vmem:8g
 
 LINE=$(sed -n "$SLURM_ARRAY_TASK_ID"p bart_phonemes.txt)
