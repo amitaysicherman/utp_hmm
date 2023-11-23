@@ -1,3 +1,5 @@
+#running exmplae:
+# python bart_phonemes.py --model_size s --lr 0.0001 --p_eq 0.5 --p_add 0.05 --p_del 0.25 --p_rep 0.2
 import random
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.parallel import DataParallel
@@ -13,30 +15,76 @@ from torch.utils.tensorboard import SummaryWriter
 import argparse
 from jiwer import wer
 
-SUPERV_BLANK = 40
+
+@dataclass
+class Noiser:
+    p_eq: float = 0.5
+    p_add: float = 0.05
+    p_del: float = 0.25
+    p_rep: float = 0.2
+
+    def normalize(self):
+        s = self.p_eq + self.p_add + self.p_del + self.p_rep
+        self.p_eq /= s
+        self.p_add /= s
+        self.p_add += self.p_eq
+        self.p_del /= s
+        self.p_del += self.p_add
+        self.p_rep /= s
+        self.p_rep += self.p_del
+
+    def from_args(self, args):
+        self.p_eq = args.p_eq
+        self.p_add = args.p_add
+        self.p_del = args.p_del
+        self.p_rep = args.p_rep
+        self.normalize()
+
+    def add_noise_to_seq(self, values):
+        noise = []
+        for x in values:
+            new_x = self.noise_single(x)
+            if new_x:
+                noise.extend(new_x)
+        return noise
+
+    def noise_single(self, x):
+        rnd = random.random()
+        if rnd < self.p_eq:
+            return [x]
+        if random.random() < self.p_add:
+            return [x, random.randint(0, N_PHONEMES - 1)]
+        if random.random() < self.p_del:
+            return None
+        else:  # replace
+            return [random.randint(0, N_PHONEMES - 1)]
+
+    def __repr__(self):
+        return f"{self.p_eq}_{self.p_add}_{self.p_del}_{self.p_rep}"
+
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model_size', type=str, default="m")
+parser.add_argument('--model_size', type=str, default="s")
 parser.add_argument("--lr", type=float, default=0.0001)
-parser.add_argument("--noise", type=float, default=0.5)
+parser.add_argument("--p_eq", type=float, default=0.5)
+parser.add_argument("--p_add", type=float, default=0.05)
+parser.add_argument("--p_del", type=float, default=0.25)
+parser.add_argument("--p_rep", type=float, default=0.2)
 args = parser.parse_args()
 LR = args.lr
 MAX_LENGTH = 256
 save_update_steps = 100
 warmup_steps = 50
-EPOCHS = 1_000
-letters_train_file = "data/LIBRISPEECH_TRAIN_idx.txt"  # LIBRISPEECH_TRAIN_letters.txt"
-letters_test_file = "data/LIBRISPEECH_TEST_idx.txt"  # LIBRISPEECH_TEST_letters.txt"
-phonemes_train_file = "data/LIBRISPEECH_TRAIN_idx.txt"
-phonemes_test_file = "data/LIBRISPEECH_TEST_idx.txt"
+steps = 100_000
+train_file = "data/LIBRISPEECH_TRAIN_idx.txt"
+test_file = "data/LIBRISPEECH_TEST_idx.txt"
 clusters_test_file = "data/LIBRISPEECH_TEST_clusters_100.txt"
-noise = args.noise
-N_PHONEMES = 39
 
-LETTERS_LAST_TOKEN = N_PHONEMES
-PHONEMES_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
-PHONEMES_LAST_TOKEN = PHONEMES_FIRST_TOKEN + N_PHONEMES
-PAD_TOKEN = PHONEMES_LAST_TOKEN + 1
+noiser = Noiser()
+noiser.from_args(args)
+N_PHONEMES = 39
+SUPERV_BLANK = N_PHONEMES + 1
+PAD_TOKEN = SUPERV_BLANK + 1
 START_TOKEN = PAD_TOKEN + 1
 END_TOKEN = START_TOKEN + 1
 N_TOKENS = END_TOKEN + 1
@@ -57,18 +105,10 @@ elif args.model_size == "m":
     num_layers = 6
     BATCH_SIZE = 64
 
-elif args.model_size == "l":
-    d_model = 1024
-    nhead = 16
-    num_layers = 12
-    BATCH_SIZE = 8
-    MAX_LENGTH = 128
-
-config_name = f"bart_phonemes_letters/{args.model_size}_{LR}_{noise}"
+config_name = f"bart_phonemes/{args.model_size}_{LR}_{noiser}"
 os.makedirs(f"results/{config_name}", exist_ok=True)
 os.makedirs(f"models/{config_name}", exist_ok=True)
 writer = SummaryWriter(f"results/{config_name}")
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -125,53 +165,48 @@ class Scores:
 
 
 class PhonemesLettersDataset(Dataset):
-    def __init__(self, phonemes_file, letters_file, superv_clusters=False):
+    def __init__(self, phonemes_file, cluster_file=""):
         with open(phonemes_file, 'r') as f:
-            clusters_ = f.readlines()
-        if superv_clusters:
-            clusters = []
-            for line in clusters_:
-                line = line.strip().split()
-                line = [clusters_to_phonemes[int(x)] for x in line]
-                line = [x for x in line if x != SUPERV_BLANK]
+            clean_phonemes = f.read().splitlines()
+        clean_phonemes = [[int(x) for x in line.strip().split()] for line in clean_phonemes]
 
-                line = [PHONEMES_FIRST_TOKEN + x for i, x in enumerate(line) if i == 0 or x != line[i - 1]]
-                clusters.append(line)
-
-
+        if cluster_file:
+            noise_phonemes = self.read_clusters(cluster_file)
         else:
-            clusters = [[PHONEMES_FIRST_TOKEN + int(x) for x in line.strip().split()] for line in clusters_]
-            if noise > 0:
-                for i in range(len(clusters)):
-                    new_clusters = []
-                    for c in clusters[i]:
-                        if random.random() < noise:
-                            type_ = random.choice(["delete", "replace"])
-                            if type_ == "delete":
-                                continue
-                            elif type_ == "replace":
-                                new_clusters.append(random.randint(PHONEMES_FIRST_TOKEN, PHONEMES_LAST_TOKEN))
-                        else:
-                            new_clusters.append(c)
-                    clusters[i] = new_clusters
+            clean_phonemes, noise_phonemes = self.add_noise(clean_phonemes)
 
-        with open(letters_file, 'r') as f:
-            letters = f.readlines()
-        letters = [[int(x) for x in line.strip().split()] for line in letters]
-
-        self.clusters = []
-        self.letters = []
-        for clus, let in zip(clusters, letters):
-            if len(clus) > MAX_LENGTH or len(let) > MAX_LENGTH:
+        self.clean = []
+        self.noise = []
+        for c, n in zip(clean_phonemes, noise_phonemes):
+            if len(c) > MAX_LENGTH or len(n) > MAX_LENGTH:
                 continue
-            self.clusters.append([START_TOKEN] + clus + [END_TOKEN] + [PAD_TOKEN] * (MAX_LENGTH - len(clus)))
-            self.letters.append([START_TOKEN] + let + [END_TOKEN] + [PAD_TOKEN] * (MAX_LENGTH - len(let)))
+            self.clean.append([START_TOKEN] + c + [END_TOKEN] + [PAD_TOKEN] * (MAX_LENGTH - len(c)))
+            self.noise.append([START_TOKEN] + n + [END_TOKEN] + [PAD_TOKEN] * (MAX_LENGTH - len(n)))
+
+    def read_clusters(self, cluster_file):
+        with open(cluster_file, 'r') as f:
+            clusters_ = f.read().splitlines()
+        clusters = []
+        for line in clusters_:
+            line = line.strip().split()
+            line = [clusters_to_phonemes[int(x)] for x in line]
+            line = [x for x in line if x != SUPERV_BLANK]
+            line = [x for i, x in enumerate(line) if i == 0 or x != line[i - 1]]
+            clusters.append(line)
+        return clusters
+
+    def add_noise(self, clean):
+        noise = []
+        for line in clean:
+            line = noiser.add_noise_to_seq(line[:])
+            noise.append(line)
+        return clean, noise
 
     def __len__(self):
-        return len(self.letters)
+        return len(self.clean)
 
     def __getitem__(self, idx):
-        return torch.LongTensor(self.clusters[idx]), torch.LongTensor(self.letters[idx])
+        return torch.LongTensor(self.noise[idx]), torch.LongTensor(self.clean[idx])
 
 
 def get_model() -> BartForConditionalGeneration:
@@ -226,12 +261,12 @@ if __name__ == '__main__':
         model = DataParallel(model)
     print(f"load cp-  i:{i}")
     model = model.train()
-    train_dataset = DataLoader(PhonemesLettersDataset(phonemes_train_file, letters_train_file), batch_size=BATCH_SIZE,
+    train_dataset = DataLoader(PhonemesLettersDataset(train_file), batch_size=BATCH_SIZE,
                                shuffle=True, drop_last=True)
-    test_dataset = DataLoader(PhonemesLettersDataset(phonemes_test_file, letters_test_file), batch_size=BATCH_SIZE,
+    test_dataset = DataLoader(PhonemesLettersDataset(test_file), batch_size=BATCH_SIZE,
                               shuffle=True, drop_last=True)
 
-    test_clusters_dataset = DataLoader(PhonemesLettersDataset(clusters_test_file, letters_test_file, True),
+    test_clusters_dataset = DataLoader(PhonemesLettersDataset(test_file, clusters_test_file),
                                        batch_size=BATCH_SIZE,
                                        shuffle=True, drop_last=True)
 
@@ -239,7 +274,7 @@ if __name__ == '__main__':
     test_scores = Scores("test")
     cluster_test_scores = Scores("cluster_test")
 
-    for epoch in range(EPOCHS):
+    while i < steps:
         pbar = tqdm(train_dataset, total=len(train_dataset))
         for x_train, y_train in pbar:
             i += 1

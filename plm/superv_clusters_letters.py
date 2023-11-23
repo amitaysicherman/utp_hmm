@@ -43,7 +43,6 @@ if args.model_size == "s":
     d_model = 256
     nhead = 4
     num_layers = 3
-
     BATCH_SIZE = 256
 
 elif args.model_size == "m":
