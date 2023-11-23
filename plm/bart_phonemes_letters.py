@@ -31,9 +31,10 @@ phonemes_train_file = "data/LIBRISPEECH_TRAIN_idx.txt"
 phonemes_test_file = "data/LIBRISPEECH_TEST_idx.txt"
 clusters_test_file = "data/LIBRISPEECH_TEST_clusters_100.txt"
 noise = args.noise
-LETTERS_LAST_TOKEN = 29
-PHONEMES_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
 N_PHONEMES = 39
+
+LETTERS_LAST_TOKEN = N_PHONEMES
+PHONEMES_FIRST_TOKEN = LETTERS_LAST_TOKEN + 1
 PHONEMES_LAST_TOKEN = PHONEMES_FIRST_TOKEN + N_PHONEMES
 PAD_TOKEN = PHONEMES_LAST_TOKEN + 1
 START_TOKEN = PAD_TOKEN + 1
@@ -48,7 +49,6 @@ if args.model_size == "s":
     d_model = 256
     nhead = 4
     num_layers = 3
-
     BATCH_SIZE = 256
 
 elif args.model_size == "m":
@@ -62,6 +62,7 @@ elif args.model_size == "l":
     nhead = 16
     num_layers = 12
     BATCH_SIZE = 8
+    MAX_LENGTH = 128
 
 config_name = f"bart_phonemes_letters/{args.model_size}_{LR}_{noise}"
 os.makedirs(f"results/{config_name}", exist_ok=True)
