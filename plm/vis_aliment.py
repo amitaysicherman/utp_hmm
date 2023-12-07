@@ -98,7 +98,7 @@ def get_model() -> BartForConditionalGeneration:
     return model
 
 
-config_name = "m_0.0001_0.25_0.25_0.5_1.0"
+config_name = "bart_phonemes/m_0.0001_0.25_0.25_0.5_1.0"
 
 
 def tensor_to_text(x):
