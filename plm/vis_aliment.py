@@ -130,6 +130,6 @@ if __name__ == '__main__':
             c = c.detach().cpu().numpy().tolist()
             c = " ".join([str(x) for x in c])
             results.append((l, c, true, pred, super_m, wer_score, wer_super))
-            break
+
     pd.DataFrame(results, columns=["Text", "clusters", "Phonemes", "Prediction", "Supers Mapping", "Prediction WER",
                                    "Superv_WER"]).to_csv(f'results/{config_name}_results_full.csv')
